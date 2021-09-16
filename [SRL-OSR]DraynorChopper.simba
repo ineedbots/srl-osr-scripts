@@ -15,6 +15,7 @@ const
   _PASSWORD       = '';
   _PIN            = '';
   _WORLDS         = [];
+  TOTALRUNTIME    = 600;
   
   DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];
@@ -361,7 +362,7 @@ begin
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
   
-  Self.ShutdownTime := 99999999999999;
+  Self.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 end;
 
 procedure TScript.Run();
