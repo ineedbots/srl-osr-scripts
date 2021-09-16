@@ -44,7 +44,11 @@ type
   
 var
   Bot: TScript;
-  
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// OVERRIDES AND METHODS FOR FATIGUE
+
 function PerformanceTimer(): Double; override;
 begin
   Result := GetTickCount();
@@ -70,6 +74,10 @@ begin
   inherited(mean, dev);
   WaitFatigue(PerformanceTimer()-t);
 end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// METHODS FOR ENERGY ANTIBAN
 
 {
   Sets up two variables Patience and an Endurance, based on your characters
@@ -187,61 +195,10 @@ begin
   end;
   Result := 100 * Result;
 end;
-  
-function TIntegerArray.Clear(): Boolean;
-begin
-  SetLength(Self, 0);
-  Exit(True);
-end;
 
-procedure TScript.WriteMsg(Message: String; IsDebug: Boolean = False);
-begin
-  if not DEBUGMODE and IsDebug then
-    Exit();
-    
-  WriteLn('[Bot]: ' + Message);
-end;
-
-function TScript.FindTrees(Area: TBox): T2DPointArray;
-begin
-  Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
-  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
-  
-  Result.SortByMiddle(Area.Middle());
-end;
-
-procedure TScript.DebugDraw();
-var
-  ATPA: T2DPointArray;
-  TPA: TPointArray;
-begin
-  ATPA := Self.FindTrees(MainScreen.Bounds());
-  for TPA in ATPA do begin
-    RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
-    RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
-  end;
-end;
-
-procedure TScript.Draw();
-begin
-  if not Self.DrawCounter.IsFinished() then
-    Exit();
-    
-  Self.DrawCounter.Restart();
-
-  RSClient.Image.Clear();
-
-  if DEBUGMODE then
-    Self.DebugDraw();
-end;
-
-procedure TScript.ReportConsole();
-begin
-  if not Self.ReportCounter.IsFinished() then
-    Exit();
-    
-  Self.ReportCounter.Restart();
-end;
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// GENERAL ANTIBAN METHODS
 
 procedure TMouse.HumanMove(Point: TPoint);
 var
@@ -376,6 +333,65 @@ procedure TScript.AfterActionAntiBan();
 begin
 end;
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// GENERAL SCRIPT METHODS
+  
+function TIntegerArray.Clear(): Boolean;
+begin
+  SetLength(Self, 0);
+  Exit(True);
+end;
+
+procedure TScript.WriteMsg(Message: String; IsDebug: Boolean = False);
+begin
+  if not DEBUGMODE and IsDebug then
+    Exit();
+    
+  WriteLn('[Bot]: ' + Message);
+end;
+
+function TScript.FindTrees(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
+  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
+  
+  Result.SortByMiddle(Area.Middle());
+end;
+
+procedure TScript.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+begin
+  ATPA := Self.FindTrees(MainScreen.Bounds());
+  for TPA in ATPA do begin
+    RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
+    RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
+  end;
+end;
+
+procedure TScript.Draw();
+begin
+  if not Self.DrawCounter.IsFinished() then
+    Exit();
+    
+  Self.DrawCounter.Restart();
+
+  RSClient.Image.Clear();
+
+  if DEBUGMODE then
+    Self.DebugDraw();
+end;
+
+procedure TScript.ReportConsole();
+begin
+  if not Self.ReportCounter.IsFinished() then
+    Exit();
+    
+  Self.ReportCounter.Restart();
+end;
+
 procedure TScript.DoGathering();
 var
   ATPA: T2DPointArray;
@@ -442,6 +458,48 @@ begin
 
   Inventory.ShiftDrop(Self.LogItems, Pattern);
 end;
+
+procedure TScript.Run();
+begin
+  while Self.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      if Inventory.IsFull() then
+      begin
+        //Self.DoFullInventory();
+        Self.AfterActionAntiBan();
+      end
+      else
+      begin
+        //Self.DoGathering();
+        Self.AfterActionAntiBan();
+      end;
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+    
+    Self.DoAntiBan();
+    
+    if DOREPORTS then
+      Self.ReportConsole();
+  
+    if DRAWING then
+      Self.Draw();
+      
+    Wait(Self.SleepRate);
+  end;
+  
+  Logout.ClickLogout();
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
 
 procedure TScript.OnLogin();
 begin
@@ -518,44 +576,6 @@ begin
   Self.TrueRunTime.Start();
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
-end;
-
-procedure TScript.Run();
-begin
-  while Self.Running do
-  begin
-    if RSClient.IsLoggedIn() then
-    begin
-      if Inventory.IsFull() then
-      begin
-        //Self.DoFullInventory();
-        Self.AfterActionAntiBan();
-      end
-      else
-      begin
-        //Self.DoGathering();
-        Self.AfterActionAntiBan();
-      end;
-    end
-    else
-    begin
-      if Login.LoginPlayer() then
-        Self.OnLogin();
-    end;
-    
-    Self.DoAntiBan();
-    
-    if DOREPORTS then
-      Self.ReportConsole();
-  
-    if DRAWING then
-      Self.Draw();
-      
-    Wait(Self.SleepRate);
-  end;
-  
-  Logout.ClickLogout();
-  TerminateScript('Time to shutdown');
 end;
 
 procedure TScript.Free();
