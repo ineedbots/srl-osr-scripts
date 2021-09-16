@@ -1,0 +1,413 @@
+program DraynorChopper;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+const
+  DEBUGMODE      = True;
+  DRAWING        = True;
+  MSWALKING      = False;
+  DOREPORTS      = True;
+  
+  TAKEBREAKS     = True;
+  BANKING        = False;
+  
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [];
+  
+  DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
+                                       2,3,7,6,10,11,15,14,18,19,23,22,26,27];
+  
+type
+  TScript = record
+    Running, DidLogin: Boolean;
+    SleepRate, ChopWaitTime, StartXP, HPPerc, ReportRate, DrawRate: Int32;
+    RSW : TRSWalker;
+    LogItems : TRSItemArray;
+    TreeOptions : TStringArray;
+    TreeColor: record
+      RSObject: TRSObjectFinder;
+      FilterSize: Int32;
+      end;
+    ShutdownTime                        : Int64;
+    TrueRunTime                         : TStopwatch;
+    DrawCounter, ReportCounter: TCountdown;
+  end;
+  
+var
+  Bot: TScript;
+  
+function TIntegerArray.Clear(): Boolean;
+begin
+  SetLength(Self, 0);
+  Exit(True);
+end;
+
+procedure TScript.WriteMsg(Message: String; IsDebug: Boolean = False);
+begin
+  if not DEBUGMODE and IsDebug then
+    Exit();
+    
+  WriteLn('[Bot]: ' + Message);
+end;
+
+function TScript.FindTrees(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
+  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
+  
+  Result.SortByMiddle(Area.Middle());
+end;
+
+procedure TScript.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+begin
+  ATPA := Self.FindTrees(MainScreen.Bounds());
+  for TPA in ATPA do begin
+    RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
+    RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
+  end;
+end;
+
+procedure TScript.Draw();
+begin
+  if not Self.DrawCounter.IsFinished() then
+    Exit();
+    
+  Self.DrawCounter.Restart();
+
+  RSClient.Image.Clear();
+
+  if DEBUGMODE then
+    Self.DebugDraw();
+end;
+
+procedure TScript.ReportConsole();
+begin
+  if not Self.ReportCounter.IsFinished() then
+    Exit();
+    
+  Self.ReportCounter.Restart();
+end;
+
+procedure TMouse.HumanMove(Point: TPoint);
+var
+  mPt: TPoint;
+  S: Int32;
+  Miss: Double;
+  Range: Int64;
+begin
+  S := Self.Speed;
+  Range := Trunc(Power(Self.Position().DistanceTo(Point), 0.80)); // how much possible range to miss
+  Miss := SRL.SkewedRand(0.9, 0.1, 1.5); // Where miss will happen. 1 = destination (P).
+
+  mPt.X := Trunc((1-Miss)*Self.Position().X + Miss*Point.X);
+  mPt.Y := Trunc((1-Miss)*Self.Position().Y + Miss*Point.Y);
+
+  mPt.X += SRL.NormalRange(-Range, Range);
+  mPt.Y += SRL.NormalRange(-Range, Range);
+
+  Self.Move(mPt);
+  Self.Speed := round(S*0.85);
+  Self.Move(Point);
+  Self.Speed := S;
+end;
+
+procedure TMouse.RandomMovement();
+var
+  S: Int32;
+begin
+  S := Self.Speed;
+  Self.Speed := 4;
+  Self.Move(Box(Mouse.Position, 75, 75), True);
+  Self.Speed := S;
+end;
+
+procedure TAntiBan.HoverMSTile(DotType: ERSMinimapDot; RightClick: Boolean = False);
+var
+  Tries,i: Int32;
+  a: Double;
+  rDot: TPoint;
+  msRect: TRectangle;
+  tpa,cTPA: TPointArray;
+  cArr: TIntegerArray;
+begin
+  tpa := Minimap.GetDots(DotType);
+  if tpa.Len() < 1 then Exit;
+  a := Minimap.GetCompassAngle(False);
+  repeat
+    inc(Tries);
+    rDot := tpa[random(low(tpa),high(tpa))];
+    msRect := Minimap.VecToMSRect(Vec3(rDot.X + 2, rDot.Y + 2, 0), a);
+    if MainScreen.Bounds.Contains(msRect) then
+    begin
+      Self.DebugLn('Hovering random ' + toStr(DotType));
+      // Get all colors on the tile
+      // Extract the rarest
+      // Gather points
+      // Mouse to random point
+      cArr := getColors(tpaFromBox(msRect.Bounds));
+      cArr.Sort();
+      cArr.ClearDuplicates();
+      for i:=0 to cArr.Len-1 do
+        if (SRL.FindColors(cTPA, CTS1(cArr[i], 10), msRect.Bounds) > 5) then
+        begin
+          Mouse.Move(cTPA.Mean());
+          if RightClick then
+            Mouse.Click(MOUSE_RIGHT);
+
+          wait(1500, 2700);
+          if RightClick then
+            ChooseOption.Close();
+          Exit;
+        end;
+    end;
+  until(Tries > 10);
+end;
+
+procedure TAntiban.HoverMSItems();
+begin
+  Self.HoverMSTile(ERSMinimapDot.ITEM);
+end;
+
+procedure TAntiban.HoverMSNPCs();
+begin
+  Self.HoverMSTile(ERSMinimapDot.NPC);
+end;
+
+procedure TAntiban.HoverMSPlayers();
+begin
+  Self.HoverMSTile(ERSMinimapDot.PLAYER);
+end;
+
+procedure TScript.DoLoseFocus();
+begin
+  Antiban.LoseFocus(SRL.NormalRange(3700,5000));
+end;
+
+procedure TScript.DoSkillHover();
+begin
+  Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
+end;
+
+function TScript.DoAntiBan(): Boolean;
+begin
+  if GetTimeRunning() > Self.ShutdownTime then
+    Self.Running := False;
+
+  Result := Antiban.DismissRandom()
+  if not Result then
+    Result := Antiban.DoAntiban();
+end;
+
+procedure PauseRunTime(Task: PBreakTask);
+var
+  T: PBreakTask;
+begin
+  Bot.TrueRunTime.Pause;
+  T := Task;
+end;
+
+procedure ResumeRunTime(Task: PBreakTask);
+var
+  T: PBreakTask;
+begin
+  if GetTimeRunning() > Bot.ShutdownTime then
+    Bot.Running := False;
+
+  Bot.TrueRunTime.Resume;
+  T := Task;
+end;
+
+procedure TScript.AfterActionAntiBan();
+begin
+end;
+
+procedure TScript.DoGathering();
+var
+  ATPA: T2DPointArray;
+  TPA, TPA2: TPointArray;
+  MousePoint: TPoint;
+  i: Int32;
+  FindBox: TBox;
+begin
+  ATPA := Self.FindTrees(MainScreen.Bounds());
+  
+  if DRAWING then
+  begin
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
+      RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
+    end;
+  end;
+  
+  for TPA in ATPA do
+  begin
+    Mouse.HumanMove(SRL.RandomPoint(TPA.Bounds()));
+    if not MainScreen.IsUpText(TreeOptions) then
+      continue;
+      
+    MousePoint := Mouse.Position();
+    
+    for i:=1 to 5 do
+    begin
+      FindBox := IntToBox(mousePoint.x - 10, mousePoint.y - 10,
+                          mousePoint.x + 10, mousePoint.y + 10);
+
+      if SRL.FindColors(TPA2, Self.TreeColor.RSObject.Colors[0], FindBox) < 30 then
+        MousePoint := TPA[Random(TPA.Len())]
+      else
+        break;
+    end;
+    
+    if i = 6 then
+      continue;
+      
+    Mouse.Click(MOUSE_LEFT);
+    
+    if MainScreen.DidRedClick() then
+    begin
+      
+    end;
+  end;
+end;
+
+procedure TScript.DoFullInventory();
+var
+  R: Extended;
+  Pattern: TIntegerArray;
+begin
+  Self.WriteMsg('Dropping logs');
+  
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5);
+  if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5);
+  if inRange(R, 0.36, 1) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  Inventory.ShiftDrop(Self.LogItems, Pattern);
+end;
+
+procedure TScript.OnLogin();
+begin
+  if not Self.DidLogin then
+  begin
+    Self.DidLogin := True;
+    
+    Self.HPPerc             := Minimap.GetHPPercent();
+    Self.StartXP            := XPBar.Read();
+  end;
+  
+  MainSCreen.SetHighestPitch();
+end;
+  
+procedure TScript.Init();
+begin
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, _WORLDS);
+
+  Self.Running := True;
+  Self.SleepRate := 75;
+  Self.DrawRate := 1000;
+  Self.ReportRate := 500;
+  
+  Self.RSW.Setup('world');
+  
+  Mouse.Speed             := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.999;
+  
+  Self.RSW.ScreenWalk     := MSWALKING;
+  MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  
+  Antiban.OnStartBreak    := @PauseRunTime;
+  Antiban.OnFinishBreak   := @ResumeRunTime;
+  
+  Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  // Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Antiban.AddTask(ONE_MINUTE*2,  @Self.DoLoseFocus);
+  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+  
+  if TAKEBREAKS then
+  begin
+    Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
+    Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
+    Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
+    Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+  
+  Self.TreeOptions := ['Chop down Willow'];
+  Self.LogItems := ['Willow logs'];
+  Self.ChopWaitTime := 10000;
+  with Self.TreeColor do
+  begin
+    RSObject.Colors += CTS2(2712665, 21, 0.01, 0.7);
+    RSObject.ClusterDistance := 3;
+    FilterSize := 30;
+  end;
+  
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+    
+  Self.TrueRunTime.Start();
+  Self.ReportCounter.Init(Self.ReportRate);
+  Self.DrawCounter.Init(Self.DrawRate);
+  
+  Self.ShutdownTime := 99999999999999;
+end;
+
+procedure TScript.Run();
+begin
+  while Self.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      if Inventory.IsFull() then
+      begin
+        Self.DoFullInventory();
+        Self.AfterActionAntiBan();
+      end
+      else
+      begin
+        Self.DoGathering();
+        Self.AfterActionAntiBan();
+      end;
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+    
+    Self.DoAntiBan();
+    
+    if DOREPORTS then
+      Self.ReportConsole();
+  
+    if DRAWING then
+      Self.Draw();
+      
+    Wait(Self.SleepRate);
+  end;
+  
+  Logout.ClickLogout();
+  TerminateScript('Time to shutdown');
+end;
+
+procedure TScript.Free();
+begin
+end;
+  
+begin
+  AddOnTerminate(@Bot.Free);
+  Bot.Init();
+  Bot.Run();
+end.
