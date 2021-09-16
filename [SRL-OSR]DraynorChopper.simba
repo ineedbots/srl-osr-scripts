@@ -44,7 +44,49 @@ type
   
 var
   Bot: TScript;
+  
+function PerformanceTimer(): Double; override;
+begin
+  Result := GetTickCount();
+end;
 
+procedure WaitFatigue(t: Double; Exp: Double=0.2);
+begin
+  System.Wait(Trunc(2*t * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp))));
+end;
+
+procedure Wait(min, max:Double; weight:EWaitDir=wdMean); override;
+var t: Double;
+begin
+  t := PerformanceTimer();
+  inherited(min, max, weight);
+  WaitFatigue(PerformanceTimer()-t);
+end;
+
+procedure WaitEx(mean, dev:Double); override;
+var t: Double;
+begin
+  t := PerformanceTimer();
+  inherited(mean, dev);
+  WaitFatigue(PerformanceTimer()-t);
+end;
+
+{
+  Sets up two variables Patience and an Endurance, based on your characters
+  nickname. These two factors are used within Energy calculation to make it
+  unique to you.
+
+  Patience (Energy gained from a break will..):
+    High:  Drop of more slowly, but drops harder near the end (2-4 hours, see Endurance).
+    Low:   Drop of faster, but gradually drop less of near the end.
+
+  Endurance:
+    - Energy from a break last 2-4 hours, depending on endurance (0..1).
+    High: You generally lasts longer before dropping off. Max endurance means
+          the bot can run for a full 24 hours before energy is depleted.
+    Low:  You generally drop off faster. Min endurance means the bot can
+          only run for 16 hours before energy is depleted.
+}
 procedure TAntiBanEnergy.SetupBiometrics();
 var
   h,i:UInt32;
@@ -58,6 +100,92 @@ begin
   Self.BioHash   := h / $FFFFFFFF;
   Self.Endurance := Cos(Self.BioHash*PI/2);
   Self.Patience  := Sin(Self.BioHash*PI/1);
+end;
+
+{
+  A 64bit timer for runtime, so that we can do long proggies without hickups
+}
+function TAntiban.TimeRunning(): Int64; constref;
+begin
+  Result := GetTimeRunning();
+end;
+
+{
+  Internally used to compute Energy
+  - It checks how long it was since last break, returns the value in milliseconds
+}
+function TAntiban.TimeSinceBreak(LongerThan:Double=0): UInt64;
+var i: Int32;
+begin
+  for i:=0 to High(Self.Breaks) do
+    if (Self.Breaks[i].Length >= LongerThan) and (Self.Breaks[i].PrevAtTime >= Result) then
+      Result := Trunc(Self.Breaks[i].PrevAtTime);
+  Result := Self.TimeRunning() - Result;
+end;
+
+{
+  Internally used to compute Energy
+  - The method gathers the sum/length of pauses the past `Timespan`.
+  It only counts one of each type of pauses, so if you have a 5 min break that
+  runs every 10 minutes, it will only count the last executed one no matter timespan.
+}
+function TAntiban.BreaksPast(Timespan: Double): Int64;
+var
+  XHoursAgo: Double := Self.TimeRunning() - Timespan;
+  active, started: Double;
+  i: Int32;
+begin
+  Active := Min(Timespan, Self.TimeRunning());
+  for i:=0 to High(Self.Breaks) do
+    if Self.Breaks[i].PrevAtTime >= XHoursAgo then
+    begin
+      if Self.Breaks[i].PrevAtTime = 0 then
+        Continue;
+      started := Max(XHoursAgo, Self.Breaks[i].PrevAtTime - Self.Breaks[i].Length);
+      Active -= Self.Breaks[i].PrevAtTime - started;
+    end;
+
+  Result := Round(Min(Timespan, Timespan - Active));
+end;
+
+{
+  Check if the antiban has a `sleep` break added.
+  Note: Sleep is defined by being 5+ hours, and is the the last added break.
+}
+function TAntiban.HasSleep(): Boolean;
+var zZz: Int32;
+begin
+  zZz := High(Self.Breaks);
+  Result := (zZz >= 0) and ((Self.Breaks[zZz].Length) > 5*ONE_HOUR);
+end;
+
+{
+  Returns the current energy of your character, based on recent breaks, and runtime.
+  You should start with near 100% energy, can be a little less.
+
+  This method does expect your bot to have a sleep break (5+ hours), otherwise it
+  wont be worth a lot.
+}
+function TAntiBanEnergy.EnergyLevel(AB: TAntiBan = Antiban): Double;
+var
+  zz: Int32;
+  t,eLeftFromSleep, eLeftFromBreak, eBreakValue: Double;
+  PastX: Double;
+begin
+  PastX := (2+(2*Self.Endurance)) * ONE_HOUR;
+  eLeftFromBreak := Max(0,Min(1,1-Power((AB.TimeSinceBreak() / (18*ONE_HOUR)), 1/3)));
+  eBreakValue    := Power(AB.BreaksPast(PastX) / (PastX), 1/3);
+  Result         := Max(0,Min(1,(eLeftFromBreak + eBreakValue) / (2.1 - (0.5*Self.Patience))));
+
+  if AB.HasSleep() then // if we have a sleep
+  begin
+    zz := High(AB.Breaks);
+    t := AB.TimeRunning() - Trunc(AB.Breaks[zz].PrevAtTime);
+    eLeftFromSleep := Max(0,Min(1,t / ((16*ONE_HOUR) + (8*ONE_HOUR*Self.Endurance))));
+    eLeftFromSleep := Power(1-eLeftFromSleep, 1/4);
+    Result := eLeftFromSleep * Result;
+  end;
+  Result := 100 * Result;
 end;
   
 function TIntegerArray.Clear(): Boolean;
@@ -400,12 +528,12 @@ begin
     begin
       if Inventory.IsFull() then
       begin
-        Self.DoFullInventory();
+        //Self.DoFullInventory();
         Self.AfterActionAntiBan();
       end
       else
       begin
-        Self.DoGathering();
+        //Self.DoGathering();
         Self.AfterActionAntiBan();
       end;
     end
