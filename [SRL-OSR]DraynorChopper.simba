@@ -21,6 +21,10 @@ const
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];
   
 type
+  TAntiBanEnergy = record
+    BioHash, Endurance, Patience: Double;
+  end;
+
   TScript = record
     Running, DidLogin                   : Boolean;
     SleepRate, ChopWaitTime, StartXP,
@@ -35,10 +39,26 @@ type
     ShutdownTime                        : Int64;
     TrueRunTime                         : TStopwatch;
     DrawCounter, ReportCounter          : TCountdown;
+    AntiBanEnergy                       : TAntiBanEnergy;
   end;
   
 var
   Bot: TScript;
+
+procedure TAntiBanEnergy.SetupBiometrics();
+var
+  h,i:UInt32;
+  k: string;
+begin
+  k := Login.GetPlayer().User;
+  h := $811C9DC5;
+  for i:=1 to Length(k) do
+    h := (h * $1000193) xor Ord(k[i]);
+
+  Self.BioHash   := h / $FFFFFFFF;
+  Self.Endurance := Cos(Self.BioHash*PI/2);
+  Self.Patience  := Sin(Self.BioHash*PI/1);
+end;
   
 function TIntegerArray.Clear(): Boolean;
 begin
@@ -316,6 +336,7 @@ begin
     Worlds := _WORLDS;
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Self.AntiBanEnergy.SetupBiometrics();
 
   Self.Running := True;
   Self.SleepRate := 75;
@@ -323,6 +344,8 @@ begin
   Self.ReportRate := 500;
   
   Self.RSW.Setup('world');
+  
+  Self.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   
   Mouse.Speed             := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
@@ -367,8 +390,6 @@ begin
   Self.TrueRunTime.Start();
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
-  
-  Self.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 end;
 
 procedure TScript.Run();
