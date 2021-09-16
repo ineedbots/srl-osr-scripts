@@ -14,7 +14,7 @@ const
   _USERNAME       = '';
   _PASSWORD       = '';
   _PIN            = '';
-  _WORLDS         = [];
+  _WORLDS         = [-1];
   TOTALRUNTIME    = 600;
   
   DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
@@ -22,18 +22,19 @@ const
   
 type
   TScript = record
-    Running, DidLogin: Boolean;
-    SleepRate, ChopWaitTime, StartXP, HPPerc, ReportRate, DrawRate: Int32;
-    RSW : TRSWalker;
-    LogItems : TRSItemArray;
-    TreeOptions : TStringArray;
+    Running, DidLogin                   : Boolean;
+    SleepRate, ChopWaitTime, StartXP,
+      HPPerc, ReportRate, DrawRate      : Int32;
+    RSW                                 : TRSWalker;
+    LogItems                            : TRSItemArray;
+    TreeOptions                         : TStringArray;
     TreeColor: record
-      RSObject: TRSObjectFinder;
-      FilterSize: Int32;
+      RSObject                          : TRSObjectFinder;
+      FilterSize                        : Int32;
       end;
     ShutdownTime                        : Int64;
     TrueRunTime                         : TStopwatch;
-    DrawCounter, ReportCounter: TCountdown;
+    DrawCounter, ReportCounter          : TCountdown;
   end;
   
 var
@@ -304,12 +305,17 @@ begin
     Self.StartXP            := XPBar.Read();
   end;
   
-  MainSCreen.SetHighestPitch();
+  MainScreen.SetHighestPitch();
 end;
   
 procedure TScript.Init();
+var
+  Worlds: TIntegerArray;
 begin
-  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, _WORLDS);
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
 
   Self.Running := True;
   Self.SleepRate := 75;
