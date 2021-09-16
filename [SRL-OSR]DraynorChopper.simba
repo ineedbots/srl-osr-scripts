@@ -75,6 +75,15 @@ begin
   WaitFatigue(PerformanceTimer()-t);
 end;
 
+{
+  Useful for while loops when need to clear an array
+}
+function TIntegerArray.Clear(): Boolean;
+begin
+  SetLength(Self, 0);
+  Exit(True);
+end;
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // METHODS FOR ENERGY ANTIBAN
@@ -336,13 +345,10 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
-  
-function TIntegerArray.Clear(): Boolean;
-begin
-  SetLength(Self, 0);
-  Exit(True);
-end;
 
+{
+  Logs to the console.
+}
 procedure TScript.WriteMsg(Message: String; IsDebug: Boolean = False);
 begin
   if not DEBUGMODE and IsDebug then
@@ -351,6 +357,9 @@ begin
   WriteLn('[Bot]: ' + Message);
 end;
 
+{
+  Returns all the found trees
+}
 function TScript.FindTrees(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
@@ -359,6 +368,9 @@ begin
   Result.SortByMiddle(Area.Middle());
 end;
 
+{
+  Debug draws the stuff
+}
 procedure TScript.DebugDraw();
 var
   ATPA: T2DPointArray;
@@ -371,6 +383,9 @@ begin
   end;
 end;
 
+{
+  Draws the stuff onto the screen
+}
 procedure TScript.Draw();
 begin
   if not Self.DrawCounter.IsFinished() then
@@ -384,6 +399,9 @@ begin
     Self.DebugDraw();
 end;
 
+{
+  Does the proggy report to the console window
+}
 procedure TScript.ReportConsole();
 begin
   if not Self.ReportCounter.IsFinished() then
@@ -459,6 +477,9 @@ begin
   Inventory.ShiftDrop(Self.LogItems, Pattern);
 end;
 
+{
+  Main loop of the script.
+}
 procedure TScript.Run();
 begin
   while Self.Running do
@@ -501,8 +522,12 @@ end;
 // -----------------------------------------------------------------------------
 // SETUP AND INIT STUFF
 
+{
+  When the player logs in.
+}
 procedure TScript.OnLogin();
 begin
+  // is this the first login?
   if not Self.DidLogin then
   begin
     Self.DidLogin := True;
@@ -513,7 +538,10 @@ begin
   
   MainScreen.SetHighestPitch();
 end;
-  
+
+{
+  Inits the script...
+}
 procedure TScript.Init();
 var
   Worlds: TIntegerArray;
@@ -578,10 +606,16 @@ begin
   Self.DrawCounter.Init(Self.DrawRate);
 end;
 
+{
+  Frees the stuff when script completes
+}
 procedure TScript.Free();
 begin
 end;
-  
+
+{
+  Entry point, inits and starts the bot main loop.
+}
 begin
   AddOnTerminate(@Bot.Free);
   Bot.Init();
