@@ -3,7 +3,7 @@ name=ineedbots-srl-scripts
 // The path to install into, from the working directory.
 directory=Scripts
 // flat extraction into directory
-flat=true
+flat=false
 // files not to install
 ignore=.git,.gitignore,.simbapackage,.gitattributes,README.md
 // path to script templates in this repo.
