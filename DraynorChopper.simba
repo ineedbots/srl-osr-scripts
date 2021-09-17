@@ -1,4 +1,9 @@
-program DraynorChopper;
+{
+  Script requires minimap orbs and XP counter to be visible at all times.
+  Also an uninterupted zoom level.
+}
+
+program DraynorWillowChopper;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
@@ -7,6 +12,7 @@ const
   DRAWING        = True;
   MSWALKING      = False;
   DOREPORTS      = True;
+  SHIFTDROP      = True;
   
   TAKEBREAKS     = True;
   BANKING        = False;
@@ -26,13 +32,16 @@ type
   end;
 
   TScript = record
-    Running, DidLogin                                         : Boolean;
+    Status                                                    : String;
+    Running, DidLogin, WalkedTreeForward                      : Boolean;
     SleepRate, ChopWaitTime, StartXP, LogsDone, BaseMouseSpeed,
-      HPPerc, ReportRate, DrawRate                            : Int32;
+      HPPerc, ReportRate, DrawRate, WalkedTree,               
+      LastWalkedTree                                          : Int32;
     RSW                                                       : TRSWalker;
     LogItems                                                  : TRSItemArray;
     TreeOptions                                               : TStringArray;
-    TreeTiles                                                 : TPointArray;
+    TreeTiles, BankTiles                                      : TPointArray;
+    BankColor                                                 : TRSObjectFinder;
     TreeColor: record
       RSObject                                                : TRSObjectFinder;
       FilterSize                                              : Int32;
@@ -88,15 +97,6 @@ begin
   t := PerformanceTimer();
   inherited(mean, dev);
   WaitFatigue(PerformanceTimer()-t);
-end;
-
-{
-  Useful for while loops when need to clear an array
-}
-function TIntegerArray.Clear(): Boolean;
-begin
-  SetLength(Self, 0);
-  Exit(True);
 end;
 
 // -----------------------------------------------------------------------------
@@ -346,7 +346,13 @@ begin
     Self.Stop('Completed the runtime');
 
   Inventory.SetSelectedSlot(-1);
-  Chat.ClickContinue();
+  
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500);
+    Chat.ClickContinue();
+  end;
+  
   Self.CheckActivity();
   // Check for interfaces if opened... close em
   
@@ -387,6 +393,15 @@ end;
 // GENERAL SCRIPT METHODS
 
 {
+  Useful for while loops when need to clear an array
+}
+function TIntegerArray.Clear(): Boolean;
+begin
+  SetLength(Self, 0);
+  Exit(True);
+end;
+
+{
   Logs to the console.
 }
 procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False);
@@ -413,13 +428,21 @@ begin
 end;
 
 {
+  Returns all the found banks
+}
+function TScript.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor, Area);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TScript.DebugDraw();
 var
   ATPA: T2DPointArray;
   TPA: TPointArray;
-  TreeTile, OurTile: TPoint;
+  TreeTile, OurTile, BankTile: TPoint;
   TileRect: TRectangle;
 begin
   OurTile := Self.RSW.GetMyPos();
@@ -433,6 +456,18 @@ begin
     end;
     
     RSClient.Image.DrawRect(TileRect, clBlue);
+  end;
+  
+  for BankTile in Self.BankTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+    
+    ATPA := Self.FindBankColor(TileRect.Bounds());
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA, clOrange);
+    end;
+    
+    RSClient.Image.DrawRect(TileRect, clGreen);
   end;
 end;
 
@@ -463,8 +498,22 @@ begin
   Self.ReportCounter.Restart();
 end;
 
-procedure TScript.DoMainLoopStuff();
+procedure TScript.SetStatus(S: String; DebugS: String = '');
 begin
+  if Self.Status = S then
+    Exit();
+
+  Self.Status := S;
+  
+  if DEBUGMODE then
+    Self.WriteMsg('[Debug]: ' + S + '(' + DebugS + ')');
+end;
+
+procedure TScript.DoMainLoopStuff(Status: String = '');
+begin
+  if Status <> '' then
+    Self.SetStatus(Status);
+
   Self.DoAntiBan();
     
   if DOREPORTS then
@@ -511,7 +560,7 @@ var
   InvCount: Int32;
 begin
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
-    Self.DoMainLoopStuff();
+    Self.DoMainLoopStuff('Going to clicked tree...');
 
   OurPos := Self.RSW.GetMyPos();
   InvCount := Inventory.Count();
@@ -532,8 +581,10 @@ begin
       TimeoutCounter.Restart();
   
     InvCount := Inventory.Count();
-    Self.DoMainLoopStuff();
+    Self.DoMainLoopStuff('Chopping tree...');
   end;
+  
+  Self.SetStatus('Tree chopping completed!');
 end;
 
 function TScript.ClickTree(): Boolean;
@@ -541,20 +592,33 @@ var
   OurPos, TreeTile: TPoint;
   TreeCircle: TCircle;
   TreeCircleRad: Int32;
+  TreeTiles: TPointArray;
 begin
   OurPos := Self.RSW.GetMyPos();
-  Self.TreeTiles.Sort(OurPos);
+  TreeTiles := Copy(Self.TreeTiles);
+  TreeTiles.Sort(OurPos);
+  
+  Self.SetStatus('Finding trees...');
   
   for TreeTile in TreeTiles do
   begin
     if not Self.FindTree(OurPos, TreeTile, TreeCircle) then
       continue;
       
+    Self.SetStatus('Found tree! Checking uptext...');
+      
+    Self.LastWalkedTree := Self.WalkedTree;
+    Self.WalkedTree := Self.TreeTiles.Find(TreeTile);
+    if Self.LastWalkedTree <> Self.WalkedTree then
+      Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
+      
     TreeCircleRad := Round(TreeCircle.Radius * 0.85);
     Mouse.HumanMove(TreeCircle.Mean().Random(-TreeCircleRad, TreeCircleRad, True));
     
     if not MainScreen.IsUpText(Self.TreeOptions) then
       continue;
+      
+    Self.SetStatus('Confirmed tree! Clicking tree...');
       
     if Random() < 0.20 then
       Result := ChooseOption.Select(Self.TreeOptions)
@@ -567,6 +631,7 @@ begin
     
     if Result then
     begin
+      Self.SetStatus('Tree clicked!');
       Self.AfterActionAntiBan();
       Self.WhileChopping(TreeTile);
       break;
@@ -576,6 +641,34 @@ end;
 
 procedure TScript.GoToTrees();
 begin
+  Self.SetStatus('Found no trees...');
+  if Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30 then
+  begin
+    Self.SetStatus('Going to trees...');
+    Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10));
+  end;
+    
+  if Self.TreeTiles.Len() > 1 then
+  begin
+    if Self.WalkedTreeForward then
+    begin
+      Self.WalkedTree += 1;
+      if Self.WalkedTree > High(Self.TreeTiles) then
+      begin
+        Self.WalkedTree -= 2;
+        Self.WalkedTreeForward := False;
+      end;
+    end
+    else
+    begin
+      Self.WalkedTree -= 1;
+      if Self.WalkedTree < Low(Self.TreeTiles) then
+      begin
+        Self.WalkedTree += 2;
+        Self.WalkedTreeForward := True;
+      end;
+    end;
+  end;
 end;
 
 procedure TScript.DoGathering();
@@ -584,15 +677,16 @@ begin
     Self.GoToTrees();
 end;
 
-procedure TScript.DoFullInventory();
+procedure TScript.DropItems();
 var
   R: Extended;
   Pattern, LogSlots: TIntegerArray;
+  CurLogs: Int32;
 begin
-  Self.WriteMsg('Dropping logs');
+  Self.SetStatus('Dropping logs...');
   
   Inventory.FindItems(Self.LogItems, LogSlots);
-  Self.LogsDone += LogSlots.Len();
+  CurLogs := LogSlots.Len();
   
   R := Random();
   if R < 0.1 then
@@ -601,8 +695,28 @@ begin
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
   else
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+    
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
 
-  Inventory.ShiftDrop(Self.LogItems, Pattern);
+  if SHIFTDROP then
+    Inventory.ShiftDrop(Self.LogItems, Pattern);
+  // do non shiftdropping
+    
+  LogSlots.Clear();
+  Inventory.FindItems(Self.LogItems, LogSlots);
+  Self.LogsDone += CurLogs - LogSlots.Len();
+  
+  Self.SetStatus('Logs dropped!');
+  Self.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+end;
+
+procedure TScript.DoFullInventory();
+begin
+  if not BANKING then
+    Self.DropItems();
 end;
 
 {
@@ -726,6 +840,13 @@ begin
     RSObject.ClusterDistance := 3;
     FilterSize := 30;
   end;
+  
+  Self.BankTiles := [Point(4174, 3468)];
+  Self.BankColor.Colors += CTS2(6251626, 3, 1.29, 0.97);
+  Self.BankColor.Colors +=  CTS2(1069415, 2, 0.07, 1.23);
+  Self.BankColor.Erode := 2;
+  Self.BankColor.Grow := 2;
+  Self.BankColor.ClusterDistance := 3;
   
   if RSClient.IsLoggedIn() then
     Self.OnLogin();
