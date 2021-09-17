@@ -27,7 +27,7 @@ type
 
   TScript = record
     Running, DidLogin                                         : Boolean;
-    SleepRate, ChopWaitTime, StartXP,
+    SleepRate, ChopWaitTime, StartXP, LogsDone, BaseMouseSpeed,
       HPPerc, ReportRate, DrawRate                            : Int32;
     RSW                                                       : TRSWalker;
     LogItems                                                  : TRSItemArray;
@@ -57,6 +57,11 @@ var
 function EnergizedNumber(n: Double; Exp: Double = 0.2): Int64;
 begin
   Result := Trunc(2*n * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp)));
+end;
+
+function BioRandom(): Double;
+begin
+  Result := Bot.AntiBanEnergy.BioHash;
 end;
 
 function PerformanceTimer(): Double; override;
@@ -344,6 +349,8 @@ begin
   Chat.ClickContinue();
   Self.CheckActivity();
   // Check for interfaces if opened... close em
+  
+  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Antiban) / 100));
     
   Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
@@ -455,6 +462,29 @@ begin
   Self.ReportCounter.Restart();
 end;
 
+function TScript.FindTree(PlayerPos: TPoint; TreePos: TPoint; out Circle: TCircle): Boolean;
+var
+  Tile: TRectangle;
+  B: TBox;
+  TPA: TPointArray;
+begin
+  Tile := Self.RSW.GetTileMSEx(PlayerPos, TreePos, 4);
+
+  B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  TPA := Self.FindTreeColor(B).Biggest();
+
+  if Length(TPA) > Self.TreeColor.FilterSize then
+  begin
+    Circle := TPA.MinAreaCircle();
+
+    Result := Circle.Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+  end;
+end;
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT LOGIC
@@ -466,34 +496,33 @@ var
   TreeBox: TBox;
   ATPA: T2DPointArray;
   TPA: TPointArray;
+  TreeCircle: TCircle;
 begin
   OurPos := Self.RSW.GetMyPos();
   Self.TreeTiles.Sort(OurPos);
   
   for TreeTile in TreeTiles do
   begin
-    TreeRect := Self.RSW.GetTileMSEx(OurPos, TreeTile, 4);
-    
-    ATPA := Self.FindTreeColor(TreeRect.Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clRed);
-    end;
+    Self.WriteMsg(Self.FindTree(OurPos, TreeTile, TreeCircle));
   end;
 end;
 
 procedure TScript.DoFullInventory();
 var
   R: Extended;
-  Pattern: TIntegerArray;
+  Pattern, LogSlots: TIntegerArray;
 begin
   Self.WriteMsg('Dropping logs');
   
+  Inventory.FindItems(Self.LogItems, LogSlots);
+  Self.LogsDone += LogSlots.Len();
+  
   R := Random();
   if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5);
-  if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5);
-  if inRange(R, 0.36, 1) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
 
   Inventory.ShiftDrop(Self.LogItems, Pattern);
@@ -588,7 +617,8 @@ begin
   
   Self.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   
-  Mouse.Speed             := 20;
+  Mouse.Speed             := 15 + Round(BioRandom() * 10) + Random(-2, 2);
+  Self.BaseMouseSpeed := Mouse.Speed;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.999;
   
@@ -614,13 +644,14 @@ begin
     Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
   
-  Self.TreeOptions := ['Chop down Willow'];
+  Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
   Self.ChopWaitTime := 10000;
-  Self.TreeTiles := [Point(4144, 3496), Point(4151, 3503)];
+  Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
   with Self.TreeColor do
   begin
-    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
+    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08); // bright side of the tree
+    RSObject.Colors += CTS2(462606, 2, 1.04, 5.68);  // dark side
     RSObject.Grow := 10;
     RSObject.Erode := 5;
     RSObject.ClusterDistance := 3;
