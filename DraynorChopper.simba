@@ -26,20 +26,20 @@ type
   end;
 
   TScript = record
-    Running, DidLogin                   : Boolean;
+    Running, DidLogin                                         : Boolean;
     SleepRate, ChopWaitTime, StartXP,
-      HPPerc, ReportRate, DrawRate      : Int32;
-    RSW                                 : TRSWalker;
-    LogItems                            : TRSItemArray;
-    TreeOptions                         : TStringArray;
+      HPPerc, ReportRate, DrawRate                            : Int32;
+    RSW                                                       : TRSWalker;
+    LogItems                                                  : TRSItemArray;
+    TreeOptions                                               : TStringArray;
     TreeColor: record
-      RSObject                          : TRSObjectFinder;
-      FilterSize                        : Int32;
+      RSObject                                                : TRSObjectFinder;
+      FilterSize                                              : Int32;
       end;
-    ShutdownTime                        : Int64;
-    TrueRunTime                         : TStopwatch;
-    DrawCounter, ReportCounter          : TCountdown;
-    AntiBanEnergy                       : TAntiBanEnergy;
+    ShutdownTime                                              : Int64;
+    TrueRunTime                                               : TStopwatch;
+    DrawCounter, ReportCounter                                : TCountdown;
+    AntiBanEnergy                                             : TAntiBanEnergy;
   end;
   
 var
@@ -309,14 +309,13 @@ begin
   Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
 end;
 
+procedure TScript.Stop(Reason: String = ''); forward;
 function TScript.DoAntiBan(): Boolean;
 begin
   if GetTimeRunning() > Self.ShutdownTime then
-    Self.Running := False;
+    Self.Stop('Completed the runtime');
 
-  Result := Antiban.DismissRandom()
-  if not Result then
-    Result := Antiban.DoAntiban();
+  Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
 
 procedure PauseRunTime(Task: PBreakTask);
@@ -332,14 +331,18 @@ var
   T: PBreakTask;
 begin
   if GetTimeRunning() > Bot.ShutdownTime then
-    Bot.Running := False;
+    Bot.Stop('Completed the runtime');
 
   Bot.TrueRunTime.Resume;
   T := Task;
 end;
 
-procedure TScript.AfterActionAntiBan();
+procedure TScript.AfterActionAntiBan(AntiBan: Boolean = True);
 begin
+  WaitEx(450,70);
+
+  if AntiBan then
+    Self.DoAntiban();
 end;
 
 // -----------------------------------------------------------------------------
@@ -349,12 +352,18 @@ end;
 {
   Logs to the console.
 }
-procedure TScript.WriteMsg(Message: String; IsDebug: Boolean = False);
+procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False);
 begin
   if not DEBUGMODE and IsDebug then
     Exit();
     
-  WriteLn('[Bot]: ' + Message);
+  WriteLn('[Bot]: ' + ToStr(Message));
+end;
+
+procedure TScript.Stop(Reason: String = '');
+begin
+  Self.WriteMsg(Reason);
+  Self.Running := False;
 end;
 
 {
@@ -500,7 +509,9 @@ begin
     else
     begin
       if Login.LoginPlayer() then
-        Self.OnLogin();
+        Self.OnLogin()
+      else
+        Self.Stop('Bad Login');
     end;
     
     Self.DoAntiBan();
