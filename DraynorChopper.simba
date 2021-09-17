@@ -340,10 +340,33 @@ begin
 end;
 
 procedure TScript.Stop(Reason: String = ''); forward;
+procedure TScript.SetStatus(S: String); forward;
+procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False); forward;
+procedure TScript.GoToBank(Force: Boolean = False); forward;
 function TScript.DoAntiBan(): Boolean;
 begin
   if GetTimeRunning() > Self.ShutdownTime then
     Self.Stop('Completed the runtime');
+    
+  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Antiban) / 100));
+    
+  if not RSClient.IsLoggedIn() then
+    Exit();
+    
+  if Minimap.GetHPPercent() < Self.HPPerc then
+  begin
+    Self.HPPerc := Minimap.GetHPPercent();
+    
+    Self.SetStatus('Under attack! Going to bank!');
+    Self.WriteMsg('UNDER ATTACK! Going to the bank!');
+    
+    Self.GoToBank(True);
+    
+    if Self.HPPerc < 35 then
+      Self.Stop('Critical HP!')
+    else
+      Wait(5000, 15000);
+  end;
 
   Inventory.SetSelectedSlot(-1);
   
@@ -355,8 +378,6 @@ begin
   
   Self.CheckActivity();
   // Check for interfaces if opened... close em
-  
-  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Antiban) / 100));
     
   Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
@@ -412,9 +433,21 @@ begin
   WriteLn(SRL.TimeStamp() + ':[Bot]: ' + ToStr(Message));
 end;
 
+procedure TScript.SetStatus(S: String);
+begin
+  if Self.Status = S then
+    Exit();
+
+  Self.Status := S;
+  
+  if DEBUGMODE then
+    Self.WriteMsg('[Debug]: ' + S);
+end;
+
 procedure TScript.Stop(Reason: String = '');
 begin
   Self.WriteMsg(Reason);
+  Self.SetStatus('Stopping... ' + Reason);
   Self.Running := False;
 end;
 
@@ -496,17 +529,6 @@ begin
     Exit();
     
   Self.ReportCounter.Restart();
-end;
-
-procedure TScript.SetStatus(S: String; DebugS: String = '');
-begin
-  if Self.Status = S then
-    Exit();
-
-  Self.Status := S;
-  
-  if DEBUGMODE then
-    Self.WriteMsg('[Debug]: ' + S + '(' + DebugS + ')');
 end;
 
 procedure TScript.DoMainLoopStuff(Status: String = '');
@@ -645,7 +667,7 @@ begin
   if Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30 then
   begin
     Self.SetStatus('Going to trees...');
-    Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10));
+    Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
   end;
     
   if Self.TreeTiles.Len() > 1 then
@@ -711,6 +733,15 @@ begin
   
   Self.SetStatus('Logs dropped!');
   Self.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+end;
+
+procedure TScript.GoToBank(Force: Boolean = False);
+begin
+  if (Self.RSW.GetMyPos().DistanceTo(Self.BankTiles.Mean()) > 30) or Force then
+  begin
+    Self.SetStatus('Going to bank...');
+    Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandom());
+  end;
 end;
 
 procedure TScript.DoFullInventory();
