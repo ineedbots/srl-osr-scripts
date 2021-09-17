@@ -426,12 +426,13 @@ begin
   for TreeTile in Self.TreeTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
-    RSClient.Image.DrawRect(TileRect, clBlue);
     
     ATPA := Self.FindTreeColor(TileRect.Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clRed);
     end;
+    
+    RSClient.Image.DrawRect(TileRect, clBlue);
   end;
 end;
 
@@ -462,6 +463,23 @@ begin
   Self.ReportCounter.Restart();
 end;
 
+procedure TScript.DoMainLoopStuff();
+begin
+  Self.DoAntiBan();
+    
+  if DOREPORTS then
+    Self.ReportConsole();
+
+  if DRAWING then
+    Self.Draw();
+    
+  Wait(Self.SleepRate);
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// GENERAL SCRIPT LOGIC
+
 function TScript.FindTree(PlayerPos: TPoint; TreePos: TPoint; out Circle: TCircle): Boolean;
 var
   Tile: TRectangle;
@@ -485,26 +503,85 @@ begin
   end;
 end;
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// GENERAL SCRIPT LOGIC
+procedure TScript.WhileChopping(TreeTile: TPoint);
+var
+  TimeoutCounter: TCountdown;
+  OurPos: TPoint;
+  _: TCircle;
+  InvCount: Int32;
+begin
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff();
 
-procedure TScript.DoGathering();
+  OurPos := Self.RSW.GetMyPos();
+  InvCount := Inventory.Count();
+  
+  TimeoutCounter.Init(Self.ChopWaitTime);
+  while not TimeoutCounter.IsFinished do
+  begin
+    if not RSClient.IsLoggedIn() then
+      break;
+  
+    if not Self.FindTree(OurPos, TreeTile, _) then
+      break;
+      
+    if Inventory.IsFull() then
+      break;
+      
+    if Inventory.Count() > InvCount then
+      TimeoutCounter.Restart();
+  
+    InvCount := Inventory.Count();
+    Self.DoMainLoopStuff();
+  end;
+end;
+
+function TScript.ClickTree(): Boolean;
 var
   OurPos, TreeTile: TPoint;
-  TreeRect: TRectangle;
-  TreeBox: TBox;
-  ATPA: T2DPointArray;
-  TPA: TPointArray;
   TreeCircle: TCircle;
+  TreeCircleRad: Int32;
 begin
   OurPos := Self.RSW.GetMyPos();
   Self.TreeTiles.Sort(OurPos);
   
   for TreeTile in TreeTiles do
   begin
-    Self.WriteMsg(Self.FindTree(OurPos, TreeTile, TreeCircle));
+    if not Self.FindTree(OurPos, TreeTile, TreeCircle) then
+      continue;
+      
+    TreeCircleRad := Round(TreeCircle.Radius * 0.85);
+    Mouse.HumanMove(TreeCircle.Mean().Random(-TreeCircleRad, TreeCircleRad, True));
+    
+    if not MainScreen.IsUpText(Self.TreeOptions) then
+      continue;
+      
+    if Random() < 0.20 then
+      Result := ChooseOption.Select(Self.TreeOptions)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+
+      Result := MainScreen.DidRedClick();
+    end;
+    
+    if Result then
+    begin
+      Self.AfterActionAntiBan();
+      Self.WhileChopping(TreeTile);
+      break;
+    end;
   end;
+end;
+
+procedure TScript.GoToTrees();
+begin
+end;
+
+procedure TScript.DoGathering();
+begin
+  if not Self.ClickTree() then
+    Self.GoToTrees();
 end;
 
 procedure TScript.DoFullInventory();
@@ -556,15 +633,7 @@ begin
         Self.Stop('Bad Login');
     end;
     
-    Self.DoAntiBan();
-    
-    if DOREPORTS then
-      Self.ReportConsole();
-  
-    if DRAWING then
-      Self.Draw();
-      
-    Wait(Self.SleepRate);
+    Self.DoMainLoopStuff();
   end;
   
   Logout.ClickLogout();
