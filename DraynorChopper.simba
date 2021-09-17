@@ -49,14 +49,19 @@ var
 // -----------------------------------------------------------------------------
 // OVERRIDES AND METHODS FOR FATIGUE
 
+function EnergizedNumber(n: Double; Exp: Double = 0.2): Int64;
+begin
+  Result := Trunc(2*n * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp)));
+end;
+
 function PerformanceTimer(): Double; override;
 begin
   Result := GetTickCount();
 end;
 
-procedure WaitFatigue(t: Double; Exp: Double=0.2);
+procedure WaitFatigue(t: Double);
 begin
-  System.Wait(Trunc(2*t * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp))));
+  System.Wait(EnergizedNumber(t));
 end;
 
 procedure Wait(min, max:Double; weight:EWaitDir=wdMean); override;
