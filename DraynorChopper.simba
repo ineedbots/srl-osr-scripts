@@ -32,10 +32,15 @@ type
     RSW                                                       : TRSWalker;
     LogItems                                                  : TRSItemArray;
     TreeOptions                                               : TStringArray;
+    TreeTiles                                                 : TPointArray;
     TreeColor: record
       RSObject                                                : TRSObjectFinder;
       FilterSize                                              : Int32;
       end;
+    Activity: record
+      XP                                                      : Int32;
+      Countdown                                               : TCountDown;
+    end;
     ShutdownTime                                              : Int64;
     TrueRunTime                                               : TStopwatch;
     DrawCounter, ReportCounter                                : TCountdown;
@@ -314,12 +319,32 @@ begin
   Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
 end;
 
+function TScript.CheckActivity(): Boolean;
+begin
+  if not XPBar.Open() then
+    Exit();
+    
+  if XPBar.Read() > Self.Activity.XP then
+  begin
+    Self.Activity.XP := XPBar.Read();
+    Self.Activity.Countdown.Restart();
+    Result := True;
+  end
+  else if Self.Activity.Countdown.IsFinished() then
+    Self.Stop('No XP gain in 3 minutes');
+end;
+
 procedure TScript.Stop(Reason: String = ''); forward;
 function TScript.DoAntiBan(): Boolean;
 begin
   if GetTimeRunning() > Self.ShutdownTime then
     Self.Stop('Completed the runtime');
 
+  Inventory.SetSelectedSlot(-1);
+  Chat.ClickContinue();
+  Self.CheckActivity();
+  // Check for interfaces if opened... close em
+    
   Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
 
@@ -362,7 +387,7 @@ begin
   if not DEBUGMODE and IsDebug then
     Exit();
     
-  WriteLn('[Bot]: ' + ToStr(Message));
+  WriteLn(SRL.TimeStamp() + ':[Bot]: ' + ToStr(Message));
 end;
 
 procedure TScript.Stop(Reason: String = '');
@@ -374,12 +399,10 @@ end;
 {
   Returns all the found trees
 }
-function TScript.FindTrees(Area: TBox): T2DPointArray;
+function TScript.FindTreeColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
   Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
-  
-  Result.SortByMiddle(Area.Middle());
 end;
 
 {
@@ -389,11 +412,19 @@ procedure TScript.DebugDraw();
 var
   ATPA: T2DPointArray;
   TPA: TPointArray;
+  TreeTile, OurTile: TPoint;
+  TileRect: TRectangle;
 begin
-  ATPA := Self.FindTrees(MainScreen.Bounds());
-  for TPA in ATPA do begin
-    RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
-    RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
+  OurTile := Self.RSW.GetMyPos();
+  for TreeTile in Self.TreeTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    
+    ATPA := Self.FindTreeColor(TileRect.Bounds());
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA, clRed);
+    end;
   end;
 end;
 
@@ -424,51 +455,28 @@ begin
   Self.ReportCounter.Restart();
 end;
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// GENERAL SCRIPT LOGIC
+
 procedure TScript.DoGathering();
 var
+  OurPos, TreeTile: TPoint;
+  TreeRect: TRectangle;
+  TreeBox: TBox;
   ATPA: T2DPointArray;
-  TPA, TPA2: TPointArray;
-  MousePoint: TPoint;
-  i: Int32;
-  FindBox: TBox;
+  TPA: TPointArray;
 begin
-  ATPA := Self.FindTrees(MainScreen.Bounds());
+  OurPos := Self.RSW.GetMyPos();
+  Self.TreeTiles.Sort(OurPos);
   
-  if DRAWING then
+  for TreeTile in TreeTiles do
   begin
+    TreeRect := Self.RSW.GetTileMSEx(OurPos, TreeTile, 4);
+    
+    ATPA := Self.FindTreeColor(TreeRect.Bounds());
     for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA.ConvexHull().Connect(), clRed);
-      RSClient.Image.DrawCross(TPA.Mean(), 5, clRed);
-    end;
-  end;
-  
-  for TPA in ATPA do
-  begin
-    Mouse.HumanMove(SRL.RandomPoint(TPA.Bounds()));
-    if not MainScreen.IsUpText(TreeOptions) then
-      continue;
-      
-    MousePoint := Mouse.Position();
-    
-    for i:=1 to 5 do
-    begin
-      FindBox := IntToBox(mousePoint.x - 10, mousePoint.y - 10,
-                          mousePoint.x + 10, mousePoint.y + 10);
-
-      if SRL.FindColors(TPA2, Self.TreeColor.RSObject.Colors[0], FindBox) < 30 then
-        MousePoint := TPA[Random(TPA.Len())]
-      else
-        break;
-    end;
-    
-    if i = 6 then
-      continue;
-      
-    Mouse.Click(MOUSE_LEFT);
-    
-    if MainScreen.DidRedClick() then
-    begin
-      
+      RSClient.Image.DrawTPA(TPA, clRed);
     end;
   end;
 end;
@@ -502,12 +510,12 @@ begin
     begin
       if Inventory.IsFull() then
       begin
-        //Self.DoFullInventory();
+        Self.DoFullInventory();
         Self.AfterActionAntiBan();
       end
       else
       begin
-        //Self.DoGathering();
+        Self.DoGathering();
         Self.AfterActionAntiBan();
       end;
     end
@@ -550,9 +558,11 @@ begin
     
     Self.HPPerc             := Minimap.GetHPPercent();
     Self.StartXP            := XPBar.Read();
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
   end;
   
   MainScreen.SetHighestPitch();
+  Self.Activity.Countdown.Restart();
 end;
 
 {
@@ -572,6 +582,7 @@ begin
   Self.SleepRate := 75;
   Self.DrawRate := 1000;
   Self.ReportRate := 500;
+  Self.Activity.Countdown.Init(180000);
   
   Self.RSW.Setup('world');
   
@@ -582,13 +593,12 @@ begin
   ItemFinder.Similarity   := 0.999;
   
   Self.RSW.ScreenWalk     := MSWALKING;
-  MM2MS.ZoomLevel         := Options.GetZoomLevel();
   
   Antiban.OnStartBreak    := @PauseRunTime;
   Antiban.OnFinishBreak   := @ResumeRunTime;
   
   Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
-  // Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Antiban.AddTask(ONE_MINUTE*2,  @Self.DoLoseFocus);
   Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
   Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
@@ -607,9 +617,12 @@ begin
   Self.TreeOptions := ['Chop down Willow'];
   Self.LogItems := ['Willow logs'];
   Self.ChopWaitTime := 10000;
+  Self.TreeTiles := [Point(4144, 3496), Point(4151, 3503)];
   with Self.TreeColor do
   begin
-    RSObject.Colors += CTS2(2712665, 21, 0.01, 0.7);
+    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
+    RSObject.Grow := 10;
+    RSObject.Erode := 5;
     RSObject.ClusterDistance := 3;
     FilterSize := 30;
   end;
