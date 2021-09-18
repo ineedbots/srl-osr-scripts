@@ -1,11 +1,16 @@
 {
   Script requires minimap orbs and XP counter to be visible at all times.
   Also an uninterupted zoom level.
+  
+  TODO credit, document and comment
 }
 
 program DraynorWillowChopper;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
+
+type
+  TChopMode = (ChopDrop, ChopBank, ChopFire);
 
 const
   DEBUGMODE      = True;
@@ -15,7 +20,7 @@ const
   SHIFTDROP      = True;
   
   TAKEBREAKS     = True;
-  BANKING        = False;
+  CHOPMODE       = ChopBank;
   
   _USERNAME       = '';
   _PASSWORD       = '';
@@ -34,11 +39,11 @@ type
   TScript = record
     Status                                                    : String;
     Running, DidLogin, WalkedTreeForward                      : Boolean;
-    SleepRate, ChopWaitTime, StartXP, LogsDone, BaseMouseSpeed,
+    SleepRate, ChopWaitTime, LogsDone, BaseMouseSpeed,
       HPPerc, ReportRate, DrawRate, WalkedTree,               
       LastWalkedTree                                          : Int32;
     RSW                                                       : TRSWalker;
-    LogItems                                                  : TRSItemArray;
+    LogItems, ToolItems                                       : TRSItemArray;
     TreeOptions                                               : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
     BankColor                                                 : TRSObjectFinder;
@@ -324,14 +329,29 @@ begin
   Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
 end;
 
-function TScript.CheckActivity(): Boolean;
+function TScript.ReadXPBar(): Int32;
 begin
+  if DepositBox.IsOpen() or Bank.IsOpen() then
+    Exit(-1);
+    
   if not XPBar.Open() then
+    Exit(-1);
+    
+  Result := XPBar.Read();
+end;
+
+function TScript.CheckActivity(): Boolean;
+var
+  XP: Int32;
+begin
+  XP := Self.ReadXPBar();
+  
+  if XP = -1 then
     Exit();
     
-  if XPBar.Read() > Self.Activity.XP then
+  if XP > Self.Activity.XP then
   begin
-    Self.Activity.XP := XPBar.Read();
+    Self.Activity.XP := XP;
     Self.Activity.Countdown.Restart();
     Result := True;
   end
@@ -367,6 +387,7 @@ begin
     else
       Wait(5000, 15000);
   end;
+  Self.HPPerc := Minimap.GetHPPercent();
 
   Inventory.SetSelectedSlot(-1);
   
@@ -377,7 +398,7 @@ begin
   end;
   
   Self.CheckActivity();
-  // Check for interfaces if opened... close em
+  // TODO check for interfaces if opened... close em
     
   Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
@@ -531,12 +552,13 @@ begin
   Self.ReportCounter.Restart();
 end;
 
-procedure TScript.DoMainLoopStuff(Status: String = '');
+procedure TScript.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
 begin
   if Status <> '' then
     Self.SetStatus(Status);
 
-  Self.DoAntiBan();
+  if DoAB then
+    Self.DoAntiBan();
     
   if DOREPORTS then
     Self.ReportConsole();
@@ -588,7 +610,7 @@ begin
   InvCount := Inventory.Count();
   
   TimeoutCounter.Init(Self.ChopWaitTime);
-  while not TimeoutCounter.IsFinished do
+  while not TimeoutCounter.IsFinished() do
   begin
     if not RSClient.IsLoggedIn() then
       break;
@@ -619,6 +641,7 @@ begin
   OurPos := Self.RSW.GetMyPos();
   TreeTiles := Copy(Self.TreeTiles);
   TreeTiles.Sort(OurPos);
+  // TODO randomize
   
   Self.SetStatus('Finding trees...');
   
@@ -654,17 +677,17 @@ begin
     if Result then
     begin
       Self.SetStatus('Tree clicked!');
-      Self.AfterActionAntiBan();
+      Self.AfterActionAntiBan(True);
       Self.WhileChopping(TreeTile);
       break;
     end;
   end;
 end;
 
-procedure TScript.GoToTrees();
+procedure TScript.GoToTrees(Force: Boolean = False);
 begin
   Self.SetStatus('Found no trees...');
-  if Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30 then
+  if (Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30) or Force then
   begin
     Self.SetStatus('Going to trees...');
     Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
@@ -697,6 +720,8 @@ procedure TScript.DoGathering();
 begin
   if not Self.ClickTree() then
     Self.GoToTrees();
+    
+  Self.AfterActionAntiBan(True);
 end;
 
 procedure TScript.DropItems();
@@ -725,7 +750,7 @@ begin
 
   if SHIFTDROP then
     Inventory.ShiftDrop(Self.LogItems, Pattern);
-  // do non shiftdropping
+  // TODO do non shiftdropping
     
   LogSlots.Clear();
   Inventory.FindItems(Self.LogItems, LogSlots);
@@ -744,10 +769,185 @@ begin
   end;
 end;
 
+function TScript.FindBank(PlayerPos: TPoint; BankPos: TPoint; out Circle: TCircle): Boolean;
+var
+  Tile: TRectangle;
+  B: TBox;
+  TPA: TPointArray;
+begin
+  Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
+
+  B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  TPA := Self.FindBankColor(B).Biggest();
+
+  if Length(TPA) > 0 then
+  begin
+    Circle := TPA.MinAreaCircle();
+
+    Result := Circle.Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+  end;
+end;
+
+function TScript.ClickBank(): Boolean;
+var
+  OurPos, BankTile: TPoint;
+  BankTiles: TPointArray;
+  BankCircle: TCircle;
+  BankCircleRad: Int32;
+begin
+  if Bank.IsOpen() or DepositBox.IsOpen() then
+    Exit(True);
+
+  OurPos := Self.RSW.GetMyPos();
+  BankTiles := Copy(Self.BankTiles);
+  BankTiles.Sort(OurPos);
+  
+  Self.SetStatus('Finding bank...');
+  
+  for BankTile in BankTiles do
+  begin
+    if not Self.FindBank(OurPos, BankTile, BankCircle) then
+      continue;
+      
+    Self.SetStatus('Found bank! Checking uptext...');
+      
+    BankCircleRad := Round(BankCircle.Radius * 0.85);
+    Mouse.HumanMove(BankCircle.Mean().Random(-BankCircleRad, BankCircleRad, True));
+    
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT) then
+      continue;
+      
+    Self.SetStatus('Confirmed bank! Opening bank...');
+      
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      Result := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+
+      Result := MainScreen.DidRedClick();
+    end;
+    
+    if Result then
+    begin
+      Self.SetStatus('Bank clicked!');
+      Self.AfterActionAntiBan();
+      break;
+    end;
+  end;
+end;
+
+function TScript.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+begin
+  BankOpenCountDown.Init(5000);
+  while not BankOpenCountDown.IsFinished() do
+  begin
+    if not RSClient.IsLoggedIn() then
+      break;
+      
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+      BankOpenCountDown.Restart();
+  
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+      Exit(True);
+      
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+end;
+
+procedure TScript.DepositItems();
+var
+  ToolSlots, LogSlots, Pattern: TIntegerArray;
+  CurLogs, i: Int32;
+  R: Extended;
+begin
+  Self.SetStatus('Depositing items...');
+
+  Inventory.FindItems(Self.ToolItems, ToolSlots);
+  Inventory.FindItems(Self.LogItems, LogSlots);
+  CurLogs := LogSlots.Len();
+  
+  if ToolSlots.Len() <= 0 then
+  begin
+    if Bank.IsOpen() then
+      Bank.DepositAll()
+    else
+      DepositBox.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
+  end
+  else
+  begin
+    R := Random();
+    if R < 0.1 then
+      Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+    else if inRange(R, 0.1, 0.35) then
+      Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+    else
+      Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+      
+    if SRL.Dice(20) then
+      SetLength(Pattern, Random(Length(Pattern)));
+    if SRL.Dice(20) then
+      Pattern := Copy(Pattern, Random(Length(Pattern)));
+      
+    for i in ToolSlots do
+      Pattern.Remove(i);
+      
+    for i in Pattern do
+    begin
+    end;
+  end;
+  
+  LogSlots.Clear();
+  Inventory.FindItems(Self.LogItems, LogSlots);
+  Self.LogsDone += CurLogs - LogSlots.Len();
+  
+  Self.SetStatus('Logs depositted!');
+  Self.WriteMsg('Banked logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+  
+  if Random() > 0.75 then
+  begin
+    Bank.Close();
+    DepositBox.Close();
+  end;
+end;
+
+procedure TScript.BankItems();
+var
+  ClickedBank: Boolean;
+begin
+  ClickedBank := Self.ClickBank();
+  if not ClickedBank then
+  begin
+    Self.GoToBank(True);
+    ClickedBank := Self.ClickBank();
+  end;
+    
+  if ClickedBank and Self.WaitBankOpen() then
+  begin
+    Self.DepositItems();
+  end;
+end;
+
+procedure TScript.FireItems();
+begin
+end;
+
 procedure TScript.DoFullInventory();
 begin
-  if not BANKING then
-    Self.DropItems();
+  if CHOPMODE = ChopDrop then
+    Self.DropItems()
+  else if CHOPMODE = ChopBank then
+    Self.BankItems()
+  else
+    Self.FireItems();
+    
+  Self.AfterActionAntiBan(True);
 end;
 
 {
@@ -762,20 +962,16 @@ begin
       if Inventory.IsFull() then
       begin
         Self.DoFullInventory();
-        Self.AfterActionAntiBan();
       end
       else
       begin
         Self.DoGathering();
-        Self.AfterActionAntiBan();
       end;
     end
     else
     begin
       if Login.LoginPlayer() then
-        Self.OnLogin()
-      else
-        Self.Stop('Bad Login');
+        Self.OnLogin();
     end;
     
     Self.DoMainLoopStuff();
@@ -798,12 +994,11 @@ begin
   if not Self.DidLogin then
   begin
     Self.DidLogin := True;
-    
-    Self.HPPerc             := Minimap.GetHPPercent();
-    Self.StartXP            := XPBar.Read();
+      
     MM2MS.ZoomLevel         := Options.GetZoomLevel();
   end;
   
+  Self.HPPerc             := Minimap.GetHPPercent();
   MainScreen.SetHighestPitch();
   Self.Activity.Countdown.Restart();
 end;
@@ -860,6 +1055,9 @@ begin
   
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
+  Self.ToolItems := ['Tinderbox', 'Rune axe', 'Dragon axe', 'Bronze axe',
+    'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
+    'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
   Self.ChopWaitTime := 10000;
   Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
   with Self.TreeColor do
