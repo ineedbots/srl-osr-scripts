@@ -805,6 +805,7 @@ begin
   OurPos := Self.RSW.GetMyPos();
   BankTiles := Copy(Self.BankTiles);
   BankTiles.Sort(OurPos);
+  // TODO randomize
   
   Self.SetStatus('Finding bank...');
   
@@ -873,6 +874,7 @@ begin
   Inventory.FindItems(Self.LogItems, LogSlots);
   CurLogs := LogSlots.Len();
   
+  // TODO randomize
   if ToolSlots.Len() <= 0 then
   begin
     if Bank.IsOpen() then
@@ -898,6 +900,7 @@ begin
     for i in ToolSlots do
       Pattern.Remove(i);
       
+    // TODO complete
     for i in Pattern do
     begin
     end;
@@ -936,6 +939,7 @@ end;
 
 procedure TScript.FireItems();
 begin
+  // TODO complete
 end;
 
 procedure TScript.DoFullInventory();
@@ -959,14 +963,11 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
+      // TODO randomize
       if Inventory.IsFull() then
-      begin
-        Self.DoFullInventory();
-      end
+        Self.DoFullInventory()
       else
-      begin
         Self.DoGathering();
-      end;
     end
     else
     begin
