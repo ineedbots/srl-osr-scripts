@@ -13,7 +13,7 @@ type
   TChopMode = (ChopDrop, ChopBank, ChopFire);
 
 const
-  DEBUGMODE      = True;
+  DEBUGMODE      = False;
   DRAWING        = True;
   MSWALKING      = False;
   DOREPORTS      = True;
@@ -331,7 +331,8 @@ end;
 
 function TScript.ReadXPBar(): Int32;
 begin
-  if DepositBox.IsOpen() or Bank.IsOpen() then
+  // TODO check all interfaces?
+  if DepositBox.IsOpen() or Bank.IsOpen() or BankPin.IsOpen() then
     Exit(-1);
     
   if not XPBar.Open() then
@@ -363,16 +364,23 @@ procedure TScript.Stop(Reason: String = ''); forward;
 procedure TScript.SetStatus(S: String); forward;
 procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False); forward;
 procedure TScript.GoToBank(Force: Boolean = False); forward;
+
+{
+  Does general checks and does antiban.
+}
 function TScript.DoAntiBan(): Boolean;
 begin
+  // check if we need to end the script
   if GetTimeRunning() > Self.ShutdownTime then
     Self.Stop('Completed the runtime');
     
+  // update our mousespeed, when we get tired, slow it down
   Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Antiban) / 100));
     
   if not RSClient.IsLoggedIn() then
     Exit();
     
+  // are we under attack?
   if Minimap.GetHPPercent() < Self.HPPerc then
   begin
     Self.HPPerc := Minimap.GetHPPercent();
@@ -389,17 +397,21 @@ begin
   end;
   Self.HPPerc := Minimap.GetHPPercent();
 
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
   
+  // check we we leveled up
   if Chat.LeveledUp() then
   begin
     Wait(0, 2500);
     Chat.ClickContinue();
   end;
   
+  // check if we gained xp, failsafe
   Self.CheckActivity();
   // TODO check for interfaces if opened... close em
     
+  // general antiban
   Result := Antiban.DismissRandom() or Antiban.DoAntiban();
 end;
 
@@ -520,6 +532,9 @@ begin
   WriteLn(SRL.TimeStamp() + ':[Bot]: ' + ToStr(Message));
 end;
 
+{
+  Sets the status of the script
+}
 procedure TScript.SetStatus(S: String);
 begin
   if Self.Status = S then
@@ -531,6 +546,9 @@ begin
     Self.WriteMsg('[Debug]: ' + S);
 end;
 
+{
+  Ends the script.
+}
 procedure TScript.Stop(Reason: String = '');
 begin
   Self.WriteMsg(Reason);
@@ -618,6 +636,9 @@ begin
   Self.ReportCounter.Restart();
 end;
 
+{
+  General main loop stuff to do.
+}
 procedure TScript.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
 begin
   if Status <> '' then
@@ -639,12 +660,16 @@ end;
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT LOGIC
 
+{
+  Tries to find the tree at the tile, returns true if it does, also the area of where it is
+}
 function TScript.FindTree(PlayerPos: TPoint; TreePos: TPoint; out Circle: TCircle): Boolean;
 var
   Tile: TRectangle;
   B: TBox;
   TPA: TPointArray;
 begin
+  // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, TreePos, 4);
 
   B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
@@ -652,16 +677,21 @@ begin
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
 
+  // find the tree's colors in this tile
   TPA := Self.FindTreeColor(B).Biggest();
 
   if Length(TPA) > Self.TreeColor.FilterSize then
   begin
     Circle := TPA.MinAreaCircle();
 
+    // if the circle is larger than the tile's circle, this is good
     Result := Circle.Radius >= Tile.ToTPA().MinAreaCircle().Radius;
   end;
 end;
 
+{
+  Waits while we are chopping the tree
+}
 procedure TScript.WhileChopping(TreeTile: TPoint);
 var
   TimeoutCounter: TCountdown;
@@ -669,12 +699,14 @@ var
   _: TCircle;
   InvCount: Int32;
 begin
+  // wait for us to stop moving before we start monitoring the tree tile.
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
     Self.DoMainLoopStuff('Going to clicked tree...');
 
   OurPos := Self.RSW.GetMyPos();
   InvCount := Inventory.Count();
   
+  // we timeout if we do not gain something into our inventory
   TimeoutCounter.Init(Self.ChopWaitTime);
   while not TimeoutCounter.IsFinished() do
   begin
@@ -697,6 +729,9 @@ begin
   Self.SetStatus('Tree chopping completed!');
 end;
 
+{
+  Attempts to click on a tree, returns if it does
+}
 function TScript.ClickTree(): Boolean;
 var
   OurPos, TreeTile: TPoint;
@@ -711,6 +746,7 @@ begin
   
   Self.SetStatus('Finding trees...');
   
+  // look at each tree to try click
   for TreeTile in TreeTiles do
   begin
     if not Self.FindTree(OurPos, TreeTile, TreeCircle) then
@@ -718,17 +754,22 @@ begin
       
     Self.SetStatus('Found tree! Checking uptext...');
       
+    // lets mark that we are at this tree
+    // so lets remember the last tree we were at
+    // as well as remembering our current tree
     Self.LastWalkedTree := Self.WalkedTree;
     Self.WalkedTree := Self.TreeTiles.Find(TreeTile);
     if Self.LastWalkedTree <> Self.WalkedTree then
       Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
       
+    // ok, we found a tree at the tile, lets hover it and see if it is actually the tree
     TreeCircleRad := Round(TreeCircle.Radius * 0.85);
     Mouse.HumanMove(TreeCircle.Mean().Random(-TreeCircleRad, TreeCircleRad, True));
     
     if not MainScreen.IsUpText(Self.TreeOptions) then
       continue;
       
+    // tree! lets click it!
     Self.SetStatus('Confirmed tree! Clicking tree...');
       
     if Random() < 0.20 then
@@ -742,6 +783,7 @@ begin
     
     if Result then
     begin
+      // tree clicked! lets wait until we are done chopping
       Self.SetStatus('Tree clicked!');
       Self.AfterActionAntiBan(True);
       Self.WhileChopping(TreeTile);
@@ -750,8 +792,18 @@ begin
   end;
 end;
 
+{
+  Walks to the trees
+}
 procedure TScript.GoToTrees(Force: Boolean = False);
 begin
+  // tree traversal algorithm
+  // we will remember what tree we are currently at
+  // we will also remember what tree we were previously at
+  // using this info, we can determine which direction we are going
+  // through the list of trees.
+
+  // go to the 'next' tree
   Self.SetStatus('Found no trees...');
   if (Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30) or Force then
   begin
@@ -759,6 +811,7 @@ begin
     Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
   end;
     
+  // set the 'next' tree...
   if Self.TreeTiles.Len() > 1 then
   begin
     if Self.WalkedTreeForward then
@@ -782,14 +835,9 @@ begin
   end;
 end;
 
-procedure TScript.DoGathering();
-begin
-  if not Self.ClickTree() then
-    Self.GoToTrees();
-    
-  Self.AfterActionAntiBan(True);
-end;
-
+{
+  Drops all the logs in our inventory
+}
 procedure TScript.DropItems();
 var
   R: Extended;
@@ -798,9 +846,11 @@ var
 begin
   Self.SetStatus('Dropping logs...');
   
+  // query the logs
   Inventory.FindItems(Self.LogItems, LogSlots);
   CurLogs := LogSlots.Len();
   
+  // choose a random drop pattern
   R := Random();
   if R < 0.1 then
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
@@ -809,15 +859,18 @@ begin
   else
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
     
+  // possibly not drop all logs, for antiban
   if SRL.Dice(20) then
     SetLength(Pattern, Random(Length(Pattern)));
   if SRL.Dice(20) then
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
+  // drop
   if SHIFTDROP then
     Inventory.ShiftDrop(Self.LogItems, Pattern);
   // TODO do non shiftdropping
     
+  // see how many logs we actually dropped, and log it
   LogSlots.Clear();
   Inventory.FindItems(Self.LogItems, LogSlots);
   Self.LogsDone += CurLogs - LogSlots.Len();
@@ -826,6 +879,9 @@ begin
   Self.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
 end;
 
+{
+  Walks to the bank tiles
+}
 procedure TScript.GoToBank(Force: Boolean = False);
 begin
   if (Self.RSW.GetMyPos().DistanceTo(Self.BankTiles.Mean()) > 30) or Force then
@@ -835,12 +891,16 @@ begin
   end;
 end;
 
+{
+  Returns true if it can see the bank
+}
 function TScript.FindBank(PlayerPos: TPoint; BankPos: TPoint; out Circle: TCircle): Boolean;
 var
   Tile: TRectangle;
   B: TBox;
   TPA: TPointArray;
 begin
+  // find the bank's tile on the mainscreen
   Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
 
   B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
@@ -848,8 +908,10 @@ begin
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
 
+  // check the bank's colors within the tile
   TPA := Self.FindBankColor(B).Biggest();
 
+  // is it good? if so then return!
   if Length(TPA) > 0 then
   begin
     Circle := TPA.MinAreaCircle();
@@ -868,6 +930,7 @@ var
   BankCircle: TCircle;
   BankCircleRad: Int32;
 begin
+  // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
     Exit(True);
 
@@ -878,13 +941,16 @@ begin
   
   Self.SetStatus('Finding bank...');
   
+  // search for every bank
   for BankTile in BankTiles do
   begin
+    // try see if we can find this bank
     if not Self.FindBank(OurPos, BankTile, BankCircle) then
       continue;
       
     Self.SetStatus('Found bank! Checking uptext...');
-      
+    
+    // hover over the banktile and see if it is actually a bank
     BankCircleRad := Round(BankCircle.Radius * 0.85);
     Mouse.HumanMove(BankCircle.Mean().Random(-BankCircleRad, BankCircleRad, True));
     
@@ -893,6 +959,7 @@ begin
       
     Self.SetStatus('Confirmed bank! Opening bank...');
       
+    // open the bank
     if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
       Result := ChooseOption.Select(Bank.FINDER_OPTION)
     else
@@ -911,19 +978,26 @@ begin
   end;
 end;
 
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
 function TScript.WaitBankOpen(): Boolean;
 var
   BankOpenCountDown: TCountdown;
 begin
+  // we only wait a finite amount of time...
   BankOpenCountDown.Init(5000);
   while not BankOpenCountDown.IsFinished() do
   begin
     if not RSClient.IsLoggedIn() then
       break;
-      
+    
+    // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
       BankOpenCountDown.Restart();
       
+    // enter pin if needed
     if BankPin.IsOpen() then
     begin
       BankPin.Enter(Login.GetPlayer().Pin);
@@ -935,8 +1009,13 @@ begin
       
     Self.DoMainLoopStuff('Going to clicked bank...', False);
   end;
+  
+  // bank didnt open... failed.
 end;
 
+{
+  Deposit our items into the depositbox or bank, which ever is open
+}
 procedure TScript.DepositItems();
 var
   ToolSlots, LogSlots, Pattern: TIntegerArray;
@@ -944,10 +1023,12 @@ var
   R: Extended;
   IsBank: Boolean;
 begin
+  // we assume depositbox or bank is open at this point
   IsBank := Bank.IsOpen();
   Self.SetStatus('Depositing items...');
   Self.AfterBankAntiBan(20);
 
+  // query the items in our inventory
   if IsBank then
   begin
     Inventory.FindItems(Self.ToolItems, ToolSlots);
@@ -961,6 +1042,7 @@ begin
   
   CurLogs := LogSlots.Len();
   
+  // if we can deposit all our stuff
   // TODO randomize
   if ToolSlots.Len() <= 0 then
   begin
@@ -971,6 +1053,7 @@ begin
   end
   else
   begin
+    // randomize the deposit pattern
     R := Random();
     if R < 0.1 then
       Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
@@ -979,14 +1062,17 @@ begin
     else
       Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
       
+    // randomly chop it off for extra antiban
     if SRL.Dice(20) then
       SetLength(Pattern, Random(Length(Pattern)));
     if SRL.Dice(20) then
       Pattern := Copy(Pattern, Random(Length(Pattern)));
       
+    // make sure we do not deposit our tools
     for i in ToolSlots do
       Pattern.Remove(i);
       
+    // deposit our stuff
     for i in Pattern do
     begin
       if IsBank then
@@ -1010,13 +1096,15 @@ begin
     end;
   end;
   
+  // query how many logs we actually depositted
   LogSlots.Clear();
   
   if IsBank then
     Inventory.FindItems(Self.LogItems, LogSlots)
   else
     DepositBox.FindItems(Self.LogItems, LogSlots);
-    
+  
+  // update how many logs we completed chopping
   Self.LogsDone += CurLogs - LogSlots.Len();
   
   Self.SetStatus('Logs depositted!');
@@ -1024,6 +1112,7 @@ begin
   
   Self.AfterBankAntiBan(30);
   
+  // randomly close the bank
   if Random() > 0.75 then
   begin
     if IsBank then
@@ -1031,30 +1120,48 @@ begin
     else
       DepositBox.Close();
   end;
+  
+  // fun fact: Inventory.IsFull will return false if it cannot open the gametab
+  // and when we are inside an interface, we cannot open the gametab
+  // so it returns false, but it is okay because we are actually not full
 end;
 
+{
+  Goes and banks our items
+  Will go to bank, open it, and deposit
+}
 procedure TScript.BankItems();
 var
   ClickedBank: Boolean;
 begin
+  // try to click on the bank
   ClickedBank := Self.ClickBank();
   if not ClickedBank then
   begin
+    // walk to the bank, and then try to open it
     Self.GoToBank(True);
     ClickedBank := Self.ClickBank();
   end;
     
+  // we clicked it, lets wait for it to open
   if ClickedBank and Self.WaitBankOpen() then
   begin
+    // it is now open! lets deposit
     Self.DepositItems();
   end;
 end;
 
+{
+  Start burning the logs to get rid of them
+}
 procedure TScript.FireItems();
 begin
   // TODO complete
 end;
 
+{
+  Executes when we should do something about our full inventory
+}
 procedure TScript.DoFullInventory();
 begin
   if CHOPMODE = ChopDrop then
@@ -1063,6 +1170,17 @@ begin
     Self.BankItems()
   else
     Self.FireItems();
+    
+  Self.AfterActionAntiBan(True);
+end;
+
+{
+  Executes when we need to gather items to fill our inventory
+}
+procedure TScript.DoGathering();
+begin
+  if not Self.ClickTree() then
+    Self.GoToTrees();
     
   Self.AfterActionAntiBan(True);
 end;
@@ -1124,6 +1242,7 @@ procedure TScript.Init();
 var
   Worlds: TIntegerArray;
 begin
+  // init the player
   if _WORLDS[0] <> -1 then
     Worlds := _WORLDS;
 
@@ -1147,6 +1266,7 @@ begin
   
   Self.RSW.ScreenWalk     := MSWALKING;
   
+  // init the antiban stuff
   Antiban.OnStartBreak    := @PauseRunTime;
   Antiban.OnFinishBreak   := @ResumeRunTime;
   
@@ -1167,6 +1287,7 @@ begin
     Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
   
+  // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
   Self.ToolItems := ['Tinderbox', 'Rune axe', 'Dragon axe', 'Bronze axe',
@@ -1191,9 +1312,11 @@ begin
   Self.BankColor.Grow := 2;
   Self.BankColor.ClusterDistance := 3;
   
+  // do login init stuff
   if RSClient.IsLoggedIn() then
     Self.OnLogin();
-    
+  
+  // start the timers  
   Self.TrueRunTime.Start();
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
