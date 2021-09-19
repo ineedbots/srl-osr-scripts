@@ -430,9 +430,75 @@ begin
     Self.DoAntiban();
 end;
 
+procedure TScript.AfterBankAntiBan(Percent: Double);
+var
+  randP: Double;
+begin
+  if Random() <= (Percent/100) then
+  begin
+    Antiban.DebugLn('Bank screen antiban');
+    randP := Random();
+    if randP < 0.33 then
+      Mouse.RandomMovement()
+    else if (randP >= 0.33) and (randP < 0.66) then
+      wait(2800, 4000)
+    else if randP > 0.66 then
+    begin
+      // Copied version of 'random right click' antiban, minus the additional debug msg
+      Mouse.Move(GetClientBounds(), True, MOUSE_DISTRIBUTION_RANDOM);
+
+      if ChooseOption.Open() then
+      begin
+        if Random() < 0.50 then
+          Mouse.Move(ChooseOption.Bounds);
+
+        Wait(0, 8000, wdLeft);
+
+        ChooseOption.Close();
+      end;
+    end;
+
+  end;
+end;
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
+
+function TRSDepositBox.FindItems(Items: TRSItemArray; out Slots: TIntegerArray): Boolean;
+var
+  Item: TRSItem;
+begin
+  if not Self.IsOpen() then
+    Exit;
+
+  for Item in Items do
+    Slots += ItemFinder.Find(Item, Self.GetSlotBoxes());
+  
+  Result := Length(Slots) > 0;
+end;
+
+function TRSDepositBox.FindItems(Items: TRSItemArray): Boolean; overload;
+var
+  Slots: TIntegerArray;
+begin
+  Result := Self.FindItems(Items, Slots);
+end;
+
+function TRSDepositBox.GetSlotBox(Slot: Int32): TBox;
+begin
+  Result := Self.GetSlotBoxes()[Slot];
+end;
+
+function TRSDepositBox.IsSlotUsed(B: TBox): Boolean; overload;
+begin
+  Result := Inventory.IsSlotUsed(B);
+end;
+
+function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
+begin
+  Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
+end;
 
 {
   Useful for while loops when need to clear an array
@@ -504,7 +570,7 @@ begin
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
     
-    ATPA := Self.FindTreeColor(TileRect.Bounds());
+    ATPA := Self.FindTreeColor(TileRect.Expand(Round(TileRect.Radius() * 1.15)).Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clRed);
     end;
@@ -516,7 +582,7 @@ begin
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
     
-    ATPA := Self.FindBankColor(TileRect.Bounds());
+    ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * 1.15)).Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clOrange);
     end;
@@ -788,10 +854,13 @@ begin
   begin
     Circle := TPA.MinAreaCircle();
 
-    Result := Circle.Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+    Result := True;
   end;
 end;
 
+{
+  Attempts to open the bank, returns true if it clicked on it.
+}
 function TScript.ClickBank(): Boolean;
 var
   OurPos, BankTile: TPoint;
@@ -799,7 +868,7 @@ var
   BankCircle: TCircle;
   BankCircleRad: Int32;
 begin
-  if Bank.IsOpen() or DepositBox.IsOpen() then
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
     Exit(True);
 
   OurPos := Self.RSW.GetMyPos();
@@ -854,7 +923,13 @@ begin
       
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
       BankOpenCountDown.Restart();
-  
+      
+    if BankPin.IsOpen() then
+    begin
+      BankPin.Enter(Login.GetPlayer().Pin);
+      BankOpenCountDown.Restart();
+    end;
+    
     if Bank.IsOpen(True) or DepositBox.IsOpen() then
       Exit(True);
       
@@ -867,17 +942,29 @@ var
   ToolSlots, LogSlots, Pattern: TIntegerArray;
   CurLogs, i: Int32;
   R: Extended;
+  IsBank: Boolean;
 begin
+  IsBank := Bank.IsOpen();
   Self.SetStatus('Depositing items...');
+  Self.AfterBankAntiBan(20);
 
-  Inventory.FindItems(Self.ToolItems, ToolSlots);
-  Inventory.FindItems(Self.LogItems, LogSlots);
+  if IsBank then
+  begin
+    Inventory.FindItems(Self.ToolItems, ToolSlots);
+    Inventory.FindItems(Self.LogItems, LogSlots);
+  end
+  else
+  begin
+    DepositBox.FindItems(Self.ToolItems, ToolSlots);
+    DepositBox.FindItems(Self.LogItems, LogSlots);
+  end;
+  
   CurLogs := LogSlots.Len();
   
   // TODO randomize
   if ToolSlots.Len() <= 0 then
   begin
-    if Bank.IsOpen() then
+    if IsBank then
       Bank.DepositAll()
     else
       DepositBox.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
@@ -900,23 +987,49 @@ begin
     for i in ToolSlots do
       Pattern.Remove(i);
       
-    // TODO complete
     for i in Pattern do
     begin
+      if IsBank then
+      begin
+        if Inventory.IsSlotUsed(i) then
+        begin
+          // TODO randomize using deposit buttons
+          Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
+          Wait(200, Random(550, 700));
+        end;
+      end
+      else
+      begin
+        if DepositBox.IsSlotUsed(i) then
+        begin
+          // TODO randomize using deposit buttons
+          Mouse.Move(DepositBox.GetSlotBox(i));
+          ChooseOption.Select('Deposit-All');
+        end;
+      end;
     end;
   end;
   
   LogSlots.Clear();
-  Inventory.FindItems(Self.LogItems, LogSlots);
+  
+  if IsBank then
+    Inventory.FindItems(Self.LogItems, LogSlots)
+  else
+    DepositBox.FindItems(Self.LogItems, LogSlots);
+    
   Self.LogsDone += CurLogs - LogSlots.Len();
   
   Self.SetStatus('Logs depositted!');
   Self.WriteMsg('Banked logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
   
+  Self.AfterBankAntiBan(30);
+  
   if Random() > 0.75 then
   begin
-    Bank.Close();
-    DepositBox.Close();
+    if IsBank then
+      Bank.Close()
+    else
+      DepositBox.Close();
   end;
 end;
 
