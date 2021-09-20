@@ -1,10 +1,22 @@
 {
+  DraynorWillowChopper
+	Author: ineedbot
+	Date: 09/16/2021
+
+  Version: 1.0.0
+
+  Make sure to setup the configuration below.
+
   Script requires minimap orbs and XP counter to be visible at all times.
-  Also an uninterupted zoom level.
-  Also the GAME chat being visible and the chat scroll is at the bottom
-  Also make sure the camera pitch is the highest
-  
-  TODO credit, document and comment
+  An uninterupted zoom level, GAME chat visible and the chat scrolled to the bottom.
+  As well as the camera pitch to remain at the highest at all times.
+
+  You can start anywhere as it will Webwalk to Draynor.
+  Make sure to have an axe (equipped or not) and a tinderbox if you plan on lighting fires.
+
+  Do note that lower combat levels will agro the wizards.
+  You can lose agro by being the area (without leaving) for about 5 minutes.
+  WARNING: Lighting fires will make your character leave the area! So you will reagro the wizards.
 }
 
 program DraynorWillowChopper;
@@ -15,21 +27,29 @@ type
   TChopMode = (ChopDrop, ChopBank, ChopFire);
 
 const
-  DEBUGMODE      = False;
-  DRAWING        = False;
-  MSWALKING      = False;
-  DOREPORTS      = True;
-  SHIFTDROP      = True;
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = True;  // Do proggies onto the console?
+  SHIFTDROP      = True;  // Use shift for dropping? WARNING False IS NOT YET IMPLEMENTED
   
-  TAKEBREAKS     = True;
+  TAKEBREAKS     = True;  // Take breaks?
+
+  // One of 'ChopDrop', 'ChopBank' or 'ChopFire'
+  // What should we do with the logs? Drop them? Bank them? Or light them?
   CHOPMODE       = ChopFire;
   
+  // Account details
   _USERNAME       = '';
   _PASSWORD       = '';
   _PIN            = '';
   _WORLDS         = [-1];
-  TOTALRUNTIME    = 600;
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
   
+
+  // Configuration complete!
+  // Below is script stuff
+
   DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];
   
