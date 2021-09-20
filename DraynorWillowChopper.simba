@@ -1,6 +1,8 @@
 {
   Script requires minimap orbs and XP counter to be visible at all times.
   Also an uninterupted zoom level.
+  Also the GAME chat being visible and the chat scroll is at the bottom
+  Also make sure the camera pitch is the highest
   
   TODO credit, document and comment
 }
@@ -14,13 +16,13 @@ type
 
 const
   DEBUGMODE      = False;
-  DRAWING        = True;
+  DRAWING        = False;
   MSWALKING      = False;
   DOREPORTS      = True;
   SHIFTDROP      = True;
   
   TAKEBREAKS     = True;
-  CHOPMODE       = ChopBank;
+  CHOPMODE       = ChopFire;
   
   _USERNAME       = '';
   _PASSWORD       = '';
@@ -40,11 +42,12 @@ type
     Status                                                    : String;
     Running, DidLogin, WalkedTreeForward                      : Boolean;
     SleepRate, ChopWaitTime, LogsDone, BaseMouseSpeed,
-      HPPerc, ReportRate, DrawRate, WalkedTree,               
+      HPPerc, ReportRate, DrawRate, WalkedTree, FireWaitTime,              
       LastWalkedTree                                          : Int32;
     RSW                                                       : TRSWalker;
+    TinderItem                                                : TRSItem;
     LogItems, ToolItems                                       : TRSItemArray;
-    TreeOptions                                               : TStringArray;
+    TreeOptions, NoLightText                                  : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
     BankColor                                                 : TRSObjectFinder;
     TreeColor: record
@@ -404,7 +407,8 @@ begin
   if Chat.LeveledUp() then
   begin
     Wait(0, 2500);
-    Chat.ClickContinue();
+    while Chat.ClickContinue() do
+      Wait(75, 500);
   end;
   
   // check if we gained xp, failsafe
@@ -510,6 +514,23 @@ end;
 function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
 begin
   Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
+end;
+
+function String.IsInString(A: TStringArray): Boolean;
+var
+  I: Int32;
+begin
+  for I := 0 to High(A) do
+      if (A[I] in Self) or (A[I] = Self) then
+        Exit(True);
+end;
+
+function TRSInventory.WaitChange(Count: Int32; WaitTime: Int32; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  Result := WaitUntil(Self.Count() <> Count, Interval, WaitTime);
 end;
 
 {
@@ -1152,6 +1173,203 @@ begin
 end;
 
 {
+  Waits for the fire to be created, when it is returns true
+}
+function TScript.WaitFireCreated(XP: Int32): Boolean;
+var
+  FireTimeout: TCountdown;
+begin
+  // init the stuff for waiting for the fire to be lit
+  FireTimeout.Init(Self.FireWaitTime);
+  while RSClient.IsLoggedIn() and not FireTimeout.IsFinished() do
+  begin
+    // check for level ups
+    if Chat.LeveledUp() then
+    begin
+      while Chat.ClickContinue() do
+        Wait(75, 500);
+      Exit(True);
+    end;
+      
+    // did we gain xp? if so then the fire is lit!
+    if Self.ReadXPBar() > XP then
+      Exit(True);
+    
+    Wait(Self.SleepRate);
+  end;
+end;
+
+{
+  Waits for the log to placed onto the ground
+}
+function TScript.WaitPlaceLog(InvCount: Int32): Boolean;
+var
+  S: String;
+  InvCountTimeout: TCountdown;
+begin
+  InvCountTimeout.Init(2500 + Random(1000));
+  while RSClient.IsLoggedIn() and not InvCountTimeout.IsFinished() do
+  begin
+    // do we have a smaller bag?
+    // then the log must be on the ground
+    if Inventory.Count() < InvCount then
+      Exit(True);
+  
+    // check for the message if we cannot light a fire
+    // so make sure the GAME chat is visible and chat is scrolled to the bottom
+    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
+    if S.IsInString(Self.NoLightText) then
+      Exit(False);
+      
+    Wait(Self.SleepRate);
+  end;
+end;
+
+{
+  Does a fire chain until it can't
+}
+procedure TScript.LightLogs();
+var
+  TinderBoxSlot, i, XP, CurLogs, CurSelectedItem, CurHoveredItem, Idx, NextLog,
+    CurInvCount: Int32;
+  LogSlots, Pattern: TIntegerArray;
+  R: Extended;
+begin
+  // make sure we have logs and a tinderbox
+  if not Inventory.FindItem(Self.TinderItem, TinderBoxSlot) then
+    Exit();
+    
+  if not Inventory.FindItems(Self.LogItems, LogSlots) then
+    Exit();
+    
+  // make sure we can see the xp counter
+  XP := Self.ReadXPBar();
+  if XP = -1 then
+    Exit();
+    
+  // randomize the pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+    
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+    
+  // remove all slots that are not a log
+  for i:=High(Pattern) downto Low(Pattern) do
+    if LogSlots.Find(i) = -1 then
+      Pattern.Remove(i);
+  
+  // start lighting the logs
+  CurLogs := LogSlots.Len();
+  
+  for Idx:=Low(Pattern) to High(Pattern) do
+  begin
+    i := Pattern[Idx];
+    
+    if not RSClient.IsLoggedIn() then
+      break;
+      
+    CurSelectedItem := Inventory.GetSelectedSlot();
+    CurHoveredItem := Inventory.PointToSlot(Mouse.Position());
+    CurInvCount := Inventory.Count();
+    XP := Self.ReadXPBar();
+    
+    // Start lighting the fire...
+    // are we hovering over a log?
+    // TODO randomize
+    if i = CurHoveredItem then
+    begin
+      // is the selected item a tinderbox?
+      if CurSelectedItem = TinderBoxSlot then
+        Mouse.Click(MOUSE_LEFT) // then click and start the fire.
+      else
+      begin
+        // we need to select this slot then
+        Inventory.SetSelectedSlot(CurHoveredItem);
+        
+        // start the fire now!
+        Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
+      end;
+    end
+    // are we hovering over the tinderbox?
+    else if CurHoveredItem = TinderBoxSlot then
+    begin
+      // is the selected item a log?
+      if CurSelectedItem = i then
+        Mouse.Click(MOUSE_LEFT) // click and start the fire
+      else
+      begin
+        // we need to select this slot then...
+        Inventory.SetSelectedSlot(TinderBoxSlot);
+        
+        // start the fire
+        Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
+      end;
+    end
+    else
+    begin
+      if Random() > 0.5 then
+      begin
+        Inventory.SetSelectedSlot(i);
+        Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
+      end
+      else
+      begin
+        Inventory.SetSelectedSlot(TinderBoxSlot);
+        Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
+      end;
+    end;
+    
+    // wait for the log to be placed
+    if not Self.WaitPlaceLog(CurInvCount) then
+      break;
+    
+    // fires should be starting... lets prepare for next action if needed
+    // TODO randomize
+    if Idx < High(Pattern) then
+    begin
+      CurHoveredItem := Inventory.PointToSlot(Mouse.Position());
+      NextLog := Pattern[Idx + 1];
+      
+      // Check if select tinderbox and hover over next log
+      if CurHoveredItem = TinderBoxSlot then
+      begin
+        // select tinder, hover next log
+        Inventory.SetSelectedSlot(TinderBoxSlot);
+        Mouse.Move(Inventory.GetSlotBox(NextLog));
+      end
+      else
+      begin
+        // select nextlog, hover tinder
+        Inventory.SetSelectedSlot(NextLog);
+        Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
+      end;
+    end;
+    
+    // wait for the fire to be created
+    if not Self.WaitFireCreated(XP) then
+      break;
+  end;
+  
+  if RSClient.IsLoggedIn() then
+  begin
+    // count how many logs we burnt
+    LogSlots.Clear();
+    Inventory.FindItems(Self.LogItems, LogSlots);
+    // update how many logs we completed chopping
+    Self.LogsDone += CurLogs - LogSlots.Len();
+  end;
+end;
+
+{
   Start burning the logs to get rid of them
 }
 procedure TScript.FireItems();
@@ -1290,10 +1508,13 @@ begin
   // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
-  Self.ToolItems := ['Tinderbox', 'Rune axe', 'Dragon axe', 'Bronze axe',
+  Self.TinderItem := 'Tinderbox';
+  Self.NoLightText := ['You can''t light a fire here.'];
+  Self.ToolItems := [Self.TinderItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
     'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
     'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
   Self.ChopWaitTime := 10000;
+  Self.FireWaitTime := 10000;
   Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
   with Self.TreeColor do
   begin
