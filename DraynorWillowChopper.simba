@@ -43,12 +43,16 @@ type
     Running, DidLogin, WalkedTreeForward                      : Boolean;
     SleepRate, ChopWaitTime, LogsDone, BaseMouseSpeed,
       HPPerc, ReportRate, DrawRate, WalkedTree, FireWaitTime,              
-      LastWalkedTree                                          : Int32;
+      LastWalkedTree, FiredTile                               : Int32;
     RSW                                                       : TRSWalker;
     TinderItem                                                : TRSItem;
     LogItems, ToolItems                                       : TRSItemArray;
     TreeOptions, NoLightText                                  : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
+    FireStartTiles: array of record
+      Tile                                                    : TPoint;
+      NumFires                                                : Int32;
+    end;
     BankColor                                                 : TRSObjectFinder;
     TreeColor: record
       RSObject                                                : TRSObjectFinder;
@@ -540,6 +544,22 @@ function TIntegerArray.Clear(): Boolean;
 begin
   SetLength(Self, 0);
   Exit(True);
+end;
+
+procedure TAntiBan.PauseAllTasks();
+var
+  I: Int32;
+begin
+  for I := 0 to High(Self.Tasks) do
+    Self.Tasks[I].Countdown.Pause();
+end;
+
+procedure TAntiBan.ResumeAllTasks();
+var
+  I: Int32;
+begin
+  for I := 0 to High(Self.Tasks) do
+    Self.Tasks[I].Countdown.Resume();
 end;
 
 {
@@ -1180,6 +1200,7 @@ var
   FireTimeout: TCountdown;
 begin
   // init the stuff for waiting for the fire to be lit
+  Self.SetStatus('Waiting for the fire to be lit...');
   FireTimeout.Init(Self.FireWaitTime);
   while RSClient.IsLoggedIn() and not FireTimeout.IsFinished() do
   begin
@@ -1188,6 +1209,8 @@ begin
     begin
       while Chat.ClickContinue() do
         Wait(75, 500);
+        
+      Wait(2000 + Random(1000));
       Exit(True);
     end;
       
@@ -1207,6 +1230,7 @@ var
   S: String;
   InvCountTimeout: TCountdown;
 begin
+  Self.SetStatus('Waiting for the log to place...');
   InvCountTimeout.Init(2500 + Random(1000));
   while RSClient.IsLoggedIn() and not InvCountTimeout.IsFinished() do
   begin
@@ -1228,12 +1252,13 @@ end;
 {
   Does a fire chain until it can't
 }
-procedure TScript.LightLogs();
+function TScript.LightLogs(NumLights: Int32 = 27): Boolean;
 var
   TinderBoxSlot, i, XP, CurLogs, CurSelectedItem, CurHoveredItem, Idx, NextLog,
     CurInvCount: Int32;
   LogSlots, Pattern: TIntegerArray;
   R: Extended;
+  //CurPos, Pos: TPoint;
 begin
   // make sure we have logs and a tinderbox
   if not Inventory.FindItem(Self.TinderItem, TinderBoxSlot) then
@@ -1257,18 +1282,23 @@ begin
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
     
   // randomly chop it off for extra antiban
-  if SRL.Dice(20) then
+  {if SRL.Dice(20) then
     SetLength(Pattern, Random(Length(Pattern)));
   if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));
+    Pattern := Copy(Pattern, Random(Length(Pattern)));}
     
   // remove all slots that are not a log
   for i:=High(Pattern) downto Low(Pattern) do
     if LogSlots.Find(i) = -1 then
       Pattern.Remove(i);
+      
+  // trim to the limit param
+  if Pattern.Len() > NumLights then
+    SetLength(Pattern, NumLights);
   
   // start lighting the logs
   CurLogs := LogSlots.Len();
+  // CurPos := Self.RSW.GetMyPos();
   
   for Idx:=Low(Pattern) to High(Pattern) do
   begin
@@ -1277,10 +1307,19 @@ begin
     if not RSClient.IsLoggedIn() then
       break;
       
+    // check if we moved right
+    // sometimes inaccurate or unreliable
+    // using the NumLights is enough
+    {Pos := Self.RSW.GetMyPos();
+    if Pos.X - 1 > CurPos.X + 2 then
+      break; // then the fire chain must be maxxed.
+    CurPos := Pos;}
+      
     CurSelectedItem := Inventory.GetSelectedSlot();
     CurHoveredItem := Inventory.PointToSlot(Mouse.Position());
     CurInvCount := Inventory.Count();
     XP := Self.ReadXPBar();
+    Self.SetStatus('Lighting the fire...');
     
     // Start lighting the fire...
     // are we hovering over a log?
@@ -1316,15 +1355,24 @@ begin
     end
     else
     begin
-      if Random() > 0.5 then
-      begin
-        Inventory.SetSelectedSlot(i);
-        Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
-      end
+      // is the selection a log?
+      if CurSelectedItem = i then
+        Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT)
+      // is it the tinder?
+      else if CurSelectedItem = TinderBoxSlot then
+        Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT)
       else
       begin
-        Inventory.SetSelectedSlot(TinderBoxSlot);
-        Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
+        if Random() > 0.5 then
+        begin
+          Inventory.SetSelectedSlot(i);
+          Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
+        end
+        else
+        begin
+          Inventory.SetSelectedSlot(TinderBoxSlot);
+          Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
+        end;
       end;
     end;
     
@@ -1361,20 +1409,101 @@ begin
   
   if RSClient.IsLoggedIn() then
   begin
+    // return if we completed the entire fire chain
+    Result := (Idx > High(Pattern));
+  
     // count how many logs we burnt
     LogSlots.Clear();
     Inventory.FindItems(Self.LogItems, LogSlots);
     // update how many logs we completed chopping
     Self.LogsDone += CurLogs - LogSlots.Len();
   end;
+  
+  Self.WriteMsg('Logs lit... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
 end;
 
 {
   Start burning the logs to get rid of them
 }
 procedure TScript.FireItems();
+var
+  OurPos, FirePos: TPoint;
+  Timeout: TCountdown;
+  NumLights: Int32;
 begin
-  // TODO complete
+  // make sure we have logs and a tinderbox
+  if not Inventory.FindItem(Self.TinderItem) then
+    Exit();
+    
+  if not Inventory.FindItems(Self.LogItems) then
+    Exit();
+  
+  // pause antiban so tasks won't 100% run once we are done
+  Antiban.PauseAllTasks();
+  Minimap.SetCompassAngle(0, 20);
+  
+  // TODO use color to detect existing fires on lanes?
+  
+  FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
+  NumLights := Self.FireStartTiles[Self.FiredTile].NumFires;
+  
+  // Go to the starting fire tile
+  OurPos := Self.RSW.GetMyPos();
+  
+  if OurPos.DistanceTo(FirePos) >= 32 then
+  begin
+    Self.SetStatus('Walking to starting fire tile...');
+    Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandom());
+  end;
+    
+  // make sure that we are on the tile..
+  Timeout.Init(15000);
+  while RSClient.IsLoggedIn() and not Timeout.IsFinished() do
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    if OurPos.DistanceTo(FirePos) >= 3 then
+    begin
+      Self.SetStatus('Going on top of the fire starting tile...');
+      Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)), MOUSE_LEFT);
+      Self.RSW.WaitMoving(FirePos, 0);
+    end
+    else
+      break;
+  end;
+  
+  // check if we are on the tile
+  OurPos := Self.RSW.GetMyPos();
+  if OurPos.DistanceTo(FirePos) >= 3 then
+    Exit();
+    
+  // start the fire chain
+  // if a fire chain does not complete successfully, we go to the next one...
+  if not Self.LightLogs(NumLights) then
+  begin
+    Self.SetStatus('Didn''t complete the fire chain! Next time trying different lane...');
+    Self.FiredTile += 1;
+  end;
+  
+  // make sure to rollover
+  if Self.FiredTile > High(Self.FireStartTiles) then
+    Self.FiredTile := 0;
+    
+  // resume the antiban tasks
+  Antiban.ResumeAllTasks();
+  
+  // check if we still have logs
+  if Inventory.FindItems(Self.LogItems) then
+  begin
+    // check if we are closer to the firetile than the trees
+    OurPos := Self.RSW.GetMyPos();
+    FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
+    // lets keep lighting fires as its closer
+    if OurPos.DistanceTo(FirePos) < OurPos.DistanceTo(Self.TreeTiles.Mean()) then
+    begin
+      Self.SetStatus('We still have logs and trees are far, lets keep lighting...');
+      Self.FireItems();
+    end;
+  end;
 end;
 
 {
@@ -1515,6 +1644,8 @@ begin
     'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
   Self.ChopWaitTime := 10000;
   Self.FireWaitTime := 10000;
+  Self.FireStartTiles := [[Point(4216, 3492), 23], [Point(4216, 3496), 18],
+    [Point(4216, 3500), 18], [Point(4252, 3508), 22], [Point(4274, 3512), 27]];
   Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
   with Self.TreeColor do
   begin
