@@ -101,9 +101,14 @@ begin
   Result := Trunc(2*n * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp)));
 end;
 
-function BioRandom(): Double;
+function BioRandomFixed(): Double;
 begin
   Result := Bot.AntiBanEnergy.BioHash;
+end;
+
+function BioRandomCoinFlip(): Boolean;
+begin
+  Result := Random() > BioRandomFixed();
 end;
 
 function PerformanceTimer(): Double; override;
@@ -905,7 +910,7 @@ begin
   begin
     Self.SetStatus('Going to trees...');
     try
-      Walked := Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
+      Walked := Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandomFixed());
     except
     end;
     
@@ -995,7 +1000,7 @@ begin
   begin
     Self.SetStatus('Going to bank...');
     try
-      Walked := Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandom());
+      Walked := Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandomFixed());
     except
     end;
     
@@ -1293,7 +1298,7 @@ begin
     if Self.ReadXPBar() > XP then
       Exit(True);
     
-    Wait(Self.SleepRate);
+    Self.DoMainLoopStuff('', False);
   end;
 end;
 
@@ -1318,9 +1323,9 @@ begin
     // so make sure the GAME chat is visible and chat is scrolled to the bottom
     S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
     if S.IsInString(Self.NoLightText) then
-      Exit(False);
+      Exit(False); // what happens if the text is there from before, and chat never moves?
       
-    Wait(Self.SleepRate);
+    Self.DoMainLoopStuff('', False);
   end;
 end;
 
@@ -1498,39 +1503,29 @@ begin
 end;
 
 {
-  Start burning the logs to get rid of them
+  Goes to the fire tile.
+  Returns true if we are on the tile exactly
 }
-procedure TScript.FireItems();
+function TScript.GoToFireStart(Force: Boolean = False): Boolean;
 var
   OurPos, FirePos: TPoint;
   Timeout: TCountdown;
-  NumLights: Int32;
-  Walked: Boolean;
+  Walked, DidMSClick: Boolean;
+  TileRect: TRectangle;
 begin
-  // make sure we have logs and a tinderbox
-  if not Inventory.FindItem(Self.TinderItem) then
-    Exit();
-    
-  if not Inventory.FindItems(Self.LogItems) then
-    Exit();
-  
-  // pause antiban so tasks won't 100% run once we are done
-  Antiban.PauseAllTasks();
   // Minimap.SetCompassAngle(0);
+  OurPos := Self.RSW.GetMyPos();
   
   // TODO use color to detect existing fires on lanes?
   
   FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
-  NumLights := Self.FireStartTiles[Self.FiredTile].NumFires;
   
   // Go to the starting fire tile
-  OurPos := Self.RSW.GetMyPos();
-  
-  if OurPos.DistanceTo(FirePos) >= 32 then
+  if (OurPos.DistanceTo(FirePos) >= 32) or Force then
   begin
     Self.SetStatus('Walking to starting fire tile...');
     try
-      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandom());
+      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandomFixed());
     except
     end;
     
@@ -1549,45 +1544,101 @@ begin
     if OurPos.DistanceTo(FirePos) >= 3 then
     begin
       Self.SetStatus('Going on top of the fire starting tile...');
-      Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)), MOUSE_LEFT);
-      Self.RSW.WaitMoving(FirePos, 0);
+      
+      // TODO randomize
+      if DidMSClick then
+        // use MM, it is more accurate!
+        Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)), MOUSE_LEFT)
+      else
+      begin
+        // try mainscreen, it maybe inaccurate
+        DidMSClick := True;
+        
+        TileRect := Self.RSW.GetTileMSEx(OurPos, FirePos);
+        
+        if not MainScreen.IsVisible(TileRect.Mean()) then
+          continue;
+        
+        Mouse.Move(TileRect);
+        
+        // TODO check for fire with uptext/options?
+        if MainScreen.IsUpText('Walk here') then
+          Mouse.Click(MOUSE_LEFT)
+        else
+          ChooseOption.Select('Walk here');
+      end;
+      
+      Minimap.WaitFlag();
+      Minimap.WaitPlayerMoving();
     end
     else
+    begin
+      Result := True;
       break;
+    end;
   end;
+end;
+
+{
+  Start burning the logs to get rid of them
+}
+function TScript.TryFireItems(): Boolean;
+begin
+  // make sure we have logs and a tinderbox
+  if not Inventory.FindItem(Self.TinderItem) or not Inventory.FindItems(Self.LogItems) then
+    Exit(True);
   
-  // check if we are on the tile
-  OurPos := Self.RSW.GetMyPos();
-  if OurPos.DistanceTo(FirePos) >= 3 then
+  // try go to the fire
+  if not Self.GoToFireStart() then
     Exit();
+    
+  // pause antiban so tasks won't 100% run once we are done
+  Antiban.PauseAllTasks();
     
   // start the fire chain
   // if a fire chain does not complete successfully, we go to the next one...
-  if not Self.LightLogs(NumLights) then
-  begin
-    Self.SetStatus('Didn''t complete the fire chain! Next time trying different lane...');
-    Self.FiredTile += 1;
-  end;
+  Result := Self.LightLogs(Self.FireStartTiles[Self.FiredTile].NumFires);
   
-  // make sure to rollover
-  if Self.FiredTile > High(Self.FireStartTiles) then
-    Self.FiredTile := 0;
-    
   // resume the antiban tasks
   Antiban.ResumeAllTasks();
-  
-  // check if we still have logs
-  if Inventory.FindItems(Self.LogItems) then
+end;
+
+{
+  Will try to light logs on fire
+}
+procedure TScript.FireItems();
+var
+  OurPos, FirePos: TPoint;
+begin
+  while RSClient.IsLoggedIn() do
   begin
-    // check if we are closer to the firetile than the trees
-    OurPos := Self.RSW.GetMyPos();
-    FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
-    // lets keep lighting fires as its closer
-    if OurPos.DistanceTo(FirePos) < OurPos.DistanceTo(Self.TreeTiles.Mean()) then
+    if not Self.TryFireItems() then
     begin
-      Self.SetStatus('We still have logs and trees are far, lets keep lighting...');
-      Self.FireItems();
+      Self.SetStatus('Trying a different fire lane...');
+      Self.WriteMsg('Trying a different fire lane...');
+    
+      Self.FiredTile += 1;
+      if Self.FiredTile > High(Self.FiredTile) then
+        Self.FiredTile := 0;
     end;
+    
+    // check if we still have logs
+    if Inventory.FindItem(Self.TinderItem) and Inventory.FindItems(Self.LogItems) then
+    begin
+      // check if we are closer to the firetile than the trees
+      OurPos := Self.RSW.GetMyPos();
+      FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
+      // lets keep lighting fires as its closer
+      if OurPos.DistanceTo(FirePos) < OurPos.DistanceTo(Self.TreeTiles.Mean()) then
+      begin
+        Self.SetStatus('We still have logs and trees are far, lets keep lighting...');
+        continue;
+      end
+      else
+        break;
+    end
+    else
+      break;
   end;
 end;
 
@@ -1691,7 +1742,7 @@ begin
   
   Self.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   
-  Mouse.Speed             := 15 + Round(BioRandom() * 10) + Random(-2, 2);
+  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Self.BaseMouseSpeed := Mouse.Speed;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.999;
