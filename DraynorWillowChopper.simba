@@ -1,7 +1,7 @@
 {
   DraynorWillowChopper
-	Author: ineedbot
-	Date: 09/16/2021
+  Author: ineedbot
+  Date: 09/16/2021
 
   Version: 1.0.0
 
@@ -1329,7 +1329,8 @@ end;
 }
 function TScript.WaitPlaceLog(InvCount: Int32): Boolean;
 var
-  //S: String;
+  S: String;
+  TinderBoxSlot: Int32;
   InvCountTimeout: TCountdown;
 begin
   Self.SetStatus('Waiting for the log to place...');
@@ -1343,9 +1344,15 @@ begin
   
     // check for the message if we cannot light a fire
     // so make sure the GAME chat is visible and chat is scrolled to the bottom
-    {S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
+    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
     if S.IsInString(Self.NoLightText) then
-      Exit(False);} // what happens if the text is there from before, and chat never moves?
+    begin
+      // Push the GAME chat so it doesnt false positive next time
+      Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
+      Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
+      ChooseOption.Select('Examine');
+      Exit(False);
+    end;
       
     Self.DoMainLoopStuff('', False);
   end;
