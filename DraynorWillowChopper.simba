@@ -15,7 +15,7 @@
   Make sure to have an axe (equipped or not) and a tinderbox if you plan on lighting fires.
 
   Do note that lower combat levels will agro the wizards.
-  You can lose agro by being the area (without leaving) for about 5 minutes.
+  You can lose agro by being the area (without leaving) for about 10 minutes.
   WARNING: Lighting fires will make your character leave the area! So you will reagro the wizards.
 }
 
@@ -32,6 +32,7 @@ const
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = True;  // Do proggies onto the console?
   SHIFTDROP      = True;  // Use shift for dropping? WARNING False IS NOT YET IMPLEMENTED
+  USESPEC        = False; // Use the special attack when it can.
   
   TAKEBREAKS     = True;  // Take breaks?
 
@@ -387,6 +388,21 @@ begin
     Self.Stop('No XP gain in 3 minutes');
 end;
 
+procedure TScript.CheckSpec();
+begin
+  if not USESPEC then
+    Exit();
+    
+  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle) >= 100 then
+  begin
+    Self.WriteMsg('Special attack boosting');
+    
+    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
+    
+    Wait(1000 + Random(1000));
+  end;
+end;
+
 procedure TScript.Stop(Reason: String = ''); forward;
 procedure TScript.SetStatus(S: String); forward;
 procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False); forward;
@@ -437,6 +453,10 @@ begin
   
   // check if we gained xp, failsafe
   Self.CheckActivity();
+  
+  // TODO randomize
+  Self.CheckSpec();
+  
   // TODO check for interfaces if opened... close em
     
   // general antiban
@@ -690,11 +710,24 @@ end;
   Does the proggy report to the console window
 }
 procedure TScript.ReportConsole();
+var
+  WriteOut: String;
 begin
   if not Self.ReportCounter.IsFinished() then
     Exit();
     
   Self.ReportCounter.Restart();
+  WriteOut := '';
+  
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Self.TrueRunTime.ElapsedTime(), Time_Short) + #13#10;
+  WriteOut += 'Status: ' + Self.Status + #13#10;
+  WriteOut += 'Energy: ' + ToStr(Self.AntiBanEnergy.EnergyLevel(Antiban)) + #13#10;
+  WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + #13#10;
+  WriteOut += 'Time until break: ' + Antiban.TimeUntilBreak(Antiban.Breaks[0]) + #13#10;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Self.ShutdownTime - GetTimeRunning(), Time_Short) + #13#10;
+  
+  ClearDebug();
+  Writeln(WriteOut);
 end;
 
 {
@@ -857,6 +890,8 @@ end;
   Walks to the trees
 }
 procedure TScript.GoToTrees(Force: Boolean = False);
+var
+  Walked: Boolean;
 begin
   // tree traversal algorithm
   // we will remember what tree we are currently at
@@ -869,7 +904,16 @@ begin
   if (Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30) or Force then
   begin
     Self.SetStatus('Going to trees...');
-    Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
+    try
+      Walked := Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandom());
+    except
+    end;
+    
+    if not Walked then
+    begin
+      Self.WriteMsg('Failed to go to trees');
+      Exit();
+    end;
   end;
     
   // set the 'next' tree...
@@ -944,11 +988,22 @@ end;
   Walks to the bank tiles
 }
 procedure TScript.GoToBank(Force: Boolean = False);
+var
+  Walked: Boolean;
 begin
   if (Self.RSW.GetMyPos().DistanceTo(Self.BankTiles.Mean()) > 30) or Force then
   begin
     Self.SetStatus('Going to bank...');
-    Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandom());
+    try
+      Walked := Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandom());
+    except
+    end;
+    
+    if not Walked then
+    begin
+      Self.WriteMsg('Failed to go to bank!');
+      Exit();
+    end;
   end;
 end;
 
@@ -1450,6 +1505,7 @@ var
   OurPos, FirePos: TPoint;
   Timeout: TCountdown;
   NumLights: Int32;
+  Walked: Boolean;
 begin
   // make sure we have logs and a tinderbox
   if not Inventory.FindItem(Self.TinderItem) then
@@ -1460,7 +1516,7 @@ begin
   
   // pause antiban so tasks won't 100% run once we are done
   Antiban.PauseAllTasks();
-  Minimap.SetCompassAngle(0, 20);
+  // Minimap.SetCompassAngle(0);
   
   // TODO use color to detect existing fires on lanes?
   
@@ -1473,7 +1529,16 @@ begin
   if OurPos.DistanceTo(FirePos) >= 32 then
   begin
     Self.SetStatus('Walking to starting fire tile...');
-    Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandom());
+    try
+      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandom());
+    except
+    end;
+    
+    if not Walked then
+    begin
+      Self.WriteMsg('Failed to walk to fire pos');
+      Exit();
+    end;
   end;
     
   // make sure that we are on the tile..
@@ -1618,8 +1683,8 @@ begin
 
   Self.Running := True;
   Self.SleepRate := 75;
-  Self.DrawRate := 1000;
-  Self.ReportRate := 500;
+  Self.DrawRate := 2500;
+  Self.ReportRate := 2500;
   Self.Activity.Countdown.Init(180000);
   
   Self.RSW.Setup('world');
