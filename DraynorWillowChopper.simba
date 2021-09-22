@@ -70,6 +70,7 @@ type
     LogItems, ToolItems                                       : TRSItemArray;
     TreeOptions, NoLightText                                  : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
+    TreeWalkTile, BankWalkTile                                : TPoint;
     FireStartTiles: array of record
       Tile                                                    : TPoint;
       NumFires                                                : Int32;
@@ -896,6 +897,7 @@ end;
 }
 procedure TScript.GoToTrees(Force: Boolean = False);
 var
+  Where: TPoint;
   Walked: Boolean;
 begin
   // tree traversal algorithm
@@ -906,11 +908,15 @@ begin
 
   // go to the 'next' tree
   Self.SetStatus('Found no trees...');
-  if (Self.RSW.GetMyPos().DistanceTo(Self.TreeTiles[Self.WalkedTree]) > 30) or Force then
+  Where := Self.TreeTiles[Self.WalkedTree];
+  if Force then
+    Where := Self.TreeWalkTile;
+  
+  if (Self.RSW.GetMyPos().DistanceTo(Where) > 30) or Force then
   begin
     Self.SetStatus('Going to trees...');
     try
-      Walked := Self.RSW.WebWalk(Self.TreeTiles[Self.WalkedTree].Random(-10, 10), 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(Where.Random(-6, 6), 0, BioRandomFixed());
     except
     end;
     
@@ -922,7 +928,7 @@ begin
   end;
     
   // set the 'next' tree...
-  if Self.TreeTiles.Len() > 1 then
+  if (Self.TreeTiles.Len() > 1) and not Force then
   begin
     if Self.WalkedTreeForward then
     begin
@@ -996,11 +1002,11 @@ procedure TScript.GoToBank(Force: Boolean = False);
 var
   Walked: Boolean;
 begin
-  if (Self.RSW.GetMyPos().DistanceTo(Self.BankTiles.Mean()) > 30) or Force then
+  if (Self.RSW.GetMyPos().DistanceTo(Self.BankWalkTile) > 30) or Force then
   begin
     Self.SetStatus('Going to bank...');
     try
-      Walked := Self.RSW.WebWalk(Self.BankTiles.Mean().Random(-10, 10), 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-4, 4), 0, BioRandomFixed());
     except
     end;
     
@@ -1270,6 +1276,9 @@ begin
     // it is now open! lets deposit
     Self.DepositItems();
   end;
+  
+  // Lets go to the trees
+  Self.GoToTrees(True);
 end;
 
 {
@@ -1783,6 +1792,7 @@ begin
   Self.FireStartTiles := [[Point(4216, 3492), 23], [Point(4216, 3496), 18],
     [Point(4216, 3500), 18], [Point(4252, 3508), 22], [Point(4274, 3512), 27]];
   Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
+  Self.TreeWalkTile := Point(4148, 3496);
   with Self.TreeColor do
   begin
     RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08); // bright side of the tree
@@ -1794,6 +1804,7 @@ begin
   end;
   
   Self.BankTiles := [Point(4174, 3468)];
+  Self.BankWalkTile := Point(4178, 3468);
   Self.BankColor.Colors += CTS2(6251626, 3, 1.29, 0.97);
   Self.BankColor.Colors +=  CTS2(1069415, 2, 0.07, 1.23);
   Self.BankColor.Erode := 2;
