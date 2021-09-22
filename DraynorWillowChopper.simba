@@ -375,6 +375,9 @@ begin
   Result := XPBar.Read();
 end;
 
+{
+  Checks to see failsafe xp gain
+}
 function TScript.CheckActivity(): Boolean;
 var
   XP: Int32;
@@ -394,6 +397,9 @@ begin
     Self.Stop('No XP gain in 3 minutes');
 end;
 
+{
+  Enables special attack
+}
 procedure TScript.CheckSpec();
 begin
   if not USESPEC then
@@ -1275,10 +1281,10 @@ begin
   begin
     // it is now open! lets deposit
     Self.DepositItems();
+    
+    // Lets go to the trees
+    Self.GoToTrees(True);
   end;
-  
-  // Lets go to the trees
-  Self.GoToTrees(True);
 end;
 
 {
@@ -1791,7 +1797,8 @@ begin
   Self.FireWaitTime := 10000;
   Self.FireStartTiles := [[Point(4216, 3492), 23], [Point(4216, 3496), 18],
     [Point(4216, 3500), 18], [Point(4252, 3508), 22], [Point(4274, 3512), 27]];
-  Self.TreeTiles := [Point(4144, 3496), Point(4152, 3504)];
+  Self.TreeTiles := [Point(4144, 3498), Point(4152, 3504), Point(4164, 3508),
+    Point(4158, 3520), Point(4162, 3536)];
   Self.TreeWalkTile := Point(4148, 3496);
   with Self.TreeColor do
   begin
