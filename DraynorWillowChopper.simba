@@ -903,7 +903,7 @@ end;
 }
 procedure TScript.GoToTrees(Force: Boolean = False);
 var
-  Where: TPoint;
+  Where, OurPos: TPoint;
   Walked: Boolean;
 begin
   // tree traversal algorithm
@@ -914,11 +914,14 @@ begin
 
   // go to the 'next' tree
   Self.SetStatus('Found no trees...');
+  OurPos := Self.RSW.GetMyPos();
   Where := Self.TreeTiles[Self.WalkedTree];
   if Force then
     Where := Self.TreeWalkTile;
   
-  if (Self.RSW.GetMyPos().DistanceTo(Where) > 30) or Force then
+  if (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) or
+    Force then
   begin
     Self.SetStatus('Going to trees...');
     try
@@ -1007,8 +1010,12 @@ end;
 procedure TScript.GoToBank(Force: Boolean = False);
 var
   Walked: Boolean;
+  OurPos: TPoint;
 begin
-  if (Self.RSW.GetMyPos().DistanceTo(Self.BankWalkTile) > 30) or Force then
+  OurPos := Self.RSW.GetMyPos();
+  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
+    Force then
   begin
     Self.SetStatus('Going to bank...');
     try
@@ -1322,11 +1329,11 @@ end;
 }
 function TScript.WaitPlaceLog(InvCount: Int32): Boolean;
 var
-  S: String;
+  //S: String;
   InvCountTimeout: TCountdown;
 begin
   Self.SetStatus('Waiting for the log to place...');
-  InvCountTimeout.Init(2500 + Random(1000));
+  InvCountTimeout.Init(2000 + Random(500));
   while RSClient.IsLoggedIn() and not InvCountTimeout.IsFinished() do
   begin
     // do we have a smaller bag?
@@ -1336,9 +1343,9 @@ begin
   
     // check for the message if we cannot light a fire
     // so make sure the GAME chat is visible and chat is scrolled to the bottom
-    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
+    {S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
     if S.IsInString(Self.NoLightText) then
-      Exit(False); // what happens if the text is there from before, and chat never moves?
+      Exit(False);} // what happens if the text is there from before, and chat never moves?
       
     Self.DoMainLoopStuff('', False);
   end;
@@ -1536,7 +1543,9 @@ begin
   FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
   
   // Go to the starting fire tile
-  if (OurPos.DistanceTo(FirePos) >= 32) or Force then
+  if (OurPos.DistanceTo(FirePos) >= 32) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, FirePos).Mean()) or
+    Force then
   begin
     Self.SetStatus('Walking to starting fire tile...');
     try
@@ -1633,8 +1642,10 @@ begin
       Self.WriteMsg('Trying a different fire lane...');
     
       Self.FiredTile += 1;
-      if Self.FiredTile > High(Self.FiredTile) then
-        Self.FiredTile := 0;
+      if Self.FiredTile > High(Self.FireStartTiles) then
+        Self.FiredTile := Low(Self.FireStartTiles);
+      if Self.FiredTile < Low(Self.FireStartTiles) then
+        Self.FiredTile := High(Self.FireStartTiles);
     end;
     
     // check if we still have logs
