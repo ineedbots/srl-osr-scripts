@@ -79,7 +79,11 @@ type
     TreeColor: record
       RSObject                                                : TRSObjectFinder;
       FilterSize                                              : Int32;
-      end;
+    end;
+    FireColor: record
+      RSObject                                                : TRSObjectFinder;
+      FilterSize                                              : Int32;
+    end;
     Activity: record
       XP                                                      : Int32;
       Countdown                                               : TCountDown;
@@ -572,6 +576,33 @@ begin
   Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
 end;
 
+function TRSChooseOption.HasOption(Text: TStringArray; CaseSensitive: Boolean = True; CloseIfNotFound: Boolean = True): Boolean;
+var
+  Choices: TRSChooseOption_OptionArray;
+  I, J: Int32;
+begin
+  if Self.Open() then
+  begin
+    Wait(0, 1000, wdLeft);
+
+    Choices := GetOptions();
+
+    for I := 0 to High(Choices) do
+      for J := 0 to High(Text) do
+        if (CaseSensitive and (Text[J] in Choices[I].Text)) or ((not CaseSensitive) and (Lowercase(Text[J]) in Lowercase(Choices[I].Text))) then
+        begin
+          Exit(True);
+        end;
+
+    if CloseIfNotFound then
+    begin
+      WaitEx(500, 250);
+
+      Self.Close();
+    end;
+  end;
+end;
+
 function String.IsInString(A: TStringArray): Boolean;
 var
   I: Int32;
@@ -667,14 +698,24 @@ begin
 end;
 
 {
+  Returns all fires in the area
+}
+function TScript.FindFireColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
+  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TScript.DebugDraw();
 var
   ATPA: T2DPointArray;
   TPA: TPointArray;
-  TreeTile, OurTile, BankTile: TPoint;
+  TreeTile, OurTile, BankTile, FireTile: TPoint;
   TileRect: TRectangle;
+  i: Int32;
 begin
   OurTile := Self.RSW.GetMyPos();
   for TreeTile in Self.TreeTiles do
@@ -694,6 +735,20 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
     
     ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * 1.15)).Bounds());
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA, clOrange);
+    end;
+    
+    RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+  
+  for i:=Low(Self.FireStartTiles) to High(Self.FireStartTiles) do
+  begin
+    FireTile := Self.FireStartTiles[i].Tile;
+    
+    TileRect := Self.RSW.GetTileMSEx(OurTile, FireTile);
+    
+    ATPA := Self.FindFireColor(TileRect{.Expand(Round(TileRect.Radius() * 1.15))}.Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clOrange);
     end;
@@ -1532,6 +1587,35 @@ begin
 end;
 
 {
+  Tries to find a fire at the location
+}
+function TScript.FindFire(PlayerPos: TPoint; FirePos: TPoint; out Circle: TCircle): Boolean;
+var
+  Tile: TRectangle;
+  B: TBox;
+  TPA: TPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  Tile := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
+
+  B := Tile{.Expand(Round(Tile.Radius() * 1.15))}.Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  // find the tree's colors in this tile
+  TPA := Self.FindFireColor(B).Biggest();
+
+  if Length(TPA) > Self.FireColor.FilterSize then
+  begin
+    Circle := TPA.MinAreaCircle();
+
+    // make sure the middle of the tile is inside!
+    Result := Tile.Contains(TPA.Mean());
+  end;
+end;
+
+{
   Goes to the fire tile.
   Returns true if we are on the tile exactly
 }
@@ -1541,13 +1625,14 @@ var
   Timeout: TCountdown;
   Walked, DidMSClick: Boolean;
   TileRect: TRectangle;
+  _: TCircle;
 begin
   // Minimap.SetCompassAngle(0);
   OurPos := Self.RSW.GetMyPos();
-  
-  // TODO use color to detect existing fires on lanes?
-  
   FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
+  
+  if Self.FindFire(OurPos, FirePos, _) then
+    Exit();
   
   // Go to the starting fire tile
   if (OurPos.DistanceTo(FirePos) >= 32) or
@@ -1592,7 +1677,10 @@ begin
         
         Mouse.Move(TileRect);
         
-        // TODO check for fire with uptext/options?
+        // check if a fire exists here
+        if MainScreen.IsUpText('options') and ChooseOption.HasOption(['Fire']) then
+          break;
+        
         if MainScreen.IsUpText('Walk here') then
           Mouse.Click(MOUSE_LEFT)
         else
@@ -1835,6 +1923,15 @@ begin
   Self.BankColor.Erode := 2;
   Self.BankColor.Grow := 2;
   Self.BankColor.ClusterDistance := 3;
+  
+  with Self.FireColor do
+  begin
+    RSObject.Colors += CTS2(16204, 2);
+    RSObject.ClusterDistance := 5;
+    RSObject.Grow := 2;
+    RSObject.Erode := 2;
+    FilterSize := 16;
+  end;
   
   // do login init stuff
   if RSClient.IsLoggedIn() then
