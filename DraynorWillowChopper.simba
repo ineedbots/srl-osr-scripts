@@ -1994,6 +1994,8 @@ begin
   Self.TrueRunTime.Start();
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
+
+  AddOnTerminate(@Bot.Free);
 end;
 
 {
@@ -2007,7 +2009,6 @@ end;
   Entry point, inits and starts the bot main loop.
 }
 begin
-  AddOnTerminate(@Bot.Free);
   Bot.Init();
   Bot.Run();
 end.
