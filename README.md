@@ -3,6 +3,17 @@ A collection of scripts for OSRS. Each script will have the same dependencies an
 
 Here is an up to date guide for installing the dependencies; https://villavu.com/forum/showthread.php?t=177730
 
+## In-Game Settings
+- Make sure that your XP Bar settings are like this:<br>
+![XPBar Settings](/assets/xpsetup.png)<
+- Make sure that Minimap Data Orbs are enabled:<br>
+![Data orbs settings](/assets/dataorbssettings.png)
+- If you are using resizable mode, make sure that transparent side panel setting is disabled:<br>
+![Transparent settings](/assets/transssidepanel.png)
+- Make sure that the GAME chat is visible (On or Filtered) and that the chat scroll bar is at the bottom:<br>
+![Chat settings](/assets/chatsettings.png)
+- Make sure that you never change the camera zoom level, and never change the camera's pitch while the script is running.
+
 ## Installation
 0. Make sure the dependencies are installed.
 1. While in Simba, open the packages menu.<br>
