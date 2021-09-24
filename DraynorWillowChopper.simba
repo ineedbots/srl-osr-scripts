@@ -424,7 +424,7 @@ begin
   if XP = -1 then
     Exit();
     
-  if XP > Self.Activity.XP then
+  if XP <> Self.Activity.XP then
   begin
     Self.Activity.XP := XP;
     Self.Activity.Countdown.Restart();
