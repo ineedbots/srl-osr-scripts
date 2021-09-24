@@ -38,7 +38,7 @@ const
 
   // One of 'ChopDrop', 'ChopBank' or 'ChopFire'
   // What should we do with the logs? Drop them? Bank them? Or light them?
-  CHOPMODE       = ChopFire;
+  CHOPMODE       = ChopDrop;
   
   // Account details
   _USERNAME       = '';
