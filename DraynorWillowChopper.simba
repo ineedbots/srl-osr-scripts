@@ -91,6 +91,7 @@ type
     ShutdownTime                                              : Int64;
     TrueRunTime                                               : TStopwatch;
     DrawCounter, ReportCounter                                : TCountdown;
+    AntiBan                                                   : TAntiban;
     AntiBanEnergy                                             : TAntiBanEnergy;
   end;
   
@@ -100,10 +101,11 @@ var
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // OVERRIDES AND METHODS FOR FATIGUE
+// most of these come from Slacky!
 
 function EnergizedNumber(n: Double; Exp: Double = 0.2): Int64;
 begin
-  Result := Trunc(2*n * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel()/100),Exp)));
+  Result := Trunc(2*n * (1-Power(System.Max(0.0001, Bot.AntiBanEnergy.EnergyLevel(Bot.AntiBan)/100),Exp)));
 end;
 
 function BioRandomFixed(): Double;
@@ -145,6 +147,7 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // METHODS FOR ENERGY ANTIBAN
+// most of these come from SRL/SRL repo!
 
 {
   Sets up two variables Patience and an Endurance, based on your characters
@@ -266,7 +269,11 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL ANTIBAN METHODS
+// most of these come from Flight!
 
+{
+  From Flight's AIOFisher
+}
 procedure TMouse.HumanMove(Point: TPoint);
 var
   mPt: TPoint;
@@ -290,6 +297,9 @@ begin
   Self.Speed := S;
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TMouse.RandomMovement();
 var
   S: Int32;
@@ -300,6 +310,9 @@ begin
   Self.Speed := S;
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TAntiBan.HoverMSTile(DotType: ERSMinimapDot; RightClick: Boolean = False);
 var
   Tries,i: Int32;
@@ -342,31 +355,49 @@ begin
   until(Tries > 10);
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TAntiban.HoverMSItems();
 begin
   Self.HoverMSTile(ERSMinimapDot.ITEM);
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TAntiban.HoverMSNPCs();
 begin
   Self.HoverMSTile(ERSMinimapDot.NPC);
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TAntiban.HoverMSPlayers();
 begin
   Self.HoverMSTile(ERSMinimapDot.PLAYER);
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TScript.DoLoseFocus();
 begin
-  Antiban.LoseFocus(SRL.NormalRange(3700,5000));
+  Self.Antiban.LoseFocus(SRL.NormalRange(3700,5000));
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TScript.DoSkillHover();
 begin
-  Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
+  Self.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True)
 end;
 
+{
+  tries to read the xp bar, makes sure interfaces are not covering it
+}
 function TScript.ReadXPBar(): Int32;
 begin
   // TODO check all interfaces?
@@ -381,6 +412,8 @@ end;
 
 {
   Checks to see failsafe xp gain
+  
+  Comes from olly/srl-development
 }
 function TScript.CheckActivity(): Boolean;
 var
@@ -434,7 +467,7 @@ begin
     Self.Stop('Completed the runtime');
     
   // update our mousespeed, when we get tired, slow it down
-  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Antiban) / 100));
+  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100));
     
   if not RSClient.IsLoggedIn() then
     Exit();
@@ -476,17 +509,23 @@ begin
   // TODO check for interfaces if opened... close em
     
   // general antiban
-  Result := Antiban.DismissRandom() or Antiban.DoAntiban();
+  Result := Self.Antiban.DismissRandom() or Self.Antiban.DoAntiban();
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure PauseRunTime(Task: PBreakTask);
 var
   T: PBreakTask;
 begin
-  Bot.TrueRunTime.Pause;
+  Bot.TrueRunTime.Pause();
   T := Task;
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure ResumeRunTime(Task: PBreakTask);
 var
   T: PBreakTask;
@@ -494,25 +533,32 @@ begin
   if GetTimeRunning() > Bot.ShutdownTime then
     Bot.Stop('Completed the runtime');
 
-  Bot.TrueRunTime.Resume;
+  Bot.TrueRunTime.Resume();
   T := Task;
+  Bot.Activity.Countdown.Restart();
 end;
 
-procedure TScript.AfterActionAntiBan(AntiBan: Boolean = True);
+{
+  From Slacky's BarbFisher
+}
+procedure TScript.AfterActionAntiBan(DoAB: Boolean = True);
 begin
   WaitEx(450,70);
 
-  if AntiBan then
+  if DoAB then
     Self.DoAntiban();
 end;
 
+{
+  From Flight's AIOFisher
+}
 procedure TScript.AfterBankAntiBan(Percent: Double);
 var
   randP: Double;
 begin
   if Random() <= (Percent/100) then
   begin
-    Antiban.DebugLn('Bank screen antiban');
+    Self.Antiban.DebugLn('Bank screen antiban');
     randP := Random();
     if randP < 0.33 then
       Mouse.RandomMovement()
@@ -787,10 +833,10 @@ begin
   
   WriteOut += 'Runtime: ' + SRL.MsToTime(Self.TrueRunTime.ElapsedTime(), Time_Short) + #13#10;
   WriteOut += 'Status: ' + Self.Status + #13#10;
-  WriteOut += 'Energy: ' + ToStr(Self.AntiBanEnergy.EnergyLevel(Antiban)) + #13#10;
+  WriteOut += 'Energy: ' + ToStr(Self.AntiBanEnergy.EnergyLevel(Self.Antiban)) + #13#10;
   WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + #13#10;
   WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + #13#10;
-  WriteOut += 'Time until break: ' + Antiban.TimeUntilBreak(Antiban.Breaks[0]) + #13#10;
+  WriteOut += 'Time until break: ' + Self.Antiban.TimeUntilBreak(Self.Antiban.Breaks[0]) + #13#10;
   WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Self.ShutdownTime - GetTimeRunning(), Time_Short) + #13#10;
   
   ClearDebug();
@@ -823,6 +869,8 @@ end;
 
 {
   Tries to find the tree at the tile, returns true if it does, also the area of where it is
+  
+  This is mainly from olly/srl-development woodcut test script
 }
 function TScript.FindTree(PlayerPos: TPoint; TreePos: TPoint; out Circle: TCircle): Boolean;
 var
@@ -1017,6 +1065,8 @@ end;
 
 {
   Drops all the logs in our inventory
+  
+  Part of this is from Flight's AIOFisher
 }
 procedure TScript.DropItems();
 var
@@ -1210,6 +1260,8 @@ end;
 
 {
   Deposit our items into the depositbox or bank, which ever is open
+  
+  Part of this is from Flight's AIOFisher
 }
 procedure TScript.DepositItems();
 var
@@ -1712,14 +1764,14 @@ begin
     Exit();
     
   // pause antiban so tasks won't 100% run once we are done
-  Antiban.PauseAllTasks();
+  Self.Antiban.PauseAllTasks();
     
   // start the fire chain
   // if a fire chain does not complete successfully, we go to the next one...
   Result := Self.LightLogs(Self.FireStartTiles[Self.FiredTile].NumFires);
   
   // resume the antiban tasks
-  Antiban.ResumeAllTasks();
+  Self.Antiban.ResumeAllTasks();
 end;
 
 {
@@ -1852,6 +1904,7 @@ begin
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
   Self.AntiBanEnergy.SetupBiometrics();
+  Self.AntiBan.Name := 'Antiban';
 
   Self.Running := True;
   Self.SleepRate := 75;
@@ -1871,24 +1924,24 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
   
   // init the antiban stuff
-  Antiban.OnStartBreak    := @PauseRunTime;
-  Antiban.OnFinishBreak   := @ResumeRunTime;
+  Self.Antiban.OnStartBreak    := @PauseRunTime;
+  Self.Antiban.OnFinishBreak   := @ResumeRunTime;
   
-  Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
-  Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
-  Antiban.AddTask(ONE_MINUTE*2,  @Self.DoLoseFocus);
-  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
-  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
-  Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
-  Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
-  Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+  Self.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Self.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Self.Antiban.AddTask(ONE_MINUTE*2,  @Self.DoLoseFocus);
+  Self.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Self.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Self.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Self.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Self.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
   
   if TAKEBREAKS then
   begin
-    Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
-    Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
-    Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
-    Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+    Self.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
+    Self.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
+    Self.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
+    Self.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
   
   // location specific stuff
