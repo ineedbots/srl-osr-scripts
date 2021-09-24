@@ -1892,6 +1892,13 @@ begin
 end;
 
 {
+  Frees the stuff when script completes
+}
+procedure TScript.Free();
+begin
+end;
+
+{
   Inits the script...
 }
 procedure TScript.Init();
@@ -1994,15 +2001,8 @@ begin
   Self.TrueRunTime.Start();
   Self.ReportCounter.Init(Self.ReportRate);
   Self.DrawCounter.Init(Self.DrawRate);
-
-  AddOnTerminate(@Bot.Free);
-end;
-
-{
-  Frees the stuff when script completes
-}
-procedure TScript.Free();
-begin
+  
+  AddOnTerminate(@Self.Free);
 end;
 
 {
