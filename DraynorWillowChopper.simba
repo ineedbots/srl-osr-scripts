@@ -440,9 +440,9 @@ begin
     Exit();
     
   // are we under attack?
-  if Minimap.GetHPPercent() < Self.HPPerc then
+  if Minimap.GetHPLevel() < Self.HPPerc then
   begin
-    Self.HPPerc := Minimap.GetHPPercent();
+    Self.HPPerc := Minimap.GetHPLevel();
     
     Self.SetStatus('Under attack! Going to bank!');
     Self.WriteMsg('UNDER ATTACK! Going to the bank!');
@@ -454,7 +454,7 @@ begin
     else
       Wait(5000, 15000);
   end;
-  Self.HPPerc := Minimap.GetHPPercent();
+  Self.HPPerc := Minimap.GetHPLevel();
 
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
@@ -784,12 +784,12 @@ begin
     Exit();
     
   Self.ReportCounter.Restart();
-  WriteOut := '';
   
   WriteOut += 'Runtime: ' + SRL.MsToTime(Self.TrueRunTime.ElapsedTime(), Time_Short) + #13#10;
   WriteOut += 'Status: ' + Self.Status + #13#10;
   WriteOut += 'Energy: ' + ToStr(Self.AntiBanEnergy.EnergyLevel(Antiban)) + #13#10;
   WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + #13#10;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + #13#10;
   WriteOut += 'Time until break: ' + Antiban.TimeUntilBreak(Antiban.Breaks[0]) + #13#10;
   WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Self.ShutdownTime - GetTimeRunning(), Time_Short) + #13#10;
   
@@ -1834,7 +1834,7 @@ begin
     MM2MS.ZoomLevel         := Options.GetZoomLevel();
   end;
   
-  Self.HPPerc             := Minimap.GetHPPercent();
+  Self.HPPerc             := Minimap.GetHPLevel();
   MainScreen.SetHighestPitch();
   Self.Activity.Countdown.Restart();
 end;
