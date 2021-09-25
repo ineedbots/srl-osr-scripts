@@ -60,7 +60,7 @@ type
   end;
 
   TScript = record
-    Status                                                    : String;
+    Status, StopReason                                        : String;
     Running, DidLogin, WalkedTreeForward                      : Boolean;
     SleepRate, ChopWaitTime, LogsDone, BaseMouseSpeed,
       HPPerc, ReportRate, DrawRate, WalkedTree, FireWaitTime,              
@@ -452,11 +452,6 @@ begin
   end;
 end;
 
-procedure TScript.Stop(Reason: String = ''); forward;
-procedure TScript.SetStatus(S: String); forward;
-procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False); forward;
-procedure TScript.GoToBank(Force: Boolean = False); forward;
-
 {
   Does general checks and does antiban.
 }
@@ -723,6 +718,7 @@ procedure TScript.Stop(Reason: String = '');
 begin
   Self.WriteMsg(Reason);
   Self.SetStatus('Stopping... ' + Reason);
+  Self.StopReason := Reason;
   Self.Running := False;
 end;
 
@@ -1866,6 +1862,7 @@ begin
   end;
   
   Logout.ClickLogout();
+  Self.WriteMsg('Stop reason: ' + Self.StopReason);
   TerminateScript('Time to shutdown');
 end;
 
