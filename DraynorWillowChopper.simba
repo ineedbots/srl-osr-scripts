@@ -810,6 +810,7 @@ begin
   Self.DrawCounter.Restart();
 
   RSClient.Image.Clear();
+  // TODO complete
 
   if DEBUGMODE then
     Self.DebugDraw();
@@ -820,13 +821,21 @@ end;
 }
 procedure TScript.ReportConsole();
 var
-  WriteOut: String;
+  WriteOut, ChopType: String;
 begin
   if not Self.ReportCounter.IsFinished() then
     Exit();
     
   Self.ReportCounter.Restart();
   
+  if CHOPMODE = ChopDrop then
+    ChopType := 'Chop and Drop'
+  else if CHOPMODE = ChopBank then
+    ChopType := 'Chop and Bank'
+  else 
+    ChopType := 'Chop and Light';
+  
+  WriteOut += 'Chopping type: ' + ChopType + #13#10;
   WriteOut += 'Runtime: ' + SRL.MsToTime(Self.TrueRunTime.ElapsedTime(), Time_Short) + #13#10;
   WriteOut += 'Status: ' + Self.Status + #13#10;
   WriteOut += 'Energy: ' + ToStr(Self.AntiBanEnergy.EnergyLevel(Self.Antiban)) + #13#10;
