@@ -482,7 +482,7 @@ begin
     
     Self.GoToBank(True);
     
-    if Self.HPPerc < 35 then
+    if Self.HPPerc < 5 then
       Self.Stop('Critical HP!')
     else
       Wait(5000, 15000);
