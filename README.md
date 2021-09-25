@@ -4,8 +4,10 @@ A collection of scripts for OSRS. Each script will have the same dependencies an
 Here is an up to date guide for installing the dependencies; https://villavu.com/forum/showthread.php?t=177730
 
 ## In-Game Settings
+- Make sure that your brightness is maxed:<br>
+![Brightness](/assets/brightness.png)
 - Make sure that your XP Bar settings are like this:<br>
-![XPBar Settings](/assets/xpsetup.png)<
+![XPBar Settings](/assets/xpsetup.png)
 - Make sure that Minimap Data Orbs are enabled:<br>
 ![Data orbs settings](/assets/dataorbssettings.png)
 - If you are using resizable mode, make sure that transparent side panel setting is disabled:<br>
