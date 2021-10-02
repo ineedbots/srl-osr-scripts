@@ -3,7 +3,7 @@
   Author: ineedbot
   Date: 09/16/2021
 
-  Version: 1.0.0
+  Version: 1.0.1
 
   Make sure to setup the configuration below.
 
@@ -925,20 +925,35 @@ begin
   while not TimeoutCounter.IsFinished() do
   begin
     if not RSClient.IsLoggedIn() then
+    begin
+      Self.WriteMsg('WhileChopping: Not logged in', True);
       break;
+    end;
   
     if not Self.FindTree(OurPos, TreeTile, _) then
+    begin
+      Self.WriteMsg('WhileChopping: Tree not found', True);
       break;
+    end;
       
     if Inventory.IsFull() then
+    begin
+      Self.WriteMsg('WhileChopping: Inventory full', True);
       break;
+    end;
       
     if Inventory.Count() > InvCount then
+    begin
+      Self.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
       TimeoutCounter.Restart();
+    end;
   
     InvCount := Inventory.Count();
     Self.DoMainLoopStuff('Chopping tree...');
   end;
+
+  if TimeoutCounter.IsFinished() then
+    Self.WriteMsg('WhileChopping: No log gained in timeout...', True);
   
   Self.SetStatus('Tree chopping completed!');
 end;
@@ -1084,6 +1099,7 @@ begin
   // query the logs
   Inventory.FindItems(Self.LogItems, LogSlots);
   CurLogs := LogSlots.Len();
+  Self.WriteMsg('DropItems: Log slots (before drop): ' + ToStr(LogSlots), True);
   
   // choose a random drop pattern
   R := Random();
@@ -1109,6 +1125,7 @@ begin
   LogSlots.Clear();
   Inventory.FindItems(Self.LogItems, LogSlots);
   Self.LogsDone += CurLogs - LogSlots.Len();
+  Self.WriteMsg('DropItems: Log slots (after drop): ' + ToStr(LogSlots), True);
   
   Self.SetStatus('Logs dropped!');
   Self.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
@@ -1241,25 +1258,36 @@ begin
   while not BankOpenCountDown.IsFinished() do
   begin
     if not RSClient.IsLoggedIn() then
+    begin
+      Self.WriteMsg('WaitBankOpen: Not logged in', True);
       break;
+    end;
     
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Self.WriteMsg('WaitBankOpen: Still moving...', True);
       BankOpenCountDown.Restart();
+    end;
       
     // enter pin if needed
     if BankPin.IsOpen() then
     begin
+      Self.WriteMsg('WaitBankOpen: Entering pin...', True);
       BankPin.Enter(Login.GetPlayer().Pin);
       BankOpenCountDown.Restart();
     end;
     
     if Bank.IsOpen(True) or DepositBox.IsOpen() then
+    begin
+      Self.WriteMsg('WaitBankOpen: Bank opened!', True);
       Exit(True);
+    end;
       
     Self.DoMainLoopStuff('Going to clicked bank...', False);
   end;
-  
+
+  Self.WriteMsg('WaitBankOpen: Timed out...', True);
   // bank didnt open... failed.
 end;
 
@@ -1291,6 +1319,9 @@ begin
     DepositBox.FindItems(Self.ToolItems, ToolSlots);
     DepositBox.FindItems(Self.LogItems, LogSlots);
   end;
+
+  Self.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
+  Self.WriteMsg('DepositItems: LogSlots: ' + ToStr(LogSlots), True);
   
   CurLogs := LogSlots.Len();
   
@@ -1358,6 +1389,8 @@ begin
   
   // update how many logs we completed chopping
   Self.LogsDone += CurLogs - LogSlots.Len();
+
+  Self.WriteMsg('DepositItems: LogItems (after bank): ' + ToStr(LogSlots), True);
   
   Self.SetStatus('Logs depositted!');
   Self.WriteMsg('Banked logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
@@ -1412,6 +1445,7 @@ end;
 function TScript.WaitFireCreated(XP: Int32): Boolean;
 var
   FireTimeout: TCountdown;
+  NowXP: Int32;
 begin
   // init the stuff for waiting for the fire to be lit
   Self.SetStatus('Waiting for the fire to be lit...');
@@ -1421,6 +1455,7 @@ begin
     // check for level ups
     if Chat.LeveledUp() then
     begin
+      Self.WriteMsg('WaitFireCreated: Clicking level up', True);
       while Chat.ClickContinue() do
         Wait(75, 500);
         
@@ -1429,11 +1464,23 @@ begin
     end;
       
     // did we gain xp? if so then the fire is lit!
-    if Self.ReadXPBar() > XP then
+    NowXP := Self.ReadXPBar();
+    if NowXP = -1 then
+    begin
+      Self.WriteMsg('WaitFireCreated: Cannot read XP Bar.', True);
+      Exit(False);
+    end;
+
+    if NowXP <> XP then
+    begin
+      Self.WriteMsg('WaitFireCreated: XP changed! Lit!', True);
       Exit(True);
+    end;
     
     Self.DoMainLoopStuff('', False);
   end;
+
+  Self.WriteMsg('WaitFireCreated: Timed out...', True);
 end;
 
 {
@@ -1452,13 +1499,17 @@ begin
     // do we have a smaller bag?
     // then the log must be on the ground
     if Inventory.Count() < InvCount then
+    begin
+      Self.WriteMsg('WaitPlaceLog: Invcount lowered, log placed!', True);
       Exit(True);
+    end;
   
     // check for the message if we cannot light a fire
     // so make sure the GAME chat is visible and chat is scrolled to the bottom
     S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
     if S.IsInString(Self.NoLightText) then
     begin
+      Self.WriteMsg('WaitPlaceLog: Cannot light a fire here text', True);
       // Push the GAME chat so it doesnt false positive next time
       Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
       Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
@@ -1468,6 +1519,8 @@ begin
       
     Self.DoMainLoopStuff('', False);
   end;
+
+  Self.WriteMsg('WaitPlaceLog: Timed out...', True);
 end;
 
 {
@@ -1483,15 +1536,27 @@ var
 begin
   // make sure we have logs and a tinderbox
   if not Inventory.FindItem(Self.TinderItem, TinderBoxSlot) then
+  begin
+    Self.WriteMsg('LightLogs: No tinder box.', True);
     Exit();
+  end;
     
   if not Inventory.FindItems(Self.LogItems, LogSlots) then
+  begin
+    Self.WriteMsg('LightLogs: No logs.', True);
     Exit();
+  end;
     
   // make sure we can see the xp counter
   XP := Self.ReadXPBar();
   if XP = -1 then
+  begin
+    Self.WriteMsg('LightLogs: Cannot see XP bar.', True);
     Exit();
+  end;
+
+  Self.WriteMsg('LightLogs: Tinderbox: ' + ToStr(TinderBoxSlot), True);
+  Self.WriteMsg('LightLogs: LogSlots: ' + ToStr(LogSlots), True);
     
   // randomize the pattern
   R := Random();
@@ -1638,6 +1703,8 @@ begin
     Inventory.FindItems(Self.LogItems, LogSlots);
     // update how many logs we completed chopping
     Self.LogsDone += CurLogs - LogSlots.Len();
+
+    Self.WriteMsg('LightLogs: LogSlots(after): ' + ToStr(LogSlots), True);
   end;
   
   Self.WriteMsg('Logs lit... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
@@ -1689,7 +1756,10 @@ begin
   FirePos := Self.FireStartTiles[Self.FiredTile].Tile;
   
   if Self.FindFire(OurPos, FirePos, _) then
+  begin
+    Self.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
     Exit();
+  end;
   
   // Go to the starting fire tile
   if (OurPos.DistanceTo(FirePos) >= 32) or
@@ -1707,6 +1777,13 @@ begin
       Self.WriteMsg('Failed to walk to fire pos');
       Exit();
     end;
+  end;
+
+  OurPos := Self.RSW.GetMyPos();
+  if Self.FindFire(OurPos, FirePos, _) then
+  begin
+    Self.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
+    Exit();
   end;
     
   // make sure that we are on the tile..
@@ -1932,7 +2009,7 @@ begin
   Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Self.BaseMouseSpeed := Mouse.Speed;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
-  ItemFinder.Similarity   := 0.999;
+  ItemFinder.Similarity   := 0.99;
   
   Self.RSW.ScreenWalk     := MSWALKING;
   
@@ -1974,7 +2051,9 @@ begin
   Self.TreeWalkTile := Point(4148, 3496);
   with Self.TreeColor do
   begin
-    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08); // bright side of the tree
+    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
+    RSObject.Colors += CTS2(3306343, 2, 0.19, 7.62);
+    RSObject.Colors += CTS2(3713943, 4, 0.07, 0.85);
     RSObject.Colors += CTS2(462606, 2, 1.04, 5.68);  // dark side
     RSObject.Grow := 10;
     RSObject.Erode := 5;
