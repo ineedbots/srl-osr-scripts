@@ -568,7 +568,6 @@ end;
 function TScript.IsUnderAttack(): Boolean;
 var
   HPBars: TRSHPBarArray;
-  Splats: TRSHitsplatArray;
   OurBox: TBox;
 begin
   OurBox := MainScreen.GetPlayerBox();
@@ -580,9 +579,8 @@ begin
   end;
 
   HPBars := MainScreen.FindHPBars(OurBox);
-  Splats := MainScreen.FindHitsplats(OurBox);
 
-  Result := (Length(HPBars) > 0) or (Length(Splats) > 0);
+  Result := Length(HPBars) > 0;
 end;
 
 {
