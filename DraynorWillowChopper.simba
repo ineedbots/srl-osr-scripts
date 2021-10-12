@@ -63,7 +63,7 @@ type
     Status, StopReason                                        : String;
     Running, DidLogin, WalkedTreeForward                      : Boolean;
     SleepRate, ChopWaitTime, LogsDone, BaseMouseSpeed,
-      HPPerc, ReportRate, DrawRate, WalkedTree, FireWaitTime,              
+      HPAmount, ReportRate, DrawRate, WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile                               : Int32;
     RSW                                                       : TRSWalker;
     TinderItem                                                : TRSItem;
@@ -453,6 +453,164 @@ begin
 end;
 
 {
+  Number of players on the minimap
+}
+function TScript.PlayersNearby(): Int32;
+var
+  TPA: TPointArray;
+begin
+  TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
+  Result := Length(TPA);
+end;
+
+{
+  Returns amount of any other players are on the mainscreen
+}
+function TScript.PlayersOnMainScreen(): Int32;
+var
+  TPA: TPointArray;
+  CompAng: Single;
+  TP: TPoint;
+begin
+  TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
+
+  if Length(TPA) <= 0 then
+    Exit(0);
+
+  CompAng := Minimap.GetCompassAngle(False);
+
+  for TP in TPA do
+  begin
+    if MainScreen.IsVisible(Minimap.PointToMs(TP, CompAng)) then
+      Result := Result + 1;
+  end;
+end;
+
+{
+  Sorts the bars
+}
+function TRSHPBarArray.Sort(TP: TPoint): TRSHPBarArray;
+var
+  BoxArray: TBoxArray;
+  HPBar: TRSHPBar;
+  Boxx: TBox;
+begin
+  for HPBar in Self do
+  begin
+    BoxArray += HPBar.Bounds;
+  end;
+
+  BoxArray.SortFromMidPoint(TP);
+
+  for Boxx in BoxArray do
+  begin
+    for HPBar in Self do
+    begin
+      if Boxx = HPBar.Bounds then
+      begin
+        Result += HPBar;
+        break;
+      end;
+    end;
+  end;
+end;
+
+{
+  Are we doing combat?
+}
+function TScript.Attacking(): Boolean;
+var
+  HPBars: TRSHPBarArray;
+  HPBar: TRSHPBar;
+  OurBox: TBox;
+begin
+  if Self.PlayersOnMainScreen() > 0 then
+  begin
+    Exit(Self.IsUnderAttack());
+  end
+
+  OurBox := Minimap.ArrToMs([
+    Vec3(Minimap.Center.X - 10, Minimap.Center.Y - 5, 10),
+    Vec3(Minimap.Center.X + 10, Minimap.Center.Y + 10, 10)
+  ]).Bounds();
+
+  if DEBUGMODE and DRAWING then
+  begin
+    RSClient.Image.DrawBox(OurBox, clRed);
+    RSClient.Image.DrawCross(OurBox.Middle(), 5, clRed);
+  end;
+
+  HPBars := MainScreen.FindHPBars(OurBox);
+
+  if Length(HPBars) <= 1 then
+    Exit(False);
+
+  HPBars := HPBars.Sort(OurBox.Middle());
+
+  // closest bar is ours idealy, second closest is our enemy
+  if Length(HPbars) > 2 then
+    SetLength(HPBars, 2);
+
+  // if any of the bars are completely dead (hopefully not us)
+  // then we are completed killing this monster
+  for HPBar in HPBars do
+  begin
+    if HPBar.Percent <= 0.0 then
+      Exit(False);
+  end;
+
+  Exit(True);
+end;
+
+{
+  Are we underattack?
+}
+function TScript.IsUnderAttack(): Boolean;
+var
+  HPBars: TRSHPBarArray;
+  Splats: TRSHitsplatArray;
+  OurBox: TBox;
+begin
+  OurBox := MainScreen.GetPlayerBox();
+
+  if DEBUGMODE and DRAWING then
+  begin
+    RSClient.Image.DrawBox(OurBox, clRed);
+    RSClient.Image.DrawCross(OurBox.Middle(), 5, clRed);
+  end;
+
+  HPBars := MainScreen.FindHPBars(OurBox);
+  Splats := MainScreen.FindHitsplats(OurBox);
+
+  Result := (Length(HPBars) > 0) or (Length(Splats) > 0);
+end;
+
+{
+  Runs away if we are underattack
+}
+procedure TScript.CheckUnderattack();
+var
+  HP: Int32;
+begin
+  HP := Minimap.GetHPLevel();
+
+  if (HP < Self.HPAmount) and Self.IsUnderAttack() then
+  begin
+    Self.SetStatus('Under attack! Going to bank!');
+    Self.WriteMsg('UNDER ATTACK! Going to the bank!');
+
+    Self.GoToBank(True);
+
+    if HP < 5 then
+      Self.Stop('Critical HP!')
+    else
+      Wait(5000, 15000);
+  end;
+
+  Self.HPAmount := HP;
+end;
+
+{
   Does general checks and does antiban.
 }
 function TScript.DoAntiBan(): Boolean;
@@ -468,21 +626,7 @@ begin
     Exit();
     
   // are we under attack?
-  if Minimap.GetHPLevel() < Self.HPPerc then
-  begin
-    Self.HPPerc := Minimap.GetHPLevel();
-    
-    Self.SetStatus('Under attack! Going to bank!');
-    Self.WriteMsg('UNDER ATTACK! Going to the bank!');
-    
-    Self.GoToBank(True);
-    
-    if Self.HPPerc < 5 then
-      Self.Stop('Critical HP!')
-    else
-      Wait(5000, 15000);
-  end;
-  Self.HPPerc := Minimap.GetHPLevel();
+  Self.CheckUnderattack();
 
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
@@ -1285,6 +1429,7 @@ begin
     end;
       
     Self.DoMainLoopStuff('Going to clicked bank...', False);
+    Self.CheckUnderattack();
   end;
 
   Self.WriteMsg('WaitBankOpen: Timed out...', True);
@@ -1478,6 +1623,7 @@ begin
     end;
     
     Self.DoMainLoopStuff('', False);
+    Self.CheckUnderattack();
   end;
 
   Self.WriteMsg('WaitFireCreated: Timed out...', True);
@@ -1518,6 +1664,7 @@ begin
     end;
       
     Self.DoMainLoopStuff('', False);
+    Self.CheckUnderattack();
   end;
 
   Self.WriteMsg('WaitPlaceLog: Timed out...', True);
@@ -1969,7 +2116,7 @@ begin
     MM2MS.ZoomLevel         := Options.GetZoomLevel();
   end;
   
-  Self.HPPerc             := Minimap.GetHPLevel();
+  Self.HPAmount             := Minimap.GetHPLevel();
   MainScreen.SetHighestPitch();
   Self.Activity.Countdown.Restart();
 end;
