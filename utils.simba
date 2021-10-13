@@ -3,8 +3,6 @@
   Author: ineedbot
   Date: 10/12/2021
 
-  Version: 1.1.0
-
   Shared funcs between scripts
 }
 
@@ -445,6 +443,36 @@ end;
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
 
+function T2DPointArray.Intersection(ATPA: T2DPointArray): T2DPointArray;
+var
+  i, h: Int32;
+begin
+  for i:=Low(Self) to High(Self) do
+  begin
+    for h:=Low(ATPA) to High(ATPA) do
+    begin
+      if ATPA[h].Bounds().Contains(Self[i].Bounds()) then
+      begin
+        Result += ATPA[h].Intersection(Self[i]);
+      end;
+    end;
+  end;
+end;
+
+function TPointArray.Intersection(TPA: TPointArray): TPointArray;
+var
+  TP, TP2: TPoint;
+begin
+  for TP in Self do
+  begin
+    for TP2 in TPA do
+    begin
+      if TP = TP2 then
+        Result += TP;
+    end;
+  end;
+end;
+
 {
   tries to read the xp bar, makes sure interfaces are not covering it
 }
@@ -627,6 +655,21 @@ begin
     Self.Tasks[I].Countdown.Resume();
 end;
 
+function TScript.WaitAttacking(Tim: Int32): Boolean;
+var
+  T: TCountDown;
+begin
+  T.Init(Tim);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    if Self.Attacking() then
+      Exit(True);
+  end;
+end;
+
 {
   Are we doing combat?
 }
@@ -635,15 +678,17 @@ var
   HPBars: TRSHPBarArray;
   HPBar: TRSHPBar;
   OurBox: TBox;
+  CompAng: Double;
 begin
   if MainScreen.PlayersOnMainScreen() > 0 then
   begin
     Exit(Self.IsUnderAttack());
   end;
 
+  CompAng := Minimap.GetCompassAngle(False);
   OurBox := Minimap.ArrToMs([
-    Vec3(Minimap.Center.X - 10, Minimap.Center.Y - 5, 10),
-    Vec3(Minimap.Center.X + 10, Minimap.Center.Y + 10, 10)
+    Vec3(Minimap.Center.X - 12, Minimap.Center.Y - 12, CompAng),
+    Vec3(Minimap.Center.X + 12, Minimap.Center.Y + 12, CompAng)
   ]).Bounds();
 
   if Self.Debug and Self.Drawing then
@@ -682,7 +727,7 @@ var
   HPBars: TRSHPBarArray;
   OurBox: TBox;
 begin
-  OurBox := MainScreen.GetPlayerBox();
+  OurBox := MainScreen.GetPlayerBox().Expand(8);
 
   if Self.Debug and Self.Drawing then
   begin
