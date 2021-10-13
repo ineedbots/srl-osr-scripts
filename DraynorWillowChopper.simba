@@ -51,9 +51,6 @@ const
 
   // Configuration complete!
   // Below is script stuff
-
-  DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
-                                       2,3,7,6,10,11,15,14,18,19,23,22,26,27];
   
 type
   TBot = record
@@ -71,14 +68,20 @@ type
       Tile                                                    : TPoint;
       NumFires                                                : Int32;
     end;
-    BankColor                                                 : TRSObjectFinder;
+    BankColor: record
+      RSObject                                                : TRSObjectFinder;
+      FilterSize                                              : Int32;
+      RadiusExpand                                            : Double;
+    end;
     TreeColor: record
       RSObject                                                : TRSObjectFinder;
       FilterSize                                              : Int32;
+      RadiusExpand                                            : Double;
     end;
     FireColor: record
       RSObject                                                : TRSObjectFinder;
       FilterSize                                              : Int32;
+      RadiusExpand                                            : Double;
     end;
   end;
   
@@ -186,7 +189,8 @@ end;
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
-  Result := MainScreen.FindObject(Self.BankColor, Area);
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
 end;
 
 {
@@ -208,17 +212,21 @@ var
   TreeTile, OurTile, BankTile, FireTile: TPoint;
   TileRect: TRectangle;
   i: Int32;
+  CompAng: Double;
 begin
   OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
   for TreeTile in Self.TreeTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
     
-    ATPA := Self.FindTreeColor(TileRect.Expand(Round(TileRect.Radius() * 1.15)).Bounds());
+    ATPA := Self.FindTreeColor(TileRect.Expand(Round(TileRect.Radius() * Self.TreeColor.RadiusExpand)).Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clRed);
     end;
-    
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TreeTile, CompAng), 4, clBlue);
     RSClient.Image.DrawRect(TileRect, clBlue);
   end;
   
@@ -226,11 +234,12 @@ begin
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
     
-    ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * 1.15)).Bounds());
+    ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clOrange);
     end;
-    
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clGreen);
     RSClient.Image.DrawRect(TileRect, clGreen);
   end;
   
@@ -240,11 +249,12 @@ begin
     
     TileRect := Self.RSW.GetTileMSEx(OurTile, FireTile);
     
-    ATPA := Self.FindFireColor(TileRect{.Expand(Round(TileRect.Radius() * 1.15))}.Bounds());
+    ATPA := Self.FindFireColor(TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds());
     for TPA in ATPA do begin
       RSClient.Image.DrawTPA(TPA, clOrange);
     end;
-    
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, FireTile, CompAng), 4, clOrange);
     RSClient.Image.DrawRect(TileRect, clGreen);
   end;
 end;
@@ -329,7 +339,7 @@ begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, TreePos, 4);
 
-  B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
+  B := Tile.Expand(Round(Tile.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
   B.LimitTo(MainScreen.Bounds());
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
@@ -613,7 +623,7 @@ begin
   // find the bank's tile on the mainscreen
   Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
 
-  B := Tile.Expand(Round(Tile.Radius() * 1.15)).Bounds();
+  B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
   B.LimitTo(MainScreen.Bounds());
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
@@ -1021,8 +1031,8 @@ begin
     
   // remove all slots that are not a log
   for i:=High(Pattern) downto Low(Pattern) do
-    if LogSlots.Find(i) = -1 then
-      Pattern.Remove(i);
+    if LogSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
       
   // trim to the limit param
   if Pattern.Len() > NumLights then
@@ -1168,7 +1178,7 @@ begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
 
-  B := Tile{.Expand(Round(Tile.Radius() * 1.15))}.Bounds();
+  B := Tile.Expand(Round(Tile.Radius() * Self.FireColor.RadiusExpand)).Bounds();
   B.LimitTo(MainScreen.Bounds());
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
@@ -1463,6 +1473,7 @@ begin
   Script.Antiban.OnFinishBreak   := @ResumeRunTime;
   
   Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
   Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
@@ -1509,15 +1520,24 @@ begin
     RSObject.Erode := 5;
     RSObject.ClusterDistance := 3;
     FilterSize := 30;
+
+    RadiusExpand := 1.15;
   end;
   
   Self.BankTiles := [Point(4174, 3468)];
   Self.BankWalkTile := Point(4178, 3468);
-  Self.BankColor.Colors += CTS2(6251626, 3, 1.29, 0.97);
-  Self.BankColor.Colors +=  CTS2(1069415, 2, 0.07, 1.23);
-  Self.BankColor.Erode := 2;
-  Self.BankColor.Grow := 2;
-  Self.BankColor.ClusterDistance := 3;
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(6251626, 3, 1.29, 0.97);
+    RSObject.Colors +=  CTS2(1069415, 2, 0.07, 1.23);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 5;
+    RadiusExpand := 1.15;
+  end;
   
   with Self.FireColor do
   begin
@@ -1526,6 +1546,8 @@ begin
     RSObject.Grow := 2;
     RSObject.Erode := 2;
     FilterSize := 16;
+
+    RadiusExpand := 1;
   end;
   
   // do login init stuff

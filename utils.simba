@@ -10,6 +10,10 @@
 {$I SRL/OSR.simba}
 {$ENDIF}
 
+const
+  DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
+                                       2,3,7,6,10,11,15,14,18,19,23,22,26,27];
+
 type
   TAntiBanEnergy = record
     BioHash, Endurance, Patience: Double;
@@ -489,6 +493,17 @@ begin
 end;
 
 {
+  Waits for the change
+}
+function TRSXPBar.WaitChange(Count: Int32; WaitTime: Int32; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  Result := WaitUntil(Self.ReadXPBar() <> Count, Interval, WaitTime);
+end;
+
+{
   Number of players on the minimap
 }
 function TRSMinimap.PlayersNearby(): Int32;
@@ -637,6 +652,49 @@ function TIntegerArray.Clear(): Boolean;
 begin
   SetLength(Self, 0);
   Exit(True);
+end;
+
+function TPointArray.InRangeOfAny(PT: TPoint; Dist: Double): Int32;
+var
+  i: Int32;
+begin
+  Result := -1;
+
+  for i:=Low(Self) to High(Self) do
+  begin
+    if Self[i].DistanceTo(PT) <= Dist then
+      Exit(i);
+  end;
+end;
+
+function TRSMinimap.ClickCompass(): Boolean;
+begin
+  Result := True;
+
+  Mouse.Click(Self.GetCompassCircle(), MOUSE_LEFT);
+end;
+
+function TRSMinimap.SetCompassNorth(DoClick: Boolean = True): Boolean;
+var
+  CompAng: Double;
+begin
+  CompAng := Self.GetCompassAngle(True);
+
+  if (CompAng > 355) or (CompAng < 5) then
+    Exit(True);
+
+  if DoClick then
+    Result := Self.ClickCompass()
+  else begin
+    Self.SetCompassAngle(0);
+    Result := True;
+  end;
+end;
+
+procedure TAntiBan.SetCompassNorth();
+begin
+  Self.DebugLn('Setting compass north');
+  Minimap.SetCompassNorth((Random() > 0.2));
 end;
 
 procedure TAntiBan.PauseAllTasks();
