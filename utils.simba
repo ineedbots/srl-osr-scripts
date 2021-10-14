@@ -684,8 +684,12 @@ begin
     Exit(True);
 
   if DoClick then
-    Result := Self.ClickCompass()
-  else begin
+  begin
+    Result := Self.ClickCompass();
+    MainScreen.SetHighestPitch();
+  end
+  else
+  begin
     Self.SetCompassAngle(0);
     Result := True;
   end;

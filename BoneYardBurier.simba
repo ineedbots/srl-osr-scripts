@@ -1,11 +1,11 @@
 {
-  Empty Script
+  BoneYardBurier
   Author: ineedbot
   Date: 10/12/2021
 
   Version: 1.1.0
 
-  Empty
+  Buries bones at Bone Yard
 }
 
 program BoneYardBurier;
@@ -14,8 +14,8 @@ program BoneYardBurier;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = False;  // Do proggies onto the console?
 
@@ -33,15 +33,17 @@ const
   // Below is script stuff
 
 type
-  TMonsterObj = record
-    RSObject                                                : TRSObjectFinder;
-    FilterSize                                              : Int32;
-    UpText                                                  : TStringArray;
-  end;
-
   TBot = record
     RSW                                                       : TRSWalker;
-    MonsterObjs                                               : array of TMonsterObj;
+    BoneTiles, BigBoneTiles                                   : TPointArray;
+    RunawayTile                                               : TPoint;
+    BoneItems                                                 : TRSItemArray;
+    BonesDone                                                 : Int32;
+    BoneColor: record
+      RSObject                                                : TRSObjectFinder;
+      FilterSize                                              : Int32;
+      RadiusExpand                                            : Double;
+    end;
   end;
 
 var
@@ -79,6 +81,10 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
+  // TODO check combat
+  // TODO check players
+  Script.WriteMsg(Minimap.PlayersNearby());
+
   // TODO check for interfaces if opened... close em
 
   // general antiban
@@ -97,10 +103,53 @@ begin
 end;
 
 {
+  Returns all bones
+}
+function TBot.FindBoneColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BoneColor.RSObject, Area);
+  Result.FilterSize(Self.BoneColor.FilterSize, __GT__);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TBot.DebugDraw();
+var
+  OurTile, BoneTile: TPoint;
+  TileRect: TRectangle;
+  CompAng: Double;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
 begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  for BoneTile in Self.BigBoneTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
+
+    ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA, clRed);
+    end;
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clBlue);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+  end;
+
+  for BoneTile in Self.BoneTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
+
+    ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
+    for TPA in ATPA do begin
+      RSClient.Image.DrawTPA(TPA, clRed);
+    end;
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clOrange);
+    RSClient.Image.DrawRect(TileRect, clOrange);
+  end;
 end;
 
 {
@@ -145,6 +194,214 @@ begin
 end;
 
 {
+  Returns true if picked up bone
+}
+function TBot.PickupBone(BoneTile, OurTile: TPoint): Boolean;
+var
+  Tile: TRectangle;
+  B: TBox;
+  TPA: TPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  Tile := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
+
+  B := Tile.Expand(Round(Tile.Radius() * Self.BoneColor.RadiusExpand)).Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  // find the tree's colors in this tile
+  TPA := Self.FindBoneColor(B).Biggest();
+
+  if Length(TPA) < Self.BoneColor.FilterSize then
+  begin
+    if (OurTile.DistanceTo(BoneTile) < 4) and (SRL.CountColor(CTS1(255, 75), Box(Minimap.Center, 2, 2)) > 0) then
+    begin
+      Script.WriteMsg('On top of the tile, checking under us...', True);
+
+      Mouse.Move(B.Middle());
+    end
+    else
+      Exit();
+  end
+  else
+  begin
+    Script.WriteMsg('Bone found, picking up...', True);
+
+    Mouse.Move(TPA.Bounds());
+  end;
+
+  if MainScreen.IsUpText('Take') then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+
+    Result := MainScreen.DidRedClick();
+  end
+  else if MainScreen.IsUpText('options') then
+    Result := ChooseOption.Select('Take');
+end;
+
+{
+  Uses MM to go to bone
+}
+function TBot.GoToBone(BoneTile, OurTile: TPoint; RedDots: TPointArray): Boolean;
+var
+  BT2MM: TPoint;
+begin
+  BT2MM := Self.RSW.WorldToMM(OurTile, BoneTile, Minimap.GetCompassAngle(False));
+
+  if (OurTile.DistanceTo(BoneTile) > 60) or (RedDots.InRangeOfAny(BT2MM, 5) <> -1) then
+  begin
+    Script.WriteMsg('Going to bone...', True);
+
+    try
+      Self.RSW.WebWalk(BoneTile, 0, BioRandomFixed());
+
+      while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+        Self.DoMainLoopStuff('Going to bone...');
+
+      Result := True;
+    except
+    end;
+  end;
+end;
+
+{
+  Returns true when we picked a bone
+}
+function TBot.PickABone(): Boolean;
+var
+  BoneTiles: TPointArray;
+  BoneTile, OurPos: TPoint;
+  InvCount: Int32;
+begin
+  OurPos := Self.RSW.GetMyPos();
+  InvCount := Inventory.Count();
+
+  BoneTiles := Copy(Self.BigBoneTiles);
+  BoneTiles := BoneTiles.Combine(Self.BoneTiles);
+  BoneTiles.Sort(OurPos);
+
+  Script.WriteMsg('Looking for bones...', True);
+
+  for BoneTile in BoneTiles do
+  begin
+    if not Self.PickupBone(BoneTile, OurPos) then
+      continue;
+
+    Script.WriteMsg('Bone clicked, waiting to grab it.', True);
+
+    Self.AfterActionAntiBan(True);
+    while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+      Self.DoMainLoopStuff('Getting bone...');
+
+    Inventory.WaitChange(InvCount, 2500 + Random(1000), 250+Random(50));
+    Script.WriteMsg('Grabbed the bone.', True);
+    Result := True;
+    break;
+  end;
+end;
+
+{
+  Goes to a bone.
+}
+procedure TBot.GoToABone();
+var
+  RedDots, BoneTiles: TPointArray;
+  OurTile, BoneTile: TPoint;
+begin
+  RedDots := Minimap.GetDots(ERSMinimapDot.ITEM);
+  OurTile := Self.RSW.GetMyPos();
+
+  BoneTiles := Copy(Self.BigBoneTiles);
+  BoneTiles := BoneTiles.Combine(Self.BoneTiles);
+  BoneTiles.Sort(OurTile);
+
+  for BoneTile in BoneTiles do
+  begin
+    if Self.GoToBone(BoneTile, OurTile, RedDots) then
+      break;
+  end;
+end;
+
+{
+  Gathers
+}
+procedure TBot.DoGathering();
+begin
+  if not Self.PickABone() then
+  begin
+    if Inventory.FindItems(Self.BoneItems) then
+      Self.DoFullInventory()
+    else
+      Self.GoToABone();
+  end;
+end;
+
+{
+  Executes when we should do something about our full inventory
+}
+procedure TBot.DoFullInventory();
+var
+  R: Extended;
+  Pattern, BoneSlots: TIntegerArray;
+  CurBones, i: Int32;
+  BuriedOne: Boolean;
+begin
+  Script.SetStatus('Bury bones...');
+
+  // query the bones
+  Inventory.FindItems(Self.BoneItems, BoneSlots);
+  CurBones := BoneSlots.Len();
+  Script.WriteMsg('DoFullInventory: Bone slots (before bury): ' + ToStr(BoneSlots), True);
+
+  // choose a random drop pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // possibly not drop all logs, for antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // remove all slots that are not a bone
+  for i:=High(Pattern) downto Low(Pattern) do
+    if BoneSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+
+  // bury
+  for i in Pattern do
+  begin
+    Inventory.HoverSlot(i);
+
+    if BuriedOne then
+      Wait(750 + Random(500));
+
+    BuriedOne := True;
+
+    if MainScreen.IsUpText('Bury') then
+      Mouse.Click(MOUSE_LEFT)
+    else
+      ChooseOption.Select('Bury');
+  end;
+
+  // see how many logs we actually dropped, and log it
+  BoneSlots.Clear();
+  Inventory.FindItems(Self.BoneItems, BoneSlots);
+  Self.BonesDone += CurBones - BoneSlots.Len();
+  Script.WriteMsg('DoFullInventory: Bone slots (after bury): ' + ToStr(BoneSlots), True);
+
+  Script.SetStatus('Buried!');
+  Script.WriteMsg('Buried... ' + IntToStr(Self.BonesDone) + '!');
+end;
+
+{
   Main loop of the script.
 }
 procedure TBot.Run();
@@ -153,6 +410,11 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
+      // TODO randomize
+      if Inventory.IsFull() then
+        Self.DoFullInventory()
+      else
+        Self.DoGathering();
     end
     else
     begin
@@ -233,6 +495,7 @@ begin
   Script.Antiban.OnFinishBreak   := @ResumeRunTime;
 
   Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
   Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
@@ -251,6 +514,26 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
+
+  Self.BoneItems := ['Bones', 'Big bones'];
+
+  Self.BoneTiles := [Point(4682, 1492), Point(4672, 1483), Point(4672, 1456),
+    Point(4689, 1496), Point(4688, 1483), Point(4695, 1472),
+    Point(4704, 1465), Point(4724, 1461), Point(4717, 1479), Point(4709, 1488)];
+  Self.BigBoneTiles := [Point(4715, 1467), Point(4691, 1463), Point(4664, 1517)];
+
+  Self.RunawayTile := Point(4688, 1548);
+
+  with Self.BoneColor do
+  begin
+    RSObject.Colors += CTS2(13816536, 5, 0.81, 0.22);
+    RSObject.Grow := 5;
+    RSObject.Erode := 4;
+    RSObject.ClusterDistance := 4;
+
+    FilterSize := 10;
+    RadiusExpand := 2;
+  end;
 
   // do login init stuff
   if RSClient.IsLoggedIn() then

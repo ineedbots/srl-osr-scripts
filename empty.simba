@@ -1,0 +1,438 @@
+{
+  Empty Script
+  Author: ineedbot
+  Date: 10/12/2021
+
+  Version: 1.1.0
+
+  Empty
+}
+
+program EmptyScript;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$i utils.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+
+  // Configuration complete!
+  // Below is script stuff
+
+type
+  TMonsterObj = record
+    RSObject                                                : TRSObjectFinder;
+    FilterSize                                              : Int32;
+    UpText                                                  : TStringArray;
+  end;
+
+  TBot = record
+    RSW                                                       : TRSWalker;
+    MonsterObjs                                               : array of TMonsterObj;
+  end;
+
+var
+  Bot: TBot;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  Script.Antiban.HoverSkill(ERSSKILL.ATTACK, random(1700, 3200), True);
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    Exit();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  // TODO check for interfaces if opened... close em
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Returns all the found banks
+}
+function TBot.FindMonsterColor(MonsterObj: TMonsterObj; Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(MonsterObj.RSObject, Area);
+  Result.FilterSize(MonsterObj.FilterSize, __GT__);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  MonsterObj: TMonsterObj;
+begin
+  for MonsterObj in Self.MonsterObjs do
+  begin
+    ATPA := Self.FindMonsterColor(MonsterObj, MainScreen.Bounds());
+
+    RSClient.Image.DrawATPA(ATPA);
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    Exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+begin
+  if not Script.CanReportConsole() then
+    Exit();
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.SleepRate);
+end;
+
+{
+  Returns true if any hpbars are near the TPA
+}
+function TBot.TPAIsNearBars(TPA: TPointArray; HPBars: TRSHPBarArray): Boolean;
+var
+  HPBar: TRSHPBar;
+  ABox: TBox;
+begin
+  for HPBar in HPBars do
+  begin
+    ABox := TPA.Bounds().Offset([0, -10]).Expand(15);
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(ABox, clRed);
+
+    if ABox.Contains(HPBar.Bounds.Middle()) then
+      Exit(True);
+  end;
+
+  Exit(False);
+end;
+
+{
+  Returns true if we started to attack the monster
+}
+function TBot.ClickMonster(MonsterObj: TMonsterObj): Boolean;
+var
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  HPBars: TRSHPBarArray;
+  T: TCountdown;
+begin
+  ATPA := Self.FindMonsterColor(MonsterObj, MainScreen.Bounds());
+
+  // remove moving monsters
+  Wait(100);
+  ATPA := ATPA.Intersection(Self.FindMonsterColor(MonsterObj, MainScreen.Bounds()));
+
+  ATPA.SortByMiddle(MainScreen.Center());
+  T.Init(1500);
+
+  HPBars := MainScreen.FindHPBars(MainScreen.Bounds());
+
+  for TPA in ATPA do
+  begin
+    // make sure that no one else is attacking this monster
+    if Self.TPAIsNearBars(TPA, HPBars) then
+      continue;
+
+    // watch out incase our ATPA is outdated
+    if T.IsFinished() then
+      break;
+
+    Script.WriteMsg('Found a monster, checking uptext', True);
+
+    // CHECK THE UPTEXT
+    Mouse.Move(TPA.Bounds());
+    if not MainScreen.IsUpText(MonsterObj.UpText) then
+      continue;
+
+    Script.WriteMsg('Uptext good, attacking...', True);
+
+    // select attack
+    if MainScreen.IsUpText('Attack') then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+
+      Result := MainScreen.DidRedClick();
+    end
+    else
+      Result := ChooseOption.Select('Attack');
+
+    if Result then
+      break;
+  end;
+end;
+
+{
+  Returns true when we attacked a monster
+}
+function TBot.TryAttackMonster(): Boolean;
+var
+  MonsterObj: TMonsterObj;
+begin
+  if (MainScreen.PlayersOnMainScreen() <= 0) and Script.Attacking() then
+  begin
+    Script.WriteMsg('Already fighting...', True);
+
+    while RSClient.IsLoggedIn() and Script.WaitAttacking(500) do
+    begin
+      Self.DoMainLoopStuff('Attacking the monster...');
+    end;
+
+    Script.WriteMsg('Finished combat.', True);
+  end;
+
+  Script.WriteMsg('Going to find a monster.', True);
+
+  for MonsterObj in Self.MonsterObjs do
+  begin
+    if Result then
+      break;
+
+    if not Self.ClickMonster(MonsterObj) then
+    begin
+      Script.WriteMsg('No monster found ' + ToStr(MonsterObj.UpText), True);
+      continue;
+    end;
+
+    Result := True;
+    Script.WriteMsg('Monster clicked. Waiting for movement.', True);
+
+    // we clicked the monster, wait for the moving to stop
+    while RSClient.IsLoggedIn() and Minimap.HasFlag(1500) and Minimap.IsPlayerMoving() do
+      Self.DoMainLoopStuff('Going to clicked monster...');
+
+    Script.WriteMsg('Movement complete. Waiting for combat...', True);
+
+    // ok now lets wait a little bit for combat to begin
+    Script.WaitAttacking(3000);
+
+    // now lets wait while we are attacking
+    while RSClient.IsLoggedIn() and Script.WaitAttacking(500) do
+    begin
+      Self.DoMainLoopStuff('Attacking the monster...');
+    end;
+
+    Script.WriteMsg('Combat completed.', True);
+  end;
+end;
+
+procedure TBot.DoLoggedInStuff();
+begin
+ TryAttackMonster
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      Self.DoLoggedInStuff();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff();
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('world');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  SetLength(Self.MonsterObjs, 1);
+  with Self.MonsterObjs[0] do
+  begin
+    RSObject.Colors += CTS2(1071623, 5, 0.42, 3.72);
+    RSObject.Grow := 12;
+    RSObject.Erode := 10;
+    RSObject.ClusterDistance := 6;
+    FilterSize := 20;
+    Uptext := ['Big frog', 'Frog', 'Giant frog'];
+  end;
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
