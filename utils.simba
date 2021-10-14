@@ -509,9 +509,19 @@ end;
 function TRSMinimap.PlayersNearby(): Int32;
 var
   TPA: TPointArray;
+  TP, MMC: TPoint;
 begin
   TPA := Self.GetDots(ERSMinimapDot.PLAYER);
-  Result := Length(TPA);
+  MMC := Minimap.Center();
+
+  for TP in TPA do
+  begin
+    // sometimes it false positives with the middle point
+    if TP.DistanceTo(MMC) <= 0 then
+      continue;
+
+    Result += 1;
+  end;
 end;
 
 {
@@ -521,7 +531,7 @@ function TRSMainScreen.PlayersOnMainScreen(): Int32;
 var
   TPA: TPointArray;
   CompAng: Single;
-  TP: TPoint;
+  TP, MMC: TPoint;
 begin
   TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
 
@@ -529,11 +539,15 @@ begin
     Exit(0);
 
   CompAng := Minimap.GetCompassAngle(False);
+  MMC := Minimap.Center();
 
   for TP in TPA do
   begin
+    if TP.DistanceTo(MMC) <= 0 then
+      continue;
+
     if Self.IsVisible(Minimap.PointToMs(TP, CompAng)) then
-      Result := Result + 1;
+      Result += 1;
   end;
 end;
 
@@ -667,6 +681,28 @@ begin
   end;
 end;
 
+procedure TPointArray.RandomizeNearDists(PT: TPoint; Dist: Double; Chance: Double = 0.5);
+var
+  i, h: Int32;
+begin
+  for i:=Low(Self) to High(Self) do
+  begin
+    for h:=Low(Self) to High(Self) do
+    begin
+      if i = h then
+        continue;
+
+      if Abs(Self[i].DistanceTo(PT) - Self[h].DistanceTo(PT)) > Dist then
+        continue;
+
+      if Random() > Chance then
+        continue;
+
+      Swap(Self[i], Self[h]);
+    end;
+  end;
+end;
+
 function TRSMinimap.ClickCompass(): Boolean;
 begin
   Result := True;
@@ -741,6 +777,7 @@ var
   HPBar: TRSHPBar;
   OurBox: TBox;
   CompAng: Double;
+  MMC: TPoint;
 begin
   if MainScreen.PlayersOnMainScreen() > 0 then
   begin
@@ -748,9 +785,10 @@ begin
   end;
 
   CompAng := Minimap.GetCompassAngle(False);
+  MMC := Minimap.Center();
   OurBox := Minimap.ArrToMs([
-    Vec3(Minimap.Center.X - 12, Minimap.Center.Y - 12, CompAng),
-    Vec3(Minimap.Center.X + 12, Minimap.Center.Y + 12, CompAng)
+    Vec3(MMC.X - 12, MMC.Y - 12, CompAng),
+    Vec3(MMC.X + 12, MMC.Y + 12, CompAng)
   ]).Bounds();
 
   if Self.Debug and Self.Drawing then

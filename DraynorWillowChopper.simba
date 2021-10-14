@@ -32,7 +32,7 @@ const
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = True;  // Do proggies onto the console?
-  SHIFTDROP      = True;  // Use shift for dropping? WARNING False IS NOT YET IMPLEMENTED
+  SHIFTDROP      = True;  // Use shift for dropping?
   USESPEC        = False; // Use the special attack when it can.
   
   TAKEBREAKS     = True;  // Take breaks?
@@ -155,7 +155,6 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
   
-  // TODO randomize
   Self.CheckSpec();
   
   // TODO check for interfaces if opened... close em
@@ -424,7 +423,7 @@ begin
   OurPos := Self.RSW.GetMyPos();
   TreeTiles := Copy(Self.TreeTiles);
   TreeTiles.Sort(OurPos);
-  // TODO randomize
+  TreeTiles.RandomizeNearDists(OurPos, 8, 0.1);
   
   Script.SetStatus('Finding trees...');
   
@@ -545,7 +544,7 @@ procedure TBot.DropItems();
 var
   R: Extended;
   Pattern, LogSlots: TIntegerArray;
-  CurLogs: Int32;
+  CurLogs, i: Int32;
 begin
   Script.SetStatus('Dropping logs...');
   
@@ -571,8 +570,23 @@ begin
 
   // drop
   if Self.ShiftDropping then
-    Inventory.ShiftDrop(Self.LogItems, Pattern);
-  // TODO do non shiftdropping
+    Inventory.ShiftDrop(Self.LogItems, Pattern)
+  else
+  begin
+    for i:=High(Pattern) downto Low(Pattern) do
+      if LogSlots.Find(Pattern[i]) = -1 then
+        Pattern.Remove(Pattern[i]);
+
+    for i in Pattern do
+    begin
+      Inventory.HoverSlot(i);
+
+      if MainScreen.IsUpText('Drop') then
+        Mouse.Click(MOUSE_LEFT)
+      else
+        ChooseOption.Select('Drop');
+    end;
+  end;
     
   // see how many logs we actually dropped, and log it
   LogSlots.Clear();
@@ -657,7 +671,7 @@ begin
   OurPos := Self.RSW.GetMyPos();
   BankTiles := Copy(Self.BankTiles);
   BankTiles.Sort(OurPos);
-  // TODO randomize
+  BankTiles.RandomizeNearDists(OurPos, 12, 0.2);
   
   Script.SetStatus('Finding bank...');
   

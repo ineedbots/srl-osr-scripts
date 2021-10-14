@@ -215,7 +215,7 @@ begin
 
   if Length(TPA) < Self.BoneColor.FilterSize then
   begin
-    if (OurTile.DistanceTo(BoneTile) < 4) and (SRL.CountColor(CTS1(255, 75), Box(Minimap.Center, 2, 2)) > 0) then
+    if (OurTile.DistanceTo(BoneTile) < 4) and (SRL.CountColor(CTS1(255, 75), Box(Minimap.Center(), 2, 2)) > 0) then
     begin
       Script.WriteMsg('On top of the tile, checking under us...', True);
 
@@ -281,6 +281,7 @@ begin
   BoneTiles := Copy(Self.BigBoneTiles);
   BoneTiles := BoneTiles.Combine(Self.BoneTiles);
   BoneTiles.Sort(OurPos);
+  BoneTiles.RandomizeNearDists(OurPos, 8, 0.1);
 
   Script.WriteMsg('Looking for bones...', True);
 
@@ -316,6 +317,7 @@ begin
   BoneTiles := Copy(Self.BigBoneTiles);
   BoneTiles := BoneTiles.Combine(Self.BoneTiles);
   BoneTiles.Sort(OurTile);
+  BoneTiles.RandomizeNearDists(OurTile, 8, 0.1);
 
   for BoneTile in BoneTiles do
   begin
