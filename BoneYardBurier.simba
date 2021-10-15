@@ -83,7 +83,6 @@ begin
 
   // TODO check combat
   // TODO check players
-  Script.WriteMsg(Minimap.PlayersNearby());
 
   // TODO check for interfaces if opened... close em
 

@@ -14,8 +14,8 @@ program EmptyScript;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = False;  // Do proggies onto the console?
 
@@ -172,7 +172,7 @@ var
 begin
   for HPBar in HPBars do
   begin
-    ABox := TPA.Bounds().Offset([0, -10]).Expand(15);
+    ABox := TPA.Bounds().Offset([0, MainScreen.ConvertDistance(10) * -1]).Expand(MainScreen.ConvertDistance(15));
     if Script.Debug and Script.Drawing then
       RSClient.Image.DrawBox(ABox, clRed);
 

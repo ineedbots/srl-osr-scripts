@@ -827,7 +827,7 @@ var
   HPBars: TRSHPBarArray;
   OurBox: TBox;
 begin
-  OurBox := MainScreen.GetPlayerBox().Expand(8);
+  OurBox := MainScreen.GetPlayerBox().Expand(MainScreen.ConvertDistance(8));
 
   if Self.Debug and Self.Drawing then
   begin
