@@ -495,12 +495,32 @@ end;
 {
   Waits for the change
 }
-function TRSXPBar.WaitChange(Count: Int32; WaitTime: Int32; Interval: Int32 = -1): Boolean;
+function TRSXPBar.WaitChange(C: Int32 = -1; Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
+  Temp: Int32;
 begin
   if (Interval = -1) then
     Interval := SRL.TruncatedGauss(50, 1500);
 
-  Result := WaitUntil(Self.ReadXPBar() <> Count, Interval, WaitTime);
+  if C = -1 then
+    C := Self.ReadXPBar();
+
+  T.Init(Tim);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    Temp := Self.ReadXPBar();
+    if Temp = -1 then
+      break;
+
+    if Temp <> C then
+      Exit(True);
+
+    Wait(Interval);
+  end;
 end;
 
 {
@@ -651,12 +671,27 @@ begin
         Exit(True);
 end;
 
-function TRSInventory.WaitChange(Count: Int32; WaitTime: Int32; Interval: Int32 = -1): Boolean;
+function TRSInventory.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
 begin
   if (Interval = -1) then
     Interval := SRL.TruncatedGauss(50, 1500);
 
-  Result := WaitUntil(Self.Count() <> Count, Interval, WaitTime);
+  if C = -1 then
+    C := Self.Count();
+
+  T.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    if C <> Self.Count() then
+      Exit(True);
+
+    Wait(Interval);
+  end;
 end;
 
 {
@@ -753,10 +788,13 @@ begin
     Self.Tasks[I].Countdown.Resume();
 end;
 
-function TScript.WaitAttacking(Tim: Int32): Boolean;
+function TScript.WaitAttacking(Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;
 var
   T: TCountDown;
 begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
   T.Init(Tim);
   while RSClient.IsLoggedIn() do
   begin
@@ -765,6 +803,8 @@ begin
 
     if Self.Attacking() then
       Exit(True);
+
+    Wait(Interval);
   end;
 end;
 

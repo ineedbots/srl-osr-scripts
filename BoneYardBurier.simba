@@ -286,6 +286,9 @@ begin
 
   for BoneTile in BoneTiles do
   begin
+    if not RSClient.IsLoggedIn() then
+      break;
+
     if not Self.PickupBone(BoneTile, OurPos) then
       continue;
 
@@ -320,7 +323,7 @@ begin
 
   for BoneTile in BoneTiles do
   begin
-    if Self.GoToBone(BoneTile, OurTile, RedDots) then
+    if not RSClient.IsLoggedIn() or Self.GoToBone(BoneTile, OurTile, RedDots) then
       break;
   end;
 end;
@@ -379,6 +382,9 @@ begin
   // bury
   for i in Pattern do
   begin
+    if not RSClient.IsLoggedIn() then
+      Exit();
+
     Inventory.HoverSlot(i);
 
     if BuriedOne then
