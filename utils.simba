@@ -788,6 +788,59 @@ begin
     Self.Tasks[I].Countdown.Resume();
 end;
 
+(*
+DidClick
+~~~~~~~~
+
+.. code-block:: pascal
+
+    function DidClick(Red: Boolean; Time: integer): boolean;
+
+Checks for the X after a click, Times Out after Time.
+DidClick Time must be at LEAST 200 now.
+
+.. note::
+
+    by Rasta Magician
+    Modded by Justin on 1/03/2013
+
+Example:
+
+.. code-block:: pascal
+
+*)
+function TMouse.DidClick(Red: Boolean = True; Time: integer = 200): boolean;
+var
+  TimeOut, x, y, w, h, R, G: integer;
+  B: TBox;
+begin
+  GetMousePos(x, y);
+  GetClientDimensions(w, h);
+  B := IntToBox(x - 15, y - 15, x + 15, y + 15);
+
+  B.LimitTo(IntToBox(0, 0, w - 1, h - 1));
+
+  TimeOut := GetSystemTime() + Time;
+  while (GetSystemTime() < TimeOut) do
+  begin
+    R := CountColorTolerance(255, B, 15);
+    G := CountColorTolerance(65535, B, 15);
+    if Red then
+    begin
+      if (G > 8) then
+        Exit;
+      Result := (R > 20);
+    end else
+    begin
+      if (R > 5) then
+        Exit;
+      Result := (G > 35);
+    end;
+    if Result then
+      Exit;
+  end;
+end;
+
 function TScript.WaitAttacking(Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;
 var
   T: TCountDown;

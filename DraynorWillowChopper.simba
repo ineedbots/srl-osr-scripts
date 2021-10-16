@@ -459,7 +459,7 @@ begin
     begin
       Mouse.Click(MOUSE_LEFT);
 
-      Result := MainScreen.DidRedClick();
+      Result := Mouse.DidClick(True);
     end;
     
     if Result then
@@ -700,7 +700,7 @@ begin
     begin
       Mouse.Click(MOUSE_LEFT);
 
-      Result := MainScreen.DidRedClick();
+      Result := Mouse.DidClick(True);
     end;
     
     if Result then

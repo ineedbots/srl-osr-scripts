@@ -17,7 +17,7 @@ const
   DEBUGMODE      = False; // For debugging purposes
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
 
@@ -234,7 +234,7 @@ begin
   begin
     Mouse.Click(MOUSE_LEFT);
 
-    Result := MainScreen.DidRedClick();
+    Result := True;
   end
   else if MainScreen.IsUpText('options') then
     Result := ChooseOption.Select('Take');
@@ -268,7 +268,7 @@ end;
 {
   Returns true when we picked a bone
 }
-function TBot.PickABone(): Boolean;
+function TBot.PickABone(out WasRed: Boolean): Boolean;
 var
   BoneTiles: TPointArray;
   BoneTile, OurPos: TPoint;
@@ -292,14 +292,19 @@ begin
     if not Self.PickupBone(BoneTile, OurPos) then
       continue;
 
+    WasRed := Mouse.DidClick(True);
+
     Script.WriteMsg('Bone clicked, waiting to grab it.', True);
 
     Self.AfterActionAntiBan(True);
     while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
       Self.DoMainLoopStuff('Getting bone...');
 
-    Inventory.WaitChange(InvCount, 2500 + Random(1000), 250+Random(50));
-    Script.WriteMsg('Grabbed the bone.', True);
+    if WasRed then
+    begin
+      Inventory.WaitChange(InvCount, 2500 + Random(1000), 250+Random(50));
+      Script.WriteMsg('Grabbed the bone.', True);
+    end;
     Result := True;
     break;
   end;
@@ -308,7 +313,7 @@ end;
 {
   Goes to a bone.
 }
-procedure TBot.GoToABone();
+function TBot.GoToABone(): Boolean;
 var
   RedDots, BoneTiles: TPointArray;
   OurTile, BoneTile: TPoint;
@@ -323,7 +328,11 @@ begin
 
   for BoneTile in BoneTiles do
   begin
-    if not RSClient.IsLoggedIn() or Self.GoToBone(BoneTile, OurTile, RedDots) then
+    if not RSClient.IsLoggedIn() then
+      break;
+
+    Result := Self.GoToBone(BoneTile, OurTile, RedDots);
+    if Result then
       break;
   end;
 end;
@@ -332,10 +341,12 @@ end;
   Gathers
 }
 procedure TBot.DoGathering();
+var
+  WasRed: Boolean;
 begin
-  if not Self.PickABone() then
+  if not Self.PickABone(WasRed) then
   begin
-    if Inventory.FindItems(Self.BoneItems) then
+    if Inventory.FindItems(Self.BoneItems) and (Random() < 70) then
       Self.DoFullInventory()
     else
       Self.GoToABone();
