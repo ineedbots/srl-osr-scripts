@@ -16,7 +16,7 @@ const
 
 type
   TAntiBanEnergy = record
-    BioHash, Endurance, Patience: Double;
+    BioHash, Endurance, Patience, BoxPTRad: Double;
   end;
 
   TScript = record
@@ -50,6 +50,21 @@ end;
 function BioRandomFixed(): Double;
 begin
   Result := Script.AntiBanEnergy.BioHash;
+end;
+
+function GetSystemDay(): UInt64;
+begin
+  Result := Round(Now() * 1);
+end;
+
+function FNVHash(Str: String): UInt32;
+var
+  i: UInt32;
+begin
+  // Fowler–Noll–Vo
+  Result := $811C9DC5;
+  for i:=1 to Length(Str) do
+    Result := (Result * $1000193) xor Ord(Str[i]);
 end;
 
 function BioRandomCoinFlip(): Boolean;
@@ -106,25 +121,75 @@ end;
 }
 procedure TAntiBanEnergy.SetupBiometrics();
 var
-  h,i:UInt32;
-  k: string;
+  UserStr: String;
 begin
-  k := Login.GetPlayer().User;
-  h := $811C9DC5;
-  for i:=1 to Length(k) do
-    h := (h * $1000193) xor Ord(k[i]);
+  UserStr := Login.GetPlayer().User;
+  if UserStr = '' then
+    UserStr := IntToStr(Random(10000));
 
-  Self.BioHash   := h / $FFFFFFFF;
+  Self.BioHash   := FNVHash(UserStr) / $FFFFFFFF;
   Self.Endurance := Cos(Self.BioHash*PI/2);
   Self.Patience  := Sin(Self.BioHash*PI/1);
 end;
 
 {
-  A 64bit timer for runtime, so that we can do long proggies without hickups
+  Returns points randomly in the given box, randomized everyday
 }
-function TAntiban.TimeRunning(): Int64; constref;
+function TAntiBanEnergy.DailyPointsInBox(B: TBox; C: Int32 = 3): TPointArray;
+var
+  h_str: String;
+  i, wid, hig: Int32;
 begin
-  Result := GetTimeRunning();
+  B.GetDimensions(wid, hig);
+  h_str := IntToStr(Round(Self.BioHash * 10000)) + IntToStr(GetSystemDay());
+
+  for i:=1 to C do
+  begin
+    Result += Point(B.X1 + FNVHash(h_str + IntToStr(i) + 'x') mod wid,
+      B.Y1 + FNVHash(h_str + IntToStr(i) + 'y') mod hig);
+  end;
+end;
+
+{
+  Override moving mouse over a box, makes use of antiban theorized from https://www.youtube.com/watch?v=qzhwSUP1Ypw
+}
+procedure TMouse.Move(Box: TBox; ForcedMove: Boolean = False; Distribution: EMouseDistribution = MOUSE_DISTRIBUTION_DEFAULT); override;
+var
+  RanTPA: TPointArray;
+  RanTP: TPoint;
+  w, h, w2, h2: Int32;
+  B: TBox;
+begin
+  if Box.Contains(Self.Position()) and (not ForcedMove) then
+    Exit;
+
+  if Distribution = MOUSE_DISTRIBUTION_DEFAULT then
+    Distribution := Self.Distribution;
+
+  // calcuate dems for box
+  Box.GetDimensions(w, h);
+
+  // calcuate radius vals
+  w2 := Round(w * Script.AntiBanEnergy.BoxPTRad);
+  h2 := Round(h * Script.AntiBanEnergy.BoxPTRad);
+
+  // shrink the random points box so we might not randomly miss the box
+  B := Box.Expand(-w2, -h2);
+
+  // find the random points for today
+  RanTPA := Script.AntiBanEnergy.DailyPointsInBox(B);
+
+  // choose a random point
+  RanTP := RanTPA[Random(0, High(RanTPA))];
+
+
+  // mouse our mouse to the point
+  Self.Move(RanTP.Random(Round(-w2),
+                         Round(w2),
+                         Round(-h2),
+                         Round(h2),
+                         (Distribution = MOUSE_DISTRIBUTION_GAUSS)
+  ));
 end;
 
 {
@@ -137,7 +202,7 @@ begin
   for i:=0 to High(Self.Breaks) do
     if (Self.Breaks[i].Length >= LongerThan) and (Self.Breaks[i].PrevAtTime >= Result) then
       Result := Trunc(Self.Breaks[i].PrevAtTime);
-  Result := Self.TimeRunning() - Result;
+  Result := GetTimeRunning() - Result;
 end;
 
 {
@@ -148,11 +213,11 @@ end;
 }
 function TAntiban.BreaksPast(Timespan: Double): Int64;
 var
-  XHoursAgo: Double := Self.TimeRunning() - Timespan;
+  XHoursAgo: Double := GetTimeRunning() - Timespan;
   active, started: Double;
   i: Int32;
 begin
-  Active := Min(Timespan, Self.TimeRunning());
+  Active := Min(Timespan, GetTimeRunning());
   for i:=0 to High(Self.Breaks) do
     if Self.Breaks[i].PrevAtTime >= XHoursAgo then
     begin
@@ -197,7 +262,7 @@ begin
   if AB.HasSleep() then // if we have a sleep
   begin
     zz := High(AB.Breaks);
-    t := AB.TimeRunning() - Trunc(AB.Breaks[zz].PrevAtTime);
+    t := GetTimeRunning() - Trunc(AB.Breaks[zz].PrevAtTime);
     eLeftFromSleep := Max(0,Min(1,t / ((16*ONE_HOUR) + (8*ONE_HOUR*Self.Endurance))));
     eLeftFromSleep := Power(1-eLeftFromSleep, 1/4);
     Result := eLeftFromSleep * Result;
@@ -213,7 +278,7 @@ end;
 {
   From Flight's AIOFisher
 }
-procedure TMouse.HumanMove(Point: TPoint);
+procedure TMouse.Move(Point: TPoint); override;
 var
   mPt: TPoint;
   S: Int32;
@@ -230,9 +295,9 @@ begin
   mPt.X += SRL.NormalRange(-Range, Range);
   mPt.Y += SRL.NormalRange(-Range, Range);
 
-  Self.Move(mPt);
+  inherited(mPt);
   Self.Speed := round(S*0.85);
-  Self.Move(Point);
+  inherited(Point);
   Self.Speed := S;
 end;
 

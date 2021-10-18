@@ -118,7 +118,6 @@ var
   OurTile, BoneTile: TPoint;
   TileRect: TRectangle;
   CompAng: Double;
-  TPA: TPointArray;
   ATPA: T2DPointArray;
 begin
   OurTile := Self.RSW.GetMyPos();
@@ -129,9 +128,7 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
 
     ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clRed);
-    end;
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clBlue);
     RSClient.Image.DrawRect(TileRect, clBlue);
@@ -142,9 +139,7 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
 
     ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clRed);
-    end;
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clOrange);
     RSClient.Image.DrawRect(TileRect, clOrange);
@@ -173,6 +168,8 @@ procedure TBot.ReportConsole();
 begin
   if not Script.CanReportConsole() then
     Exit();
+
+  // TODO complete
 end;
 
 {
@@ -396,6 +393,9 @@ begin
     if not RSClient.IsLoggedIn() then
       Exit();
 
+    if not Inventory.Open() then
+      break;
+
     Inventory.HoverSlot(i);
 
     if BuriedOne then
@@ -490,6 +490,7 @@ begin
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
   Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
   Script.AntiBan.Name := 'Antiban';
 
   Script.Debug := DEBUGMODE;

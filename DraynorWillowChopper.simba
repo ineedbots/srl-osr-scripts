@@ -207,7 +207,6 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  TPA: TPointArray;
   TreeTile, OurTile, BankTile, FireTile: TPoint;
   TileRect: TRectangle;
   i: Int32;
@@ -221,9 +220,7 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
     
     ATPA := Self.FindTreeColor(TileRect.Expand(Round(TileRect.Radius() * Self.TreeColor.RadiusExpand)).Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clRed);
-    end;
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TreeTile, CompAng), 4, clBlue);
     RSClient.Image.DrawRect(TileRect, clBlue);
@@ -234,9 +231,7 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
     
     ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clOrange);
-    end;
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clGreen);
     RSClient.Image.DrawRect(TileRect, clGreen);
@@ -249,9 +244,7 @@ begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, FireTile);
     
     ATPA := Self.FindFireColor(TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds());
-    for TPA in ATPA do begin
-      RSClient.Image.DrawTPA(TPA, clOrange);
-    end;
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, FireTile, CompAng), 4, clOrange);
     RSClient.Image.DrawRect(TileRect, clGreen);
@@ -329,11 +322,10 @@ end;
   
   This is mainly from olly/srl-development woodcut test script
 }
-function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out Circle: TCircle): Boolean;
+function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out TPA: TPointArray): Boolean;
 var
   Tile: TRectangle;
   B: TBox;
-  TPA: TPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, TreePos, 4);
@@ -348,10 +340,8 @@ begin
 
   if Length(TPA) > Self.TreeColor.FilterSize then
   begin
-    Circle := TPA.MinAreaCircle();
-
     // if the circle is larger than the tile's circle, this is good
-    Result := Circle.Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+    Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;
   end;
 end;
 
@@ -362,7 +352,7 @@ procedure TBot.WhileChopping(TreeTile: TPoint);
 var
   TimeoutCounter: TCountdown;
   OurPos: TPoint;
-  _: TCircle;
+  _: TPointArray;
   InvCount: Int32;
 begin
   // wait for us to stop moving before we start monitoring the tree tile.
@@ -416,9 +406,7 @@ end;
 function TBot.ClickTree(): Boolean;
 var
   OurPos, TreeTile: TPoint;
-  TreeCircle: TCircle;
-  TreeCircleRad: Int32;
-  TreeTiles: TPointArray;
+  TreeTiles, TreeTPA: TPointArray;
 begin
   OurPos := Self.RSW.GetMyPos();
   TreeTiles := Copy(Self.TreeTiles);
@@ -430,7 +418,7 @@ begin
   // look at each tree to try click
   for TreeTile in TreeTiles do
   begin
-    if not Self.FindTree(OurPos, TreeTile, TreeCircle) then
+    if not Self.FindTree(OurPos, TreeTile, TreeTPA) then
       continue;
       
     Script.SetStatus('Found tree! Checking uptext...');
@@ -444,9 +432,8 @@ begin
       Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
       
     // ok, we found a tree at the tile, lets hover it and see if it is actually the tree
-    TreeCircleRad := Round(TreeCircle.Radius * 0.85);
-    Mouse.HumanMove(TreeCircle.Mean().Random(-TreeCircleRad, TreeCircleRad, True));
-    
+    Mouse.Move(TreeTPA.Bounds());
+
     if not MainScreen.IsUpText(Self.TreeOptions) then
       continue;
       
@@ -628,11 +615,10 @@ end;
 {
   Returns true if it can see the bank
 }
-function TBot.FindBank(PlayerPos: TPoint; BankPos: TPoint; out Circle: TCircle): Boolean;
+function TBot.FindBank(PlayerPos: TPoint; BankPos: TPoint; out TPA: TPointArray): Boolean;
 var
   Tile: TRectangle;
   B: TBox;
-  TPA: TPointArray;
 begin
   // find the bank's tile on the mainscreen
   Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
@@ -648,8 +634,6 @@ begin
   // is it good? if so then return!
   if Length(TPA) > 0 then
   begin
-    Circle := TPA.MinAreaCircle();
-
     Result := True;
   end;
 end;
@@ -660,9 +644,7 @@ end;
 function TBot.ClickBank(): Boolean;
 var
   OurPos, BankTile: TPoint;
-  BankTiles: TPointArray;
-  BankCircle: TCircle;
-  BankCircleRad: Int32;
+  BankTiles, BankTPA: TPointArray;
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
@@ -679,14 +661,13 @@ begin
   for BankTile in BankTiles do
   begin
     // try see if we can find this bank
-    if not Self.FindBank(OurPos, BankTile, BankCircle) then
+    if not Self.FindBank(OurPos, BankTile, BankTPA) then
       continue;
       
     Script.SetStatus('Found bank! Checking uptext...');
     
     // hover over the banktile and see if it is actually a bank
-    BankCircleRad := Round(BankCircle.Radius * 0.85);
-    Mouse.HumanMove(BankCircle.Mean().Random(-BankCircleRad, BankCircleRad, True));
+    Mouse.Move(BankTPA.Bounds());
     
     if not MainScreen.IsUpText(Bank.FINDER_UPTEXT) then
       continue;
@@ -1183,11 +1164,10 @@ end;
 {
   Tries to find a fire at the location
 }
-function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out Circle: TCircle): Boolean;
+function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out TPA: TPointArray): Boolean;
 var
   Tile: TRectangle;
   B: TBox;
-  TPA: TPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
@@ -1202,10 +1182,8 @@ begin
 
   if Length(TPA) > Self.FireColor.FilterSize then
   begin
-    Circle := TPA.MinAreaCircle();
-
     // make sure the middle of the tile is inside!
-    Result := Tile.Contains(TPA.Mean());
+    Result := TPA.MinAreaCircle().Contains(TPA.Mean());
   end;
 end;
 
@@ -1219,7 +1197,7 @@ var
   Timeout: TCountdown;
   Walked, DidMSClick: Boolean;
   TileRect: TRectangle;
-  _: TCircle;
+  _: TPointArray;
 begin
   // Minimap.SetCompassAngle(0);
   OurPos := Self.RSW.GetMyPos();
@@ -1264,11 +1242,10 @@ begin
     if OurPos.DistanceTo(FirePos) >= 3 then
     begin
       Script.SetStatus('Going on top of the fire starting tile...');
-      
-      // TODO randomize
-      if DidMSClick then
+
+      if DidMSClick or (Random() < 0.2) then
         // use MM, it is more accurate!
-        Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)), MOUSE_LEFT)
+        Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)).Random(-1, 1), MOUSE_LEFT)
       else
       begin
         // try mainscreen, it maybe inaccurate
@@ -1279,7 +1256,7 @@ begin
         if not MainScreen.IsVisible(TileRect.Mean()) then
           continue;
         
-        Mouse.Move(TileRect);
+        Mouse.Move(TileRect.Bounds());
         
         // check if a fire exists here
         if MainScreen.IsUpText('options') and ChooseOption.HasOption(['Fire']) then
@@ -1464,6 +1441,7 @@ begin
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
   Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
   Script.AntiBan.Name := 'Antiban';
 
   Script.Debug := DEBUGMODE;
