@@ -17,6 +17,11 @@
   Do note that lower combat levels will agro the wizards.
   You can lose agro by being the area (without leaving) for about 10 minutes.
   WARNING: Lighting fires will make your character leave the area! So you will reagro the wizards.
+
+
+  BIG TODO THINK
+  Wait for changes to finalize to srl-development and simba...
+  Do I use Wasplib?
 }
 
 program DraynorWillowChopper;
@@ -158,6 +163,9 @@ begin
   Self.CheckSpec();
   
   // TODO check for interfaces if opened... close em
+  // TODO check birdnests
+  // TODO check cluescroll
+  // TODO add fletching
     
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
@@ -1468,6 +1476,7 @@ begin
   Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
   Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);

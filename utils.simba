@@ -837,6 +837,11 @@ begin
   Minimap.SetCompassNorth((Random() > 0.2));
 end;
 
+procedure TScript.UpdateZoomLevel();
+begin
+  MM2MS.ZoomLevel := Options.GetZoomLevel();
+end;
+
 procedure TAntiBan.PauseAllTasks();
 var
   I: Int32;
