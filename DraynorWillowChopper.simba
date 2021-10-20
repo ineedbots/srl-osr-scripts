@@ -1485,9 +1485,9 @@ begin
   
   if TAKEBREAKS then
   begin
-    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
-    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
-    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
 

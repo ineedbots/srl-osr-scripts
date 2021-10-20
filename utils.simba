@@ -295,8 +295,12 @@ begin
   mPt.X += SRL.NormalRange(-Range, Range);
   mPt.Y += SRL.NormalRange(-Range, Range);
 
-  inherited(mPt);
-  Self.Speed := round(S*0.85);
+  if Random() < 0.6 then
+  begin
+    inherited(mPt);
+    Self.Speed := round(S*0.85);
+  end;
+
   inherited(Point);
   Self.Speed := S;
 end;
