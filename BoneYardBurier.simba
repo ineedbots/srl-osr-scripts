@@ -518,6 +518,7 @@ begin
   Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
   Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);

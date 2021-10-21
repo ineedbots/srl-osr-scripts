@@ -1,0 +1,321 @@
+{
+  Barbarian Village Fisher
+  Author: ineedbot
+  Date: 10/20/2021
+
+  Version: 1.1.0
+}
+
+program BarbarianVillageFisher;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$i utils.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+
+  // Configuration complete!
+  // Below is script stuff
+
+type
+  TBot = record
+    RSW                                                       : TRSWalker;
+  end;
+
+var
+  Bot: TBot;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  Script.Antiban.HoverSkill(ERSSKILL.FISHING, random(1700, 3200), True);
+end;
+
+procedure TBot.CheckUnderAttack();
+begin
+  if Script.CheckUnderAttack() then
+  begin
+    // Self.GoToBank(True);
+
+    if Script.HPAmount < 5 then
+      Script.Stop('Critical HP!')
+    else
+      Wait(5000, 15000);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    Exit();
+
+  // are we under attack?
+  Self.CheckUnderAttack();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  // TODO check for interfaces if opened... close em
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+begin
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    Exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+begin
+  if not Script.CanReportConsole() then
+    Exit();
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.SleepRate);
+end;
+
+{
+  Executes when we should do something about our full inventory
+}
+procedure TBot.DoFullInventory();
+var
+  T, RT, RS, S, B, F, FFR: TIntegerArray;
+begin
+  Inventory.FindItem('Raw trout', RT);
+  Inventory.FindItem('Trout', T);
+  Inventory.FindItem('Raw salmon', RS);
+  Inventory.FindItem('Salmon', S);
+  Inventory.FindItem(343, B);
+  Inventory.FindItem('Feather', F);
+  Inventory.FindItem('Fly fishing rod', FFR);
+
+  Script.WriteMsg('Raw trout: ' + ToStr(RT));
+  Script.WriteMsg('Trout: ' + ToStr(T));
+  Script.WriteMsg('Raw salmon: ' + ToStr(RS));
+  Script.WriteMsg('Salmon: ' + ToStr(S));
+  Script.WriteMsg('Burnt fish: ' + ToStr(B));
+  Script.WriteMsg('Feather: ' + ToStr(F));
+  Script.WriteMsg('Fly fishing rod: ' + ToStr(FFR));
+
+  Self.AfterActionAntiBan(True);
+end;
+
+{
+  Executes when we need to gather items to fill our inventory
+}
+procedure TBot.DoGathering();
+begin
+  Self.AfterActionAntiBan(True);
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      // TODO randomize
+      if Inventory.IsFull() then
+        Self.DoFullInventory()
+      else
+        Self.DoGathering();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff();
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.999;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('world');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.

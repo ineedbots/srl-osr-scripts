@@ -1,0 +1,739 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 10/21/2021
+
+  Version: 1.1.0
+}
+
+program Wintertodt;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$i utils.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+
+  // use the eastside?
+  USEEASTSIDE = False;
+
+  // Food items to use
+  _FOODITEMS     = ['Trout'];
+  _EATHPPERC     = 35; // Percentage when to start eating food
+  _NUMFOOD       = 10; // Number of foods to withdraw
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+
+  // Configuration complete!
+  // Below is script stuff
+
+type
+  TScriptColor = record
+    RSObject                                                  : TRSObjectFinder;
+    FilterSize                                                : Int32;
+    RadiusExpand                                              : Double;
+  end;
+
+  TBot = record
+    RSW                                                       : TRSWalker;
+    CameraAngle                                               : Double;
+    ShouldBank                                                : Boolean;
+    EatHpPerc, RandomEatHpPerc, NumFood                       : Int32;
+    FoodItems                                                 : TRSItemArray;
+    LogItem, KnifedLogItem, KnifeItem                         : TRSItem;
+    BankTile, BrazierTile, PyromancerTile, RootsTile,
+      EnterTile, ExitTile                                     : TPoint;
+    FixBrazUpText, LightBrazUpText, FeedBrazUpText,
+      ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
+    BankColor, EntranceColor, ExitColor, RootsColor,
+      LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
+  end;
+
+var
+  Bot: TBot;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+end;
+
+procedure TBot.SetCompass();
+begin
+  Minimap.SetCompassAngle(Self.CameraAngle);
+end;
+
+{
+  Gets how much energy
+}
+function TBot.GetWinterTodtEnergyPerc(): Int32;
+var
+  B: TBox;
+  R, G: Int32;
+begin
+  B := IntToBox(MainScreen.Bounds().X1 + 7,
+    MainScreen.Bounds().Y1 + 30,
+    MainScreen.Bounds().X1 + 204,
+    MainScreen.Bounds().Y1 + 42);
+
+  R := SRL.CountColor($0000CC, B);
+  G := SRL.CountColor($00CC00, B);
+
+  if (R + G) < 600 then
+    Exit(-1);
+
+  Result := Round((G / (R + G)) * 100);
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    Exit();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  // TODO check for interfaces if opened... close em
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+end;
+
+function TBot.FindEntraceColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.EntranceColor.RSObject, Area);
+  Result.FilterSize(Self.EntranceColor.FilterSize, __GT__);
+end;
+
+function TBot.FindExitColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.ExitColor.RSObject, Area);
+  Result.FilterSize(Self.ExitColor.FilterSize, __GT__);
+end;
+
+function TBot.FindRootsColor(Area: TBox): T2DPointArray;
+var
+  ATPA: T2DPointArray;
+  TPA, _: TPointArray;
+  i: Int32;
+begin
+  ATPA := MainScreen.FindObject(Self.RootsColor.RSObject, Area);
+  ATPA.FilterSize(Self.RootsColor.FilterSize, __GT__);
+
+  for TPA in ATPA do
+  begin
+    for i := Low(Self.InsideRootsColor.RSObject.Colors) to
+      High(Self.InsideRootsColor.RSObject.Colors) do
+    begin
+      if SRL.FindColors(_, Self.InsideRootsColor.RSObject.Colors[i], TPA.Bounds())
+        > Self.InsideRootsColor.FilterSize then begin
+        Result += TPA;
+        break;
+      end;
+    end;
+  end;
+end;
+
+function TBot.FindLitBrazier(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.LitBrazColor.RSObject, Area);
+  Result.FilterSize(Self.LitBrazColor.FilterSize, __GT__);
+end;
+
+function TBot.FindUnlitBrazier(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.UnlitBrazColor.RSObject, Area);
+  Result.FilterSize(Self.UnlitBrazColor.FilterSize, __GT__);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  OurTile: TPoint;
+  TileRect: TRectangle;
+  CompAng: Double;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  // roots
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
+  ATPA := Self.FindRootsColor(TileRect.Expand(
+    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // braz
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile);
+  ATPA := Self.FindLitBrazier(TileRect.Expand(
+    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  ATPA := Self.FindUnlitBrazier(TileRect.Expand(
+    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // bank
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
+  ATPA := Self.FindBankColor(TileRect.Expand(
+    Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // exit
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
+  ATPA := Self.FindExitColor(TileRect.Expand(
+    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // entrance
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
+  ATPA := Self.FindEntraceColor(TileRect.Expand(
+    Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    Exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+begin
+  if not Script.CanReportConsole() then
+    Exit();
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.SleepRate);
+end;
+
+{
+}
+procedure TBot.GoDoBank();
+begin
+  Script.WriteMsg('Doing bank...', True);
+end;
+
+{
+}
+procedure TBot.GoInsideBossArea();
+begin
+  Script.WriteMsg('Going insdie boss area...', True);
+end;
+
+{
+}
+procedure TBot.GoOutsideBossArea();
+begin
+  Script.WriteMsg('Going outside boss area...', True);
+end;
+
+{
+}
+procedure TBot.FletchLogs();
+begin
+  Script.WriteMsg('Fletching logs...', True);
+end;
+
+{
+}
+procedure TBot.OfferStuffToBrazier();
+begin
+  Script.WriteMsg('Offering to the brazier...', True);
+end;
+
+{
+  Returns true if we clicked the roots
+}
+function TBot.ClickRoots(): Boolean;
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  Script.WriteMsg('Going to click roots....', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile, 0);
+
+  ATPA := Self.FindRootsColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)));
+
+  if Length(ATPA) > 0 then
+    B := ATPA.Biggest().Bounds()
+  else
+    B := TileRect.Bounds();
+
+  // check uptext
+  Mouse.Move(B);
+
+  if not MainScreen.IsUpText(Self.ChopRootUpText) then
+  begin
+    // rotate camera, try again
+    Self.SetCompass();
+    Exit();
+  end;
+
+  // found uptext, clicking...
+  if Random() < 80 then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := True;
+  end
+  else
+    Result := ChooseOption.Select(Self.ChopRootUpText);
+end;
+
+{
+  Returns true if we clicked the roots
+}
+function TBot.ChopLogs(): Boolean;
+begin
+  if Self.ClickRoots() then
+  begin
+    Result := True;
+
+    Script.WriteMsg('Clicked roots, waiting for finish', True);
+
+
+  end;
+end;
+
+{
+  Goes to the logs
+}
+procedure TBot.GoToLogs(Forced: Boolean = False);
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+begin
+  Script.WriteMsg('Going to logs...', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile, 0);
+
+  // walk to the roots
+  if (OurPos.DistanceTo(Self.RootsTile) >= 30) or
+    not MainScreen.IsVisible(TileRect.Mean()) or
+    Forced then
+  begin
+    try
+      Self.RSW.WebWalk(Self.RootsTile, 0, BioRandomFixed());
+    except
+      Script.WriteMsg('Failed to walk to roots');
+    end;
+  end;
+end;
+
+{
+}
+procedure TBot.GatherLogs();
+begin
+  Script.WriteMsg('Gathering logs....', True);
+
+  if not Self.ChopLogs() then
+    Self.GoToLogs(True);
+end;
+
+{
+}
+procedure TBot.WaitForBossStart();
+begin
+  Script.WriteMsg('Waitting for boss start...', True);
+end;
+
+{
+}
+procedure TBot.EatFood();
+begin
+  Script.WriteMsg('Eating food...', True);
+end;
+
+{
+  Executes when we are logged in
+}
+procedure TBot.DoLoggedInStuff();
+var
+  OurHpPerc, TheirHpPerc: Int32;
+begin
+  OurHpPerc := Minimap.GetHPPercent();
+  TheirHpPerc := Self.GetWinterTodtEnergyPerc();
+
+  if TheirHpPerc = -1 then
+  begin
+    // not inside the boss arean
+    if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
+      Self.GoDoBank()
+    else
+      Self.GoInsideBossArea();
+  end
+  else
+  begin
+    if TheirHpPerc > 0 then
+    begin
+      // boss isnt dead, we are inside
+
+      // check if we need to escape
+      if Self.ShouldBank or
+        (not Inventory.FindItems(Self.FoodItems) and
+          (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc))) then
+      begin
+        Self.GoOutsideBossArea();
+        Exit();
+      end;
+
+      if OurHpPerc < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
+      begin
+        Self.EatFood();
+        Exit();
+      end;
+
+      // check if we should fletch
+      if Inventory.FindItem(Self.LogItem) and Inventory.FindItem(Self.KnifeItem) then
+      begin
+        Self.FletchLogs();
+        Exit();
+      end;
+
+      // check if we need to do stuff at the braz
+      if Inventory.FindItems([Self.LogItem, Self.KnifedLogItem]) then
+      begin
+        Self.OfferStuffToBrazier();
+        Exit();
+      end;
+
+      // just gather logs
+      Self.GatherLogs();
+    end
+    else
+    begin
+      // boss is dead, we are inside
+
+      if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
+        Self.GoOutsideBossArea()
+      else
+        Self.WaitForBossStart();
+    end;
+  end;
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      Self.DoLoggedInStuff();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff();
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+  Food: String;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Self.SetCompass);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('zeah');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+
+  Self.KnifeItem := 'Knife';
+  Self.LogItem := 'Bruma root';
+  Self.KnifedLogItem := 'Bruma kindling';
+
+  for Food in _FOODITEMS do
+    Self.FoodItems += Food;
+
+  Self.EatHpPerc := _EATHPPERC;
+
+  Self.ShouldBank := False;
+  Self.RandomEatHpPerc := 5;
+  Self.NumFood := _NUMFOOD;
+
+  Self.BankTile := Point(1956, 683);
+  Self.ExitTile := Point(1910, 592);
+  Self.EnterTile := Point(1910, 600);
+
+  // Brazier
+  Self.FixBrazUpText := ['Fix'];
+  Self.LightBrazUpText := ['Light'];
+  Self.FeedBrazUpText := ['Feed'];
+
+  // Bruma roots
+  Self.ChopRootUpText := ['Chop'];
+
+  // Incapacitated Pyromancer
+  Self.HelpPyroUpText := ['Help'];
+
+  // Doors of Dinh
+  Self.DoorUpText := ['Enter'];
+
+  if USEEASTSIDE then
+  begin
+    Self.BrazierTile := Point(1947, 464);
+    Self.PyromancerTile := Point(1955, 460);
+    Self.RootsTile := Point(1950, 508);
+    Self.CameraAngle := 270;
+  end
+  else
+  begin
+    Self.BrazierTile := Point(1875, 464);
+    Self.PyromancerTile := Point(1864, 462);
+    Self.RootsTile := Point(1873, 508);
+    Self.CameraAngle := 90;
+  end;
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(2631713, 3, 0, 1.25);
+    RSObject.Colors += CTS2(3881520, 4, 0.39, 0.23);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 30;
+    RadiusExpand := 1.25;
+  end;
+
+  with Self.EntranceColor do
+  begin
+    RSObject.Colors += CTS2(10281414, 15, 0.07, 2.13);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 100;    
+    RadiusExpand := 10;
+  end;
+
+  with Self.ExitColor do
+  begin
+    RSObject.Colors += CTS2(2388829, 10, 0.03, 1.8);
+    RSObject.Colors += CTS2(2190167, 4, 0.15, 2.18);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 50;
+    RadiusExpand := 10;
+  end;
+
+  with Self.RootsColor do
+  begin
+    RSObject.Colors += CTS2(3158056, 11, 0.14, 0.63);
+    RSObject.ClusterDistance := 3;
+    FilterSize := 50;
+    RadiusExpand := 3;
+  end;
+
+  with Self.InsideRootsColor do
+  begin
+    RSObject.Colors += CTS2(6922115, 4, 0.08, 0.61);
+    RSObject.Colors += CTS2(8039058, 4, 0.11, 0.97);
+    RSObject.Colors += CTS2(3623744, 5, 0.26, 0.21);
+    FilterSize := 10;
+  end;
+
+  with Self.LitBrazColor do
+  begin
+    RSObject.Colors += CTS2(4644246, 18, 0.2, 1.45);
+    RSObject.ClusterDistance := 3;
+    FilterSize := 100;
+    RadiusExpand := 2;
+  end;
+
+  with Self.UnlitBrazColor do
+  begin
+    RSObject.Colors += CTS2(6118743, 4, 0.52, 0.25);
+    RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
+    RSObject.ClusterDistance := 10;
+    FilterSize := 150;
+    RadiusExpand := 2;
+  end;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
