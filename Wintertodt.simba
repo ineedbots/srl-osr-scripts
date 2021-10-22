@@ -24,7 +24,7 @@ const
 
   // Food items to use
   _FOODITEMS     = ['Trout'];
-  _EATHPPERC     = 45; // Percentage when to start eating food
+  _EATHPPERC     = 55; // Percentage when to start eating food
   _NUMFOOD       = 10; // Number of foods to withdraw
 
   // Account details
@@ -53,11 +53,12 @@ type
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
       RandomGoodHPPerc                                        : Int32;
-    FoodItems                                                 : TRSItemArray;
-    LogItem, KnifedLogItem, KnifeItem                         : TRSItem;
+    FoodItems, AxeItems                                       : TRSItemArray;
+    LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
+      HerbItem, UnfPotionItem, PotionItem                     : TRSItem;
     BankTile, BrazierTile, PyromancerTile, RootsTile,
       EnterTile, ExitTile, RootsTileWalkOffset,
-      BrazierTileWalkOffset                                   : TPoint;
+      BrazierTileWalkOffset, BankTileWalkOffset               : TPoint;
     FixBrazUpText, LightBrazUpText, FeedBrazUpText,
       ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
     BankColor, EntranceColor, ExitColor, RootsColor,
@@ -75,6 +76,9 @@ begin
   Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
 end;
 
+{
+  Sets the compass
+}
 procedure TBot.SetCompass();
 begin
   Minimap.SetCompassAngle(Self.CameraAngle);
@@ -86,18 +90,23 @@ end;
 function TBot.GetWinterTodtEnergyPerc(): Int32;
 var
   B: TBox;
-  R, G: Int32;
+  R, G, BL: Int32;
 begin
-  B := IntToBox(MainScreen.Bounds().X1 + 7,
-    MainScreen.Bounds().Y1 + 30,
-    MainScreen.Bounds().X1 + 204,
-    MainScreen.Bounds().Y1 + 42);
+  B := IntToBox(MainScreen.Bounds().X1 + 3,
+    MainScreen.Bounds().Y1 + 26,
+    MainScreen.Bounds().X1 + 200,
+    MainScreen.Bounds().Y1 + 38);
 
   R := SRL.CountColor($0000CC, B);
   G := SRL.CountColor($00CC00, B);
+  BL := SRL.CountColor($000000, B);
 
   if (R + G) < 600 then
     Exit(-1);
+
+  // sometimes no green can be found, but 1% still remains
+  if BL = 230 then
+    Exit(1);
 
   Result := Round((G / (R + G)) * 100);
 end;
@@ -143,24 +152,36 @@ begin
     Self.DoAntiban();
 end;
 
+{
+  Finds color
+}
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
   Result.FilterSize(Self.BankColor.FilterSize, __GT__);
 end;
 
+{
+  Finds color
+}
 function TBot.FindEntraceColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.EntranceColor.RSObject, Area);
   Result.FilterSize(Self.EntranceColor.FilterSize, __GT__);
 end;
 
+{
+  Finds color
+}
 function TBot.FindExitColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.ExitColor.RSObject, Area);
   Result.FilterSize(Self.ExitColor.FilterSize, __GT__);
 end;
 
+{
+  Finds color
+}
 function TBot.FindRootsColor(Area: TBox): T2DPointArray;
 var
   ATPA: T2DPointArray;
@@ -184,12 +205,18 @@ begin
   end;
 end;
 
+{
+  Finds color
+}
 function TBot.FindLitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.LitBrazColor.RSObject, Area);
   Result.FilterSize(Self.LitBrazColor.FilterSize, __GT__);
 end;
 
+{
+  Finds color
+}
 function TBot.FindUnlitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.UnlitBrazColor.RSObject, Area);
@@ -305,6 +332,9 @@ var
   CountDown: TCountDown;
   Eaten: Boolean;
 begin
+  if Bank.IsOpen() then
+    Exit();
+
   if not Inventory.FindItems(Self.FoodItems, FoodSlots) then
   begin
     Script.WriteMsg('No food!', True);
@@ -385,12 +415,224 @@ begin
 end;
 
 {
+  Does all the banking...
+}
+procedure TBot.DoBanking();
+var
+  ToolSlots, Pattern, FoodSlots: TIntegerArray;
+  i: Int32;
+  R: Extended;
+  Item: TRSItem;
+begin
+  Self.ShouldBank := False;
+
+  // query the items in our inventory
+  Inventory.FindItems(Self.AxeItems, ToolSlots);
+  // appends it
+  Inventory.FindItems([Self.TinderItem, Self.KnifeItem,
+                       Self.HammerItem], ToolSlots);
+  Inventory.FindItems(Self.FoodItems, FoodSlots);
+
+
+  // deposit everything but food and tools
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  // make sure we do not deposit our food
+  for i in FoodSlots do
+    Pattern.Remove(i);
+
+  for i in Pattern do
+  begin
+    if Inventory.IsSlotUsed(i) then
+    begin
+      Bank.DepositSlot([i, BANK_DEPOSIT_ALL], BioRandomCoinflip());
+      Wait(200, Random(550, 700));
+    end;
+  end;
+
+  // ok, deposited, now make sure we top off on food
+  if Length(FoodSlots) < Self.NumFood then
+  begin
+    for Item in Self.FoodItems do
+    begin
+      if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], BioRandomCoinflip()) then
+        break;
+    end;
+  end;
+
+  // randomly close the bank
+  if Random() > 0.75 then
+    Bank.Close();
+end;
+
+{
+  Returns true when clicked the bank
+}
+function TBot.ClickBank(): Boolean;
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    Exit(True);
+
+  Script.WriteMsg('Going to click the bank....', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 0);
+
+  ATPA := Self.FindBankColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.BankColor.RadiusExpand)));
+
+  if Length(ATPA) > 0 then
+    B := ATPA.Biggest().Bounds()
+  else
+    B := TileRect.Bounds();
+
+  // check uptext
+  Mouse.Move(B, True);
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT) then
+  begin
+    // rotate camera, try again
+    Self.SetCompass();
+    Exit();
+  end;
+
+  // found uptext, clicking...
+  // open the bank
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    Result := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+
+    Result := Mouse.DidClick(True);
+  end;
+end;
+
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
+function TBot.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+begin
+  // we only wait a finite amount of time...
+  BankOpenCountDown.Init(5000);
+  while not BankOpenCountDown.IsFinished() do
+  begin
+    if not RSClient.IsLoggedIn() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Not logged in', True);
+      break;
+    end;
+
+    if Bank.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      Exit(True);
+    end;
+
+    // enter pin if needed
+    if BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      BankOpenCountDown.Restart();
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end;
+
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+
+  Script.WriteMsg('WaitBankOpen: Timed out...', True);
+  // bank didnt open... failed.
+end;
+
+{
+  Goes to the bank
+}
+procedure TBot.GoToBank(Forced: Boolean = False);
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+begin
+  Script.WriteMsg('Going to bank...', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 0);
+
+  // walk to the roots
+  if (OurPos.DistanceTo(Self.BankTile) >= 30) or
+    not MainScreen.IsVisible(TileRect.Mean()) or
+    Forced then
+  begin
+    try
+      // SRL TODO until nodes exist for this area
+      //Self.RSW.WebWalk(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
+      Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0);
+    except
+      Script.WriteMsg('Failed to walk to bank');
+    end;
+  end;
+end;
+
+{
+  Does banking
 }
 procedure TBot.GoDoBank();
+var
+  ClickedBank: Boolean;
 begin
   Script.WriteMsg('Doing bank...', True);
 
-  Self.ShouldBank := False;
+  if Random() > 0.6 then
+    Self.EatFood();
+
+  // try to click on the bank
+  Self.GoToBank();
+
+  // make sure we top off on hp before we bank
+  Self.EatFood();
+
+  ClickedBank := Self.ClickBank();
+  if not ClickedBank then
+  begin
+    // walk to the bank, and then try to open it
+    Self.GoToBank(True);
+    ClickedBank := Self.ClickBank();
+  end;
+
+  // we clicked it, lets wait for it to open
+  if ClickedBank and Self.WaitBankOpen() then
+  begin
+    // it is now open! lets deposit
+    Self.DoBanking();
+
+    Self.GoToEntrance();
+  end;
 end;
 
 {
@@ -417,7 +659,7 @@ begin
     B := TileRect.Bounds();
 
   // check uptext
-  Mouse.Move(B);
+  Mouse.Move(B, True);
 
   if not MainScreen.IsUpText(Self.DoorUpText) then
   begin
@@ -455,7 +697,9 @@ begin
     Forced then
   begin
     try
-      Self.RSW.WebWalk(Self.EnterTile, 0, BioRandomFixed());
+      // SRL TODO until nodes exist for this area
+      //Self.RSW.WebWalk(Self.EnterTile.Random(-1, 1), 0, BioRandomFixed());
+      Self.RSW.WalkBlind(Self.EnterTile.Random(-1, 1), 0);
     except
       Script.WriteMsg('Failed to walk to inside door');
     end;
@@ -508,7 +752,7 @@ begin
     B := TileRect.Bounds();
 
   // check uptext
-  Mouse.Move(B);
+  Mouse.Move(B, True);
 
   if not MainScreen.IsUpText(Self.DoorUpText) then
   begin
@@ -546,7 +790,9 @@ begin
     Forced then
   begin
     try
-      Self.RSW.WebWalk(Self.ExitTile, 0, BioRandomFixed());
+      // SRL TODO until nodes exist for this area
+      //Self.RSW.WebWalk(Self.ExitTile.Random(-1, 1), 0, BioRandomFixed());
+      Self.RSW.WalkBlind(Self.ExitTile.Random(-1, 1), 0);
     except
       Script.WriteMsg('Failed to walk to outside door');
     end;
@@ -589,10 +835,92 @@ begin
 end;
 
 {
+  Fletches the logs
 }
 procedure TBot.FletchLogs();
+var
+  KnifeSlot, LogSlot, HPP, OurHPPerc, ICount, IC: Int32;
+  LogSlots: TIntegerArray;
+  CountDown: TCountDown;
 begin
+  if not Inventory.FindItem(Self.LogItem, LogSlots) then
+  begin
+    Script.WriteMsg('No logs...', True);
+    Exit();
+  end;
+
+  if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
+  begin
+    Script.WriteMsg('No knife...', True);
+    Exit();
+  end;
+
   Script.WriteMsg('Fletching logs...', True);
+  LogSlot := LogSlots[Random(0, High(LogSlots))];
+  ICount := Length(LogSlots);
+
+  // start fletching
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(LogSlot);
+    Inventory.ClickSlot(KnifeSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(KnifeSlot);
+    Inventory.ClickSlot(LogSlot);
+  end;
+
+  // wait while fletching
+  OurHPPerc := Minimap.GetHPPercent();
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.FletchWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check hp
+    HPP := Minimap.GetHPPercent();
+    if HPP < OurHPPerc then
+    begin
+      Script.WriteMsg('FletchLogs: HP lowered...', True);
+      break;
+    end;
+    OurHPPerc := HPP;
+
+    // check inv
+    LogSlots.Clear();
+    Inventory.FindItem(Self.LogItem, LogSlots);
+    IC := Length(LogSlots);
+
+    if IC <= 0 then
+    begin
+      Script.WriteMsg('FletchLogs: No more logs', True);
+      break;
+    end;
+
+    if IC <> ICount then
+    begin
+      Script.WriteMsg('FletchLogs: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    ICount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('FletchLogs: Countdown expired', True);
+      break;
+    end;
+
+    if Self.GetWinterTodtEnergyPerc() < 15 then
+    begin
+      Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fletching logs...', True);
+  end;
 end;
 
 {
@@ -661,6 +989,8 @@ begin
   OurHPPerc := Minimap.GetHPPercent();
   Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
   ICount := Length(FireItemSlots);
+
+  Self.AfterActionAntiBan(True);
 
   Minimap.WaitFlag();
 
@@ -731,7 +1061,9 @@ begin
     Forced then
   begin
     try
-      Self.RSW.WebWalk(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset), 0, BioRandomFixed());
+      // SRL TODO until nodes exist for this area
+      //Self.RSW.WebWalk(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
+      Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0);
     except
       Script.WriteMsg('Failed to walk to brazier');
     end;
@@ -807,7 +1139,7 @@ begin
     B := TileRect.Bounds();
 
   // check uptext
-  Mouse.Move(B);
+  Mouse.Move(B, True);
 
   if not MainScreen.IsUpText(Self.ChopRootUpText) then
   begin
@@ -831,15 +1163,16 @@ end;
 }
 function TBot.ChopLogs(): Boolean;
 var
-  InvCount, IC: Int32;
+  InvCount, IC, TempNum: Int32;
   CountDown: TCountDown;
-  FireItemSlots: TIntegerArray;
+  LogSlots, KnifedLogSlots: TIntegerArray;
 begin
   if Self.ClickRoots() then
   begin
+    Script.WriteMsg('Clicked roots, waiting for finish', True);
+    Self.AfterActionAntiBan(True);
     Result := True;
 
-    Script.WriteMsg('Clicked roots, waiting for finish', True);
     InvCount := Inventory.Count();
     CountDown.Init(Self.ChopWaitTime);
 
@@ -859,16 +1192,22 @@ begin
         break;
       end;
 
-      if Self.GetWinterTodtEnergyPerc() < 10 then
-      begin
-        FireItemSlots.Clear();
-        Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
+      // check if we should end early and offer it now cause boss is gunna die!
+      LogSlots.Clear();
+      Inventory.FindItem(LogItem, LogSlots);
+      KnifedLogSlots.Clear();
+      Inventory.FindItem(KnifedLogItem, KnifedLogSlots);
+      TempNum := 0;
+      TempNum += Round(Length(KnifedLogSlots) * 1.2);
+      if Inventory.FindItem(KnifeItem) then
+        TempNum += Round(Length(LogSlots) * 2.4)
+      else
+        TempNum += Round(Length(LogSlots) * 1.2);
 
-        if Length(FireItemSlots) > 7 then
-        begin
-          Script.WriteMsg('ChopLogs: Low boss hp!!', True);
-          break;
-        end;
+      if TempNum > Self.GetWinterTodtEnergyPerc() then
+      begin
+        Script.WriteMsg('ChopLogs: Low boss hp!!', True);
+        break;
       end;
 
       InvCount := IC;
@@ -909,7 +1248,9 @@ begin
     Forced then
   begin
     try
-      Self.RSW.WebWalk(Self.RootsTile.Offset(Self.RootsTileWalkOffset), 0, BioRandomFixed());
+      // SRL TODO until nodes exist for this area
+      //Self.RSW.WebWalk(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
+      Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0);
     except
       Script.WriteMsg('Failed to walk to roots');
     end;
@@ -976,8 +1317,13 @@ begin
       end;
 
       // check if we should fletch
-      if Inventory.FindItem(Self.LogItem) and Inventory.FindItem(Self.KnifeItem) then
+      if Inventory.FindItem(Self.LogItem) and
+        Inventory.FindItem(Self.KnifeItem) and
+        (TheirHpPerc >= 15) then
       begin
+        if Random() > 0.5 then
+          Self.GoToBrazier();
+
         Self.FletchLogs();
         Exit();
       end;
@@ -990,7 +1336,10 @@ begin
       end;
 
       // just gather logs
-      Self.GatherLogs();
+      if TheirHpPerc > 5 then
+        Self.GatherLogs()
+      else
+        Self.GoToExit();
     end
     else
     begin
@@ -1013,7 +1362,7 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.GoOutsideBossArea();
+      Self.DoLoggedInStuff();
     end
     else
     begin
@@ -1021,7 +1370,7 @@ begin
         Self.OnLogin();
     end;
 
-    Self.DoMainLoopStuff();
+    Self.DoMainLoopStuff('', False);
   end;
 
   Logout.ClickLogout();
@@ -1119,6 +1468,14 @@ begin
   Self.KnifeItem := 'Knife';
   Self.LogItem := 'Bruma root';
   Self.KnifedLogItem := 'Bruma kindling';
+  Self.HerbItem := 'Bruma herb';
+  Self.UnfPotionItem := 'Rejuvenation potion (unf)';
+  Self.PotionItem := 'Rejuvenation potion';
+  Self.HammerItem := 'Hammer';
+  Self.TinderItem := 'Tinderbox';
+  Self.AxeItems := ['Rune axe', 'Dragon axe', 'Bronze axe',
+    'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
+    'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
 
   for Food in _FOODITEMS do
     Self.FoodItems += Food;
@@ -1129,12 +1486,13 @@ begin
   Self.GoodHPPerc := 80;
   Self.RandomGoodHPPerc := 10;
   Self.RandomEatHpPerc := 5;
-  Self.ChopWaitTime := 2500;
-  Self.BurnWaitTime := 2500;
-  Self.FletchWaitTime := 2500;
+  Self.ChopWaitTime := 3000;
+  Self.BurnWaitTime := 3000;
+  Self.FletchWaitTime := 3000;
   Self.NumFood := _NUMFOOD;
 
   Self.BankTile := Point(1956, 683);
+  Self.BankTileWalkOffset := Point(-9, -5);
   Self.ExitTile := Point(1910, 592);
   Self.EnterTile := Point(1910, 600);
 
@@ -1153,15 +1511,14 @@ begin
   Self.DoorUpText := ['Enter'];
   Self.ExitChatOption := 'Leave and lose all progress.';
 
-  Self.BrazierTileWalkOffset := Point(0, 6);
-  Self.RootsTileWalkOffset := Point(0, -3);
-
   if USEEASTSIDE then
   begin
     Self.BrazierTile := Point(1947, 464);
     Self.PyromancerTile := Point(1955, 460);
     Self.RootsTile := Point(1950, 505);
     Self.CameraAngle := 270;
+    Self.BrazierTileWalkOffset := Point(0, 6);
+    Self.RootsTileWalkOffset := Point(0, -3);
   end
   else
   begin
@@ -1169,6 +1526,8 @@ begin
     Self.PyromancerTile := Point(1864, 462);
     Self.RootsTile := Point(1873, 505);
     Self.CameraAngle := 90;
+    Self.BrazierTileWalkOffset := Point(0, 6);
+    Self.RootsTileWalkOffset := Point(5, 2);
   end;
 
   with Self.BankColor do
