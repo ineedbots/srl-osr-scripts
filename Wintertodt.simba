@@ -80,8 +80,28 @@ end;
   Sets the compass
 }
 procedure TBot.SetCompass();
+var
+  SetAngle: Double;
 begin
-  Minimap.SetCompassAngle(Self.CameraAngle);
+  SetAngle := Self.CameraAngle + Random(-5, 5);
+  if Abs(Minimap.GetCompassAngle(True) - SetAngle) > 4 then
+    Minimap.SetCompassAngle(SetAngle);
+end;
+
+{
+  Gets how much time remains
+}
+function TBot.GetWinterTodtRemainingTime(): String;
+var
+  B: TBox;
+  Text: String;
+begin
+  B := IntToBox(MainScreen.Bounds().X1 + 1,
+    MainScreen.Bounds().Y1 + 43,
+    MainScreen.Bounds().X1 + 156,
+    MainScreen.Bounds().Y1 + 53);
+
+  Result := OCR.RecognizeStatic(B, TOCRColorRule.Create([2071039, 10]), RS_FONT_PLAIN_11);
 end;
 
 {
@@ -104,11 +124,11 @@ begin
   if (R + G) < 600 then
     Exit(-1);
 
-  // sometimes no green can be found, but 1% still remains
-  if BL = 230 then
-    Exit(1);
-
   Result := Round((G / (R + G)) * 100);
+
+  // sometimes no green can be found, but 1% still remains
+  if (Result = 0) and (BL = 230) then
+    Exit(1);
 end;
 
 {
@@ -138,7 +158,7 @@ begin
   // TODO check for interfaces if opened... close em
 
   // general antiban
-  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
 
 {
@@ -424,6 +444,8 @@ var
   R: Extended;
   Item: TRSItem;
 begin
+  Script.AntiBan.AfterBankAntiBan(20);
+
   Self.ShouldBank := False;
 
   // query the items in our inventory
@@ -470,6 +492,10 @@ begin
         break;
     end;
   end;
+
+  Script.AntiBan.AfterBankAntiBan(30);
+  Script.AntiBan.DoBreak();
+  Script.AntiBan.DoSleep();
 
   // randomly close the bank
   if Random() > 0.75 then
@@ -579,6 +605,9 @@ var
   OurPos: TPoint;
   TileRect: TRectangle;
 begin
+  if Self.GetWinterTodtEnergyPerc() <> -1 then
+    Exit();
+
   Script.WriteMsg('Going to bank...', True);
 
   OurPos := Self.RSW.GetMyPos();
@@ -725,7 +754,7 @@ begin
   end;
 
   Minimap.WaitFlag();
-  Wait(2000 + Random(1000));
+  Wait(2500 + Random(1000));
 end;
 
 {
@@ -824,14 +853,33 @@ begin
     Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
   end;
 
-  Wait(2000 + Random(1000));
+  Wait(2500 + Random(1000));
 end;
 
 {
+  Waits for the boss to start
 }
 procedure TBot.WaitForBossStart();
 begin
   Script.WriteMsg('Waitting for boss start...', True);
+
+  Self.GoToBrazier();
+
+  if Self.GetWinterTodtEnergyPerc() = 0 then
+  begin
+    while RSClient.IsLoggedIn() do
+    begin
+      if (Self.GetWinterTodtEnergyPerc() > 0) or
+        Self.GetWinterTodtRemainingTime().EndsWith('0:00') then
+        break;
+
+      Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
+
+      Self.DoMainLoopStuff('Waiting for boss to start', True);
+    end;
+
+    Self.OfferStuffToBrazier();
+  end;
 end;
 
 {
