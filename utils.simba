@@ -21,7 +21,7 @@ type
 
   TScript = record
     Status, StopReason                                        : String;
-    Running, DidLogin, Debug, Drawing, Reporting              : Boolean;
+    Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate : Int32;
     Activity: record
       XP                                                      : Int32;
@@ -515,6 +515,26 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
+
+function TRSChat.WaitOption(Option: String; WaitTime: Int32; Interval: Int32 = -1; Colors: TIntegerArray = [CHAT_COLOR_BLACK, CHAT_COLOR_WHITE]): Boolean;
+var
+  CountDown: TCountDown;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  CountDown.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.FindOption(Option, Colors) then
+      Exit(True);
+
+    if CountDown.IsFinished() then
+      Exit(False);
+
+    Wait(Interval);
+  end;
+end;
 
 {
   Fixes runelite plugin

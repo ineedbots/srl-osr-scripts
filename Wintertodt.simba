@@ -24,7 +24,7 @@ const
 
   // Food items to use
   _FOODITEMS     = ['Trout'];
-  _EATHPPERC     = 35; // Percentage when to start eating food
+  _EATHPPERC     = 45; // Percentage when to start eating food
   _NUMFOOD       = 10; // Number of foods to withdraw
 
   // Account details
@@ -48,12 +48,16 @@ type
   TBot = record
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
+    ExitChatOption                                            : String;
     ShouldBank                                                : Boolean;
-    EatHpPerc, RandomEatHpPerc, NumFood                       : Int32;
+    EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
+      BurnWaitTime, FletchWaitTime, GoodHPPerc,
+      RandomGoodHPPerc                                        : Int32;
     FoodItems                                                 : TRSItemArray;
     LogItem, KnifedLogItem, KnifeItem                         : TRSItem;
     BankTile, BrazierTile, PyromancerTile, RootsTile,
-      EnterTile, ExitTile                                     : TPoint;
+      EnterTile, ExitTile, RootsTileWalkOffset,
+      BrazierTileWalkOffset                                   : TPoint;
     FixBrazUpText, LightBrazUpText, FeedBrazUpText,
       ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
     BankColor, EntranceColor, ExitColor, RootsColor,
@@ -180,13 +184,13 @@ begin
   end;
 end;
 
-function TBot.FindLitBrazier(Area: TBox): T2DPointArray;
+function TBot.FindLitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.LitBrazColor.RSObject, Area);
   Result.FilterSize(Self.LitBrazColor.FilterSize, __GT__);
 end;
 
-function TBot.FindUnlitBrazier(Area: TBox): T2DPointArray;
+function TBot.FindUnlitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.UnlitBrazColor.RSObject, Area);
   Result.FilterSize(Self.UnlitBrazColor.FilterSize, __GT__);
@@ -215,10 +219,10 @@ begin
 
   // braz
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile);
-  ATPA := Self.FindLitBrazier(TileRect.Expand(
+  ATPA := Self.FindLitBrazierColor(TileRect.Expand(
     Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds());
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  ATPA := Self.FindUnlitBrazier(TileRect.Expand(
+  ATPA := Self.FindUnlitBrazierColor(TileRect.Expand(
     Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds());
   RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clOrange);
@@ -291,24 +295,297 @@ begin
 end;
 
 {
+  Eats food until good
+}
+procedure TBot.EatFood();
+var
+  HPPrec, i: Int32;
+  FoodSlots, Pattern: TIntegerArray;
+  R: Extended;
+  CountDown: TCountDown;
+  Eaten: Boolean;
+begin
+  if not Inventory.FindItems(Self.FoodItems, FoodSlots) then
+  begin
+    Script.WriteMsg('No food!', True);
+    Exit();
+  end;
+
+  Script.WriteMsg('Eating food...', True);
+
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // remove all slots that isnt food
+  for i:=High(Pattern) downto Low(Pattern) do
+  begin
+    if FoodSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+  end;
+
+  // eat
+  for i in Pattern do
+  begin
+    // check if hp is good now
+    if Minimap.GetHPPercent() >
+      (Self.GoodHPPerc + Random(-Self.RandomGoodHPPerc, Self.RandomGoodHPPerc)) then
+    begin
+      Script.WriteMsg('HP is good', True);
+      break;
+    end;
+
+    // open the inventory
+    if not Inventory.Open() then
+    begin
+      Script.WriteMsg('Couldn''t open inventory', True);
+      break;
+    end;
+
+    // eat it
+    Inventory.HoverSlot(i);
+
+    HPPrec := Minimap.GetHPPercent();
+    CountDown.Init(2500);
+
+    if MainScreen.IsUpText(['Eat', 'Drink']) then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      Eaten := True;
+    end
+    else
+      Eaten := ChooseOption.Select(['Drink', 'Eat']);
+
+    while Eaten do
+    begin
+      if not RSClient.IsLoggedIn() or CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('Eat timed out.', True);
+        break;
+      end;
+
+      if Minimap.GetHPPercent() <> HPPrec then
+      begin
+        Script.WriteMsg('Healed', True);
+        break;
+      end;
+
+      Wait(Script.SleepRate);
+    end;
+
+    if not Eaten then
+      break;
+
+    Wait(1250 + Random(500));
+  end;
+end;
+
+{
 }
 procedure TBot.GoDoBank();
 begin
   Script.WriteMsg('Doing bank...', True);
+
+  Self.ShouldBank := False;
 end;
 
 {
+  Returns true when clicked the door
+}
+function TBot.ClickEnterDoor(): Boolean;
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  Script.WriteMsg('Going to click enter door....', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile, 0);
+
+  ATPA := Self.FindEntraceColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)));
+
+  if Length(ATPA) > 0 then
+    B := ATPA.Biggest().Bounds()
+  else
+    B := TileRect.Bounds();
+
+  // check uptext
+  Mouse.Move(B);
+
+  if not MainScreen.IsUpText(Self.DoorUpText) then
+  begin
+    // rotate camera, try again
+    Self.SetCompass();
+    Exit();
+  end;
+
+  // found uptext, clicking...
+  if Random() < 80 then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := True;
+  end
+  else
+    Result := ChooseOption.Select(Self.DoorUpText);
+end;
+
+{
+  Goes to the exit door
+}
+procedure TBot.GoToEntrance(Forced: Boolean = False);
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+begin
+  Script.WriteMsg('Going inside boss area...', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile, 0);
+
+  // walk to the roots
+  if (OurPos.DistanceTo(Self.EnterTile) >= 30) or
+    not MainScreen.IsVisible(TileRect.Mean()) or
+    Forced then
+  begin
+    try
+      Self.RSW.WebWalk(Self.EnterTile, 0, BioRandomFixed());
+    except
+      Script.WriteMsg('Failed to walk to inside door');
+    end;
+  end;
+end;
+
+{
+  Goes inside the arena
 }
 procedure TBot.GoInsideBossArea();
 begin
-  Script.WriteMsg('Going insdie boss area...', True);
+  if Self.GetWinterTodtEnergyPerc() <> -1 then
+  begin
+    Script.WriteMsg('Already inside of arena', True);
+    Exit();
+  end;
+
+  Self.GoToEntrance();
+  if not Self.ClickEnterDoor() then
+  begin
+    Self.GoToEntrance(True);
+    Exit();
+  end;
+
+  Minimap.WaitFlag();
+  Wait(2000 + Random(1000));
+end;
+
+{
+  Returns true when clicked the door
+}
+function TBot.ClickExitDoor(): Boolean;
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  Script.WriteMsg('Going to click exit door....', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile, 0);
+
+  ATPA := Self.FindExitColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)));
+
+  if Length(ATPA) > 0 then
+    B := ATPA.Biggest().Bounds()
+  else
+    B := TileRect.Bounds();
+
+  // check uptext
+  Mouse.Move(B);
+
+  if not MainScreen.IsUpText(Self.DoorUpText) then
+  begin
+    // rotate camera, try again
+    Self.SetCompass();
+    Exit();
+  end;
+
+  // found uptext, clicking...
+  if Random() < 80 then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := True;
+  end
+  else
+    Result := ChooseOption.Select(Self.DoorUpText);
+end;
+
+{
+  Goes to the exit door
+}
+procedure TBot.GoToExit(Forced: Boolean = False);
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+begin
+  Script.WriteMsg('Going outside boss area...', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile, 0);
+
+  // walk to the roots
+  if (OurPos.DistanceTo(Self.ExitTile) >= 30) or
+    not MainScreen.IsVisible(TileRect.Mean()) or
+    Forced then
+  begin
+    try
+      Self.RSW.WebWalk(Self.ExitTile, 0, BioRandomFixed());
+    except
+      Script.WriteMsg('Failed to walk to outside door');
+    end;
+  end;
+end;
+
+{
+  Exits the arena
+}
+procedure TBot.GoOutsideBossArea();
+begin
+  if Self.GetWinterTodtEnergyPerc() = -1 then
+  begin
+    Script.WriteMsg('Already outside of arena', True);
+    Exit();
+  end;
+
+  Self.GoToExit();
+  if not Self.ClickExitDoor() then
+  begin
+    Self.GoToExit(True);
+    Exit();
+  end;
+
+  Minimap.WaitFlag();
+  if Self.GetWinterTodtEnergyPerc() > 0 then
+  begin
+    Chat.WaitOption(Self.ExitChatOption, 2000);
+    Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
+  end;
+
+  Wait(2000 + Random(1000));
 end;
 
 {
 }
-procedure TBot.GoOutsideBossArea();
+procedure TBot.WaitForBossStart();
 begin
-  Script.WriteMsg('Going outside boss area...', True);
+  Script.WriteMsg('Waitting for boss start...', True);
 end;
 
 {
@@ -319,10 +596,188 @@ begin
 end;
 
 {
+  Returns true if it found a lit brazier
+}
+function TBot.FindLitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
+
+  ATPA := Self.FindLitBrazierColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)));
+
+  TPA := ATPA.Biggest();
+  Result := Length(TPA) > Self.LitBrazColor.FilterSize;
+end;
+
+{
+  Returns true if it found a unlit brazier
+}
+function TBot.FindUnlitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
+
+  ATPA := Self.FindUnlitBrazierColor(TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)));
+
+  TPA := ATPA.Biggest();
+  Result := Length(TPA) > Self.UnlitBrazColor.FilterSize;
+end;
+
+{
+  Fixes/Lights the unlit brazier
+}
+procedure TBot.FixUnlitBrazier();
+begin
+  if Random() < 90 then
+    Mouse.Click(MOUSE_LEFT)
+  else
+    ChooseOption.Select(Self.FixBrazUpText.Combine(Self.LightBrazUpText));
+
+  Minimap.WaitFlag();
+  Wait(2500, 3000);
+end;
+
+{
+  Offers stuff to it
+}
+procedure TBot.OfferLitBrazier();
+var
+  OurHPPerc, HPP, ICount, IC: Int32;
+  CountDown: TCountDown;
+  FireItemSlots: TIntegerArray;
+  _: TPointArray;
+begin
+  if Random() < 90 then
+    Mouse.Click(MOUSE_LEFT)
+  else
+    ChooseOption.Select(Self.FeedBrazUpText);
+
+  OurHPPerc := Minimap.GetHPPercent();
+  Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
+  ICount := Length(FireItemSlots);
+
+  Minimap.WaitFlag();
+
+  CountDown.Init(Self.BurnWaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    // check hp
+    HPP := Minimap.GetHPPercent();
+    if HPP < OurHPPerc then
+    begin
+      Script.WriteMsg('OfferLitBrazier: HP lowered...', True);
+      break;
+    end;
+    OurHPPerc := HPP;
+
+    // check inv
+    FireItemSlots.Clear();
+    Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
+    IC := Length(FireItemSlots);
+
+    if IC <= 0 then
+    begin
+      Script.WriteMsg('OfferLitBrazier: No more things to offer', True);
+      break;
+    end;
+
+    if IC <> ICount then
+    begin
+      Script.WriteMsg('OfferLitBrazier: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    ICount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('OfferLitBrazier: Countdown expired', True);
+      break;
+    end;
+
+    // check if still fired
+    if not Self.FindLitBrazier(Self.RSW.GetMyPos(), _) then
+    begin
+      Script.WriteMsg('OfferLitBrazier: No lit color found', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Offering stuff to the brazier', True);
+  end;
+end;
+
+{
+  Goes to the logs
+}
+procedure TBot.GoToBrazier(Forced: Boolean = False);
+var
+  OurPos: TPoint;
+  TileRect: TRectangle;
+begin
+  Script.WriteMsg('Going to brazier...', True);
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile, 0);
+
+  // walk to the roots
+  if (OurPos.DistanceTo(Self.BrazierTile) >= 30) or
+    not MainScreen.IsVisible(TileRect.Mean()) or
+    Forced then
+  begin
+    try
+      Self.RSW.WebWalk(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset), 0, BioRandomFixed());
+    except
+      Script.WriteMsg('Failed to walk to brazier');
+    end;
+  end;
+end;
+
+{
+  Does interactions with the brazier
 }
 procedure TBot.OfferStuffToBrazier();
+var
+  OurPos: TPoint;
+  TPA, TPA2, TPA3: TPointArray;
+  B: TBox;
+  TileRect: TRectangle;
 begin
   Script.WriteMsg('Offering to the brazier...', True);
+
+  Self.GoToBrazier();
+
+  // TODO check pyro, heal if needed
+
+  OurPos := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile, 0);
+
+  Self.FindUnlitBrazier(OurPos, TPA);
+  Self.FindLitBrazier(OurPos, TPA2);
+  TPA3 := TPA.Combine(TPA2);
+
+  // check uptext for what it is
+  if Length(TPA3) > 0 then
+  begin
+    B := TPA3.Bounds();
+    B.LimitTo(TileRect.Bounds());
+  end
+  else
+    B := TileRect.Bounds();
+
+  Mouse.Move(B, True);
+
+  if MainScreen.IsUpText(Self.FixBrazUpText.Combine(Self.LightBrazUpText)) then
+    Self.FixUnlitBrazier()
+  else if MainScreen.IsUpText(Self.FeedBrazUpText) then
+    Self.OfferLitBrazier()
+  else
+    Self.GoToBrazier(True);
 end;
 
 {
@@ -344,7 +799,10 @@ begin
     Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)));
 
   if Length(ATPA) > 0 then
-    B := ATPA.Biggest().Bounds()
+  begin
+    B := ATPA.Biggest().Bounds();
+    B.LimitTo(TileRect.Bounds());
+  end
   else
     B := TileRect.Bounds();
 
@@ -372,14 +830,63 @@ end;
   Returns true if we clicked the roots
 }
 function TBot.ChopLogs(): Boolean;
+var
+  InvCount, IC: Int32;
+  CountDown: TCountDown;
+  FireItemSlots: TIntegerArray;
 begin
   if Self.ClickRoots() then
   begin
     Result := True;
 
     Script.WriteMsg('Clicked roots, waiting for finish', True);
+    InvCount := Inventory.Count();
+    CountDown.Init(Self.ChopWaitTime);
 
+    while RSClient.IsLoggedIn() do
+    begin
+      IC := Inventory.Count();
+      if IC <> InvCount then
+      begin
+        Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
+        CountDown.Restart();
+      end;
 
+      // inv is full!
+      if IC >= 28 then
+      begin
+        Script.WriteMsg('ChopLogs: InvFull!', True);
+        break;
+      end;
+
+      if Self.GetWinterTodtEnergyPerc() < 10 then
+      begin
+        FireItemSlots.Clear();
+        Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
+
+        if Length(FireItemSlots) > 7 then
+        begin
+          Script.WriteMsg('ChopLogs: Low boss hp!!', True);
+          break;
+        end;
+      end;
+
+      InvCount := IC;
+
+      if CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('ChopLogs: CountDown expired...', True);
+        break;
+      end;
+
+      if Minimap.GetHPPercent() < (Self.EatHpPerc - Self.RandomEatHpPerc) then
+      begin
+        Script.WriteMsg('ChopLogs: Low hp!', True);
+        break;
+      end;
+
+      Self.DoMainLoopStuff('Chopping logs...', True);
+    end;
   end;
 end;
 
@@ -402,7 +909,7 @@ begin
     Forced then
   begin
     try
-      Self.RSW.WebWalk(Self.RootsTile, 0, BioRandomFixed());
+      Self.RSW.WebWalk(Self.RootsTile.Offset(Self.RootsTileWalkOffset), 0, BioRandomFixed());
     except
       Script.WriteMsg('Failed to walk to roots');
     end;
@@ -410,27 +917,15 @@ begin
 end;
 
 {
+  Gathers logs
 }
 procedure TBot.GatherLogs();
 begin
   Script.WriteMsg('Gathering logs....', True);
 
+  Self.GoToLogs();
   if not Self.ChopLogs() then
     Self.GoToLogs(True);
-end;
-
-{
-}
-procedure TBot.WaitForBossStart();
-begin
-  Script.WriteMsg('Waitting for boss start...', True);
-end;
-
-{
-}
-procedure TBot.EatFood();
-begin
-  Script.WriteMsg('Eating food...', True);
 end;
 
 {
@@ -445,6 +940,9 @@ begin
 
   if TheirHpPerc = -1 then
   begin
+    // Allow breaks while outside
+    Script.AllowBreaks := True;
+
     // not inside the boss arean
     if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
       Self.GoDoBank()
@@ -453,14 +951,19 @@ begin
   end
   else
   begin
+    // don't do breaks while in the arena
+    Script.AllowBreaks := False;
+
     if TheirHpPerc > 0 then
     begin
       // boss isnt dead, we are inside
 
+      // make sure to go bank at the end of the round
+      Self.ShouldBank := True;
+
       // check if we need to escape
-      if Self.ShouldBank or
-        (not Inventory.FindItems(Self.FoodItems) and
-          (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc))) then
+      if not Inventory.FindItems(Self.FoodItems) and
+          (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc)) then
       begin
         Self.GoOutsideBossArea();
         Exit();
@@ -510,7 +1013,7 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.DoLoggedInStuff();
+      Self.GoOutsideBossArea();
     end
     else
     begin
@@ -582,7 +1085,7 @@ begin
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
-  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Mouse.Speed             := 25 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
@@ -623,7 +1126,12 @@ begin
   Self.EatHpPerc := _EATHPPERC;
 
   Self.ShouldBank := False;
+  Self.GoodHPPerc := 80;
+  Self.RandomGoodHPPerc := 10;
   Self.RandomEatHpPerc := 5;
+  Self.ChopWaitTime := 2500;
+  Self.BurnWaitTime := 2500;
+  Self.FletchWaitTime := 2500;
   Self.NumFood := _NUMFOOD;
 
   Self.BankTile := Point(1956, 683);
@@ -643,19 +1151,23 @@ begin
 
   // Doors of Dinh
   Self.DoorUpText := ['Enter'];
+  Self.ExitChatOption := 'Leave and lose all progress.';
+
+  Self.BrazierTileWalkOffset := Point(0, 6);
+  Self.RootsTileWalkOffset := Point(0, -3);
 
   if USEEASTSIDE then
   begin
     Self.BrazierTile := Point(1947, 464);
     Self.PyromancerTile := Point(1955, 460);
-    Self.RootsTile := Point(1950, 508);
+    Self.RootsTile := Point(1950, 505);
     Self.CameraAngle := 270;
   end
   else
   begin
     Self.BrazierTile := Point(1875, 464);
     Self.PyromancerTile := Point(1864, 462);
-    Self.RootsTile := Point(1873, 508);
+    Self.RootsTile := Point(1873, 505);
     Self.CameraAngle := 90;
   end;
 
@@ -690,7 +1202,7 @@ begin
     RSObject.Colors += CTS2(3158056, 11, 0.14, 0.63);
     RSObject.ClusterDistance := 3;
     FilterSize := 50;
-    RadiusExpand := 3;
+    RadiusExpand := 1.5;
   end;
 
   with Self.InsideRootsColor do
