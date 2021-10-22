@@ -12,8 +12,8 @@ program Wintertodt;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = False;  // Do proggies onto the console?
 
@@ -73,7 +73,12 @@ var
 }
 procedure TBot.DoSkillHover();
 begin
-  Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+  case Random() of
+    0..0.25: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
+    0.25..0.35: Script.Antiban.HoverSkill(ERSSKILL.CONSTRUCTION, random(1700, 3200), True);
+    0.35..0.5: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+  end;
 end;
 
 {
@@ -143,14 +148,6 @@ begin
 
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
-
-  // check we we leveled up
-  if Chat.LeveledUp() then
-  begin
-    Wait(0, 2500);
-    while Chat.ClickContinue() do
-      Wait(75, 500);
-  end;
 
   // check if we gained xp, failsafe
   Script.CheckActivity();
@@ -494,12 +491,13 @@ begin
   end;
 
   Script.AntiBan.AfterBankAntiBan(30);
-  Script.AntiBan.DoBreak();
-  Script.AntiBan.DoSleep();
 
   // randomly close the bank
   if Random() > 0.75 then
     Bank.Close();
+
+  Script.AntiBan.DoBreak();
+  Script.AntiBan.DoSleep();
 end;
 
 {
@@ -961,6 +959,17 @@ begin
       break;
     end;
 
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('FletchLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
     if Self.GetWinterTodtEnergyPerc() < 15 then
     begin
       Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
@@ -1083,6 +1092,18 @@ begin
     if not Self.FindLitBrazier(Self.RSW.GetMyPos(), _) then
     begin
       Script.WriteMsg('OfferLitBrazier: No lit color found', True);
+      break;
+    end;
+
+    // check levelup
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('OfferLitBrazier: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500);
+        Chat.ChatToOption('doesnt matter');
+      end;
       break;
     end;
 
@@ -1264,6 +1285,19 @@ begin
       begin
         Script.WriteMsg('ChopLogs: CountDown expired...', True);
         break;
+      end;
+
+      // check levelup
+      if Chat.LeveledUp() then
+      begin
+        Script.WriteMsg('ChopLogs: Leveld', True);
+        if Random() < 0.2 then
+        begin
+          Wait(0, 1500);
+          Chat.ChatToOption('doesnt matter');
+        end
+        else
+          break;
       end;
 
       if Minimap.GetHPPercent() < (Self.EatHpPerc - Self.RandomEatHpPerc) then
@@ -1499,11 +1533,11 @@ begin
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
   Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
-  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+  Script.Antiban.AddBreak(ONE_MINUTE*30, ONE_SECOND*30, 0.2, 0.0);
 
   if TAKEBREAKS then
   begin
-    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*1, ONE_MINUTE*5, 0.2, 0.25);
     Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
     Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
