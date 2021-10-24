@@ -145,9 +145,6 @@ begin
     
   // are we under attack?
   Self.CheckUnderAttack();
-
-  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
-  Inventory.SetSelectedSlot(-1);
   
   // check we we leveled up
   if Chat.LeveledUp() then
@@ -163,12 +160,17 @@ begin
   Self.CheckSpec();
   
   // TODO check for interfaces if opened... close em
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
+
   // TODO check birdnests
   // TODO check cluescroll
   // TODO add fletching
     
   // general antiban
-  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
 
 {
@@ -628,6 +630,7 @@ var
   Tile: TRectangle;
   B: TBox;
 begin
+  // TODO improve finding bank
   // find the bank's tile on the mainscreen
   Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
 
@@ -876,6 +879,8 @@ procedure TBot.BankItems();
 var
   ClickedBank: Boolean;
 begin
+  Self.GoToBank();
+
   // try to click on the bank
   ClickedBank := Self.ClickBank();
   if not ClickedBank then
@@ -1460,6 +1465,7 @@ begin
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
   Script.Activity.Countdown.Init(180000);
+  Script.AllowBreaks := True;
   
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   

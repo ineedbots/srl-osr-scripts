@@ -4,6 +4,8 @@
   Date: 10/20/2021
 
   Version: 1.1.0
+
+  Fishes at barb village
 }
 
 program BarbarianVillageFisher;
@@ -31,8 +33,17 @@ const
   // Below is script stuff
 
 type
+  TScriptColor = record
+    RSObject                                                  : TRSObjectFinder;
+    FilterSize                                                : Int32;
+    RadiusExpand                                              : Double;
+  end;
+
   TBot = record
     RSW                                                       : TRSWalker;
+    RawFish, BurntFish, CookedFish                            : TRSItemArray;
+    BaitItem, RodItem                                         : TRSItem;
+    FishSpotColor, RodColor                                   : TScriptColor;
   end;
 
 var
@@ -43,19 +54,9 @@ var
 }
 procedure TBot.DoSkillHover();
 begin
-  Script.Antiban.HoverSkill(ERSSKILL.FISHING, random(1700, 3200), True);
-end;
-
-procedure TBot.CheckUnderAttack();
-begin
-  if Script.CheckUnderAttack() then
-  begin
-    // Self.GoToBank(True);
-
-    if Script.HPAmount < 5 then
-      Script.Stop('Critical HP!')
-    else
-      Wait(5000, 15000);
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.FISHING, random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.COOKING, random(1700, 3200), True);
   end;
 end;
 
@@ -66,14 +67,8 @@ function TBot.DoAntiBan(): Boolean;
 begin
   Script.DoGeneralChecks();
 
-  if not RSClient.IsLoggedIn() then
+  if not RSClient.IsLoggedIn() or True then
     Exit();
-
-  // are we under attack?
-  Self.CheckUnderAttack();
-
-  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
-  Inventory.SetSelectedSlot(-1);
 
   // check we we leveled up
   if Chat.LeveledUp() then
@@ -87,9 +82,14 @@ begin
   Script.CheckActivity();
 
   // TODO check for interfaces if opened... close em
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
+  // TODO detect clues
 
   // general antiban
-  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
 
 {
@@ -104,10 +104,149 @@ begin
 end;
 
 {
+  Finds the color
+}
+function TBot.FindRodColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.RodColor.RSObject, Area);
+  Result.FilterSize(Self.RodColor.FilterSize, __GT__);
+end;
+
+{
+  Finds the color
+}
+function TBot.FindFishSpotColor(Area: TBox; SearchTime: Int32=0; Interval: Int32=-1): T2DPointArray;
+var
+  T: TCountDown;
+  TPA: TPointArray;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  T.Init(SearchTime);
+  while RSClient.IsLoggedIn() and (not T.IsFinished() or (SearchTime = 0)) do
+  begin
+    Result += MainScreen.FindObject(Self.FishSpotColor.RSObject, Area);
+
+    if SearchTime = 0 then
+      break;
+
+    Wait(Interval);
+  end;
+
+  TPA := Result.Merge();
+  Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
+  Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
+end;
+
+{
+  Gets adjencent tiles
+}
+function TBot.GetAdjTiles(): array of TRectangle;
+var
+  i: Int32;
+  MMC: TPoint;
+  Ang, NormDist: Double;
+  AdjRect: TRectangle;
+  MMTiles: TPointArray;
+begin
+  MMC := Minimap.Center();
+  Ang := Minimap.GetCompassAngle(False);
+  NormDist := MainScreen.ConvertDistance(3);
+
+  MMTiles := [[MMC.X-4,MMC.Y],[MMC.X,MMC.Y-4],[MMC.X+4,MMC.Y],[MMC.X,MMC.Y+4]];
+  for i:=Low(MMTiles) to High(MMTiles) do
+  begin
+    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
+    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
+    AdjRect.Expand(NormDist);
+
+    Result += AdjRect;
+  end;
+end;
+
+{
+  Is fishing?
+}
+function TBot.IsFishing(): Boolean;
+var
+  ATPA: T2DPointArray;
+  ARect: array of TRectangle;
+  Rect: TRectangle;
+  B: TBox;
+  FishInAdjTile: Boolean;
+  TPA: TPointArray;
+  Mean: TPoint;
+begin
+  // get adjecent tiles and all colors with the fish spot
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), 500, Script.SleepRate);
+  ARect := Self.GetAdjTiles();
+
+  // look for at each fish spot
+  for TPA in ATPA do
+  begin
+    Mean := TPA.Mean();
+
+    // look through each adj tile
+    for Rect in ARect do
+    begin
+      // check if this tile contains a fish tile
+      if Rect.Contains(Mean) then
+      begin
+        FishInAdjTile := True;
+        break;
+      end;
+    end;
+
+    if FishInAdjTile then
+      break;
+  end;
+
+  if not FishInAdjTile then
+    Exit(False);
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawRect(Rect, clOrange);
+
+  // check if there is a rod over the fish tile
+  B := Rect.Expand(MainScreen.ConvertDistance(5)).Bounds();
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawBox(B, clGreen);
+
+  ATPA := Self.FindRodColor(B);
+
+  if Length(ATPA) <= 0 then
+    Exit(False);
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawATPA(ATPA);
+
+  Result := True;
+end;
+
+{
   Debug draws the stuff
 }
 procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  ARect: array of TRectangle;
+  Rect: TRectangle;
 begin
+  {ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), 500, Script.SleepRate);
+  RSClient.Image.DrawATPA(ATPA);
+
+  ATPA := Self.FindRodColor(MainScreen.Bounds());
+  RSClient.Image.DrawATPA(ATPA);
+
+  ARect := Self.GetAdjTiles();
+  for Rect in ARect do
+  begin
+    RSClient.Image.DrawRect(Rect, clGreen);
+  end; }
+
+  WriteLn(Self.IsFishing());
 end;
 
 {
@@ -299,6 +438,29 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
+  Script.AllowBreaks := True;
+
+  Self.CookedFish := ['Trout', 'Salmon'];
+  Self.RawFish := ['Raw trout', 'Raw salmon'];
+  Self.BurntFish := [343];
+  Self.BaitItem := 'Feather';
+  Self.RodItem := 'Fly fishing rod';
+
+  with Self.FishSpotColor do
+  begin
+    RSObject.Colors += CTS2(14793370, 10, 0.22, 1.46);
+    RSObject.Grow := 3;
+    RSObject.ClusterDistance := 7;
+    FilterSize := 50;
+  end;
+
+  with Self.RodColor do
+  begin
+    RSObject.Colors += CTS2(10552, 3, 0.19, 0.01);
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 5;
+    FilterSize := 50;
+  end;
 
   // do login init stuff
   if RSClient.IsLoggedIn() then

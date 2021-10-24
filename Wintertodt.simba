@@ -4,6 +4,8 @@
   Date: 10/21/2021
 
   Version: 1.1.0
+
+  Plays the Wintertodt minigame/boss
 }
 
 program Wintertodt;
@@ -12,20 +14,23 @@ program Wintertodt;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = False; // For debugging purposes
-  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = False;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
 
   // use the eastside?
-  USEEASTSIDE = False;
+  USEEASTSIDE    = False;
+
+  // Use special attack?
+  USESPEC        = False;
 
   // Food items to use
-  _FOODITEMS     = ['Trout'];
+  _FOODITEMS     = ['Salmon'];
   _EATHPPERC     = 55; // Percentage when to start eating food
-  _NUMFOOD       = 10; // Number of foods to withdraw
+  _NUMFOOD       = 5; // Number of foods to withdraw
 
   // Account details
   _USERNAME       = '';
@@ -49,7 +54,7 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ExitChatOption                                            : String;
-    ShouldBank                                                : Boolean;
+    ShouldBank, Specing                                       : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
       RandomGoodHPPerc                                        : Int32;
@@ -67,6 +72,25 @@ type
 
 var
   Bot: TBot;
+
+{
+  Enables special attack
+}
+function TBot.CheckSpec(): Boolean;
+begin
+  if not Self.Specing then
+    Exit();
+
+  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle) >= 100 then
+  begin
+    Script.WriteMsg('Special attack boosting');
+
+    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
+
+    Wait(1000 + Random(1000));
+    Result := True;
+  end;
+end;
 
 {
   From Flight's AIOFisher
@@ -99,7 +123,6 @@ end;
 function TBot.GetWinterTodtRemainingTime(): String;
 var
   B: TBox;
-  Text: String;
 begin
   B := IntToBox(MainScreen.Bounds().X1 + 1,
     MainScreen.Bounds().Y1 + 43,
@@ -146,13 +169,14 @@ begin
   if not RSClient.IsLoggedIn() then
     Exit();
 
-  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
-  Inventory.SetSelectedSlot(-1);
-
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
   // TODO check for interfaces if opened... close em
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -319,6 +343,8 @@ procedure TBot.ReportConsole();
 begin
   if not Script.CanReportConsole() then
     Exit();
+
+  // TODO complete
 end;
 
 {
@@ -440,6 +466,7 @@ var
   i: Int32;
   R: Extended;
   Item: TRSItem;
+  HadFood: Boolean;
 begin
   Script.AntiBan.AfterBankAntiBan(20);
 
@@ -486,7 +513,17 @@ begin
     for Item in Self.FoodItems do
     begin
       if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], BioRandomCoinflip()) then
+      begin
+        HadFood := True;
         break;
+      end;
+    end;
+
+    if not HadFood then
+    begin
+      Script.Stop('No food in bank.');
+      Bank.Close();
+      Exit();
     end;
   end;
 
@@ -567,10 +604,11 @@ begin
       break;
     end;
 
-    if Bank.IsOpen() then
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin
-      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
     end;
 
     // enter pin if needed
@@ -581,14 +619,14 @@ begin
       BankOpenCountDown.Restart();
     end;
 
-    // only countdown if we are not moving
-    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
-      Script.WriteMsg('WaitBankOpen: Still moving...', True);
-      BankOpenCountDown.Restart();
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      Exit(True);
     end;
 
     Self.DoMainLoopStuff('Going to clicked bank...', False);
+    Self.CheckUnderattack();
   end;
 
   Script.WriteMsg('WaitBankOpen: Timed out...', True);
@@ -602,6 +640,7 @@ procedure TBot.GoToBank(Forced: Boolean = False);
 var
   OurPos: TPoint;
   TileRect: TRectangle;
+  Walked: Boolean;
 begin
   if Self.GetWinterTodtEnergyPerc() <> -1 then
     Exit();
@@ -619,9 +658,14 @@ begin
     try
       // SRL TODO until nodes exist for this area
       //Self.RSW.WebWalk(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0);
+      Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0);
     except
+    end;
+
+    if not Walked then
+    begin   
       Script.WriteMsg('Failed to walk to bank');
+      Exit();
     end;
   end;
 end;
@@ -658,7 +702,7 @@ begin
     // it is now open! lets deposit
     Self.DoBanking();
 
-    Self.GoToEntrance();
+    Self.GoToEntrance(True);
   end;
 end;
 
@@ -712,6 +756,7 @@ procedure TBot.GoToEntrance(Forced: Boolean = False);
 var
   OurPos: TPoint;
   TileRect: TRectangle;
+  Walked: Boolean;
 begin
   Script.WriteMsg('Going inside boss area...', True);
 
@@ -726,9 +771,14 @@ begin
     try
       // SRL TODO until nodes exist for this area
       //Self.RSW.WebWalk(Self.EnterTile.Random(-1, 1), 0, BioRandomFixed());
-      Self.RSW.WalkBlind(Self.EnterTile.Random(-1, 1), 0);
+      Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-1, 1), 0);
     except
+    end;
+
+    if not Walked then
+    begin           
       Script.WriteMsg('Failed to walk to inside door');
+      Exit();
     end;
   end;
 end;
@@ -737,6 +787,8 @@ end;
   Goes inside the arena
 }
 procedure TBot.GoInsideBossArea();
+var
+  CountDown: TCountDown;
 begin
   if Self.GetWinterTodtEnergyPerc() <> -1 then
   begin
@@ -752,7 +804,19 @@ begin
   end;
 
   Minimap.WaitFlag();
-  Wait(2500 + Random(1000));
+
+  // wait for the boss bar
+  CountDown.Init(5000);
+  while RSClient.IsLoggedIn() do
+  begin
+    if CountDown.IsFinished() then
+      break;
+
+    if Self.GetWinterTodtEnergyPerc() <> -1 then
+      break;
+
+    Wait(Script.SleepRate);
+  end;
 end;
 
 {
@@ -805,6 +869,7 @@ procedure TBot.GoToExit(Forced: Boolean = False);
 var
   OurPos: TPoint;
   TileRect: TRectangle;
+  Walked: Boolean;
 begin
   Script.WriteMsg('Going outside boss area...', True);
 
@@ -819,9 +884,14 @@ begin
     try
       // SRL TODO until nodes exist for this area
       //Self.RSW.WebWalk(Self.ExitTile.Random(-1, 1), 0, BioRandomFixed());
-      Self.RSW.WalkBlind(Self.ExitTile.Random(-1, 1), 0);
+      Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-1, 1), 0);
     except
+    end;
+
+    if not Walked then
+    begin       
       Script.WriteMsg('Failed to walk to outside door');
+      Exit();
     end;
   end;
 end;
@@ -830,6 +900,9 @@ end;
   Exits the arena
 }
 procedure TBot.GoOutsideBossArea();
+var
+  CountDown: TCountDown;
+  OurPos: TPoint;
 begin
   if Self.GetWinterTodtEnergyPerc() = -1 then
   begin
@@ -851,7 +924,19 @@ begin
     Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
   end;
 
-  Wait(2500 + Random(1000));
+  // wait to exit
+  CountDown.Init(5000);
+  OurPos := Self.RSW.GetMyPos();
+  while RSClient.IsLoggedIn() do
+  begin
+    if CountDown.IsFinished() then
+      break;
+
+    if Self.RSW.GetMyPos().DistanceTo(OurPos) > 16 then
+      break;
+
+    Wait(Script.SleepRate);
+  end;
 end;
 
 {
@@ -873,7 +958,7 @@ begin
 
       Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
 
-      Self.DoMainLoopStuff('Waiting for boss to start', True);
+      Self.DoMainLoopStuff('Waiting for boss to start', False);
     end;
 
     Self.OfferStuffToBrazier();
@@ -970,7 +1055,7 @@ begin
       break;
     end;
 
-    if Self.GetWinterTodtEnergyPerc() < 15 then
+    if Self.GetAmountToOffer(False) > Self.GetWinterTodtEnergyPerc() then
     begin
       Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
       break;
@@ -1118,6 +1203,7 @@ procedure TBot.GoToBrazier(Forced: Boolean = False);
 var
   OurPos: TPoint;
   TileRect: TRectangle;
+  Walked: Boolean;
 begin
   Script.WriteMsg('Going to brazier...', True);
 
@@ -1132,9 +1218,14 @@ begin
     try
       // SRL TODO until nodes exist for this area
       //Self.RSW.WebWalk(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0);
+      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0);
     except
+    end;
+
+    if not Walked then
+    begin           
       Script.WriteMsg('Failed to walk to brazier');
+      Exit();
     end;
   end;
 end;
@@ -1228,13 +1319,30 @@ begin
 end;
 
 {
+  Gets amount of things to braz
+}
+function TBot.GetAmountToOffer(Chopping: Boolean): Int32;
+var
+  LogSlots, KnifedLogSlots: TIntegerArray;
+begin
+  LogSlots.Clear();
+  Inventory.FindItem(Self.LogItem, LogSlots);
+  KnifedLogSlots.Clear();
+  Inventory.FindItem(Self.KnifedLogItem, KnifedLogSlots);
+  Result += Round(Length(KnifedLogSlots) * 1.2);
+  if Inventory.FindItem(Self.KnifeItem) and Chopping then
+    Result += Round(Length(LogSlots) * 2.4)
+  else
+    Result += Round(Length(LogSlots) * 1.2);
+end;
+
+{
   Returns true if we clicked the roots
 }
 function TBot.ChopLogs(): Boolean;
 var
-  InvCount, IC, TempNum: Int32;
+  InvCount, IC: Int32;
   CountDown: TCountDown;
-  LogSlots, KnifedLogSlots: TIntegerArray;
 begin
   if Self.ClickRoots() then
   begin
@@ -1262,18 +1370,7 @@ begin
       end;
 
       // check if we should end early and offer it now cause boss is gunna die!
-      LogSlots.Clear();
-      Inventory.FindItem(LogItem, LogSlots);
-      KnifedLogSlots.Clear();
-      Inventory.FindItem(KnifedLogItem, KnifedLogSlots);
-      TempNum := 0;
-      TempNum += Round(Length(KnifedLogSlots) * 1.2);
-      if Inventory.FindItem(KnifeItem) then
-        TempNum += Round(Length(LogSlots) * 2.4)
-      else
-        TempNum += Round(Length(LogSlots) * 1.2);
-
-      if TempNum > Self.GetWinterTodtEnergyPerc() then
+      if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
       begin
         Script.WriteMsg('ChopLogs: Low boss hp!!', True);
         break;
@@ -1318,6 +1415,7 @@ procedure TBot.GoToLogs(Forced: Boolean = False);
 var
   OurPos: TPoint;
   TileRect: TRectangle;
+  Walked: Boolean;
 begin
   Script.WriteMsg('Going to logs...', True);
 
@@ -1332,9 +1430,14 @@ begin
     try
       // SRL TODO until nodes exist for this area
       //Self.RSW.WebWalk(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0);
+      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0);
     except
+    end;
+
+    if not Walked then
+    begin         
       Script.WriteMsg('Failed to walk to roots');
+      Exit();
     end;
   end;
 end;
@@ -1401,7 +1504,7 @@ begin
       // check if we should fletch
       if Inventory.FindItem(Self.LogItem) and
         Inventory.FindItem(Self.KnifeItem) and
-        (TheirHpPerc >= 15) then
+        ((TheirHpPerc - 5) >= Self.GetAmountToOffer(False)) then
       begin
         if Random() > 0.5 then
           Self.GoToBrazier();
@@ -1563,6 +1666,7 @@ begin
     Self.FoodItems += Food;
 
   Self.EatHpPerc := _EATHPPERC;
+  Self.Specing := USESPEC;
 
   Self.ShouldBank := False;
   Self.GoodHPPerc := 80;
@@ -1597,10 +1701,10 @@ begin
   begin
     Self.BrazierTile := Point(1947, 464);
     Self.PyromancerTile := Point(1955, 460);
-    Self.RootsTile := Point(1950, 505);
+    Self.RootsTile := Point(1952, 505);
     Self.CameraAngle := 270;
-    Self.BrazierTileWalkOffset := Point(0, 6);
-    Self.RootsTileWalkOffset := Point(0, -3);
+    Self.BrazierTileWalkOffset := Point(0, 8);
+    Self.RootsTileWalkOffset := Point(-4, 3);
   end
   else
   begin
@@ -1608,7 +1712,7 @@ begin
     Self.PyromancerTile := Point(1864, 462);
     Self.RootsTile := Point(1873, 505);
     Self.CameraAngle := 90;
-    Self.BrazierTileWalkOffset := Point(0, 6);
+    Self.BrazierTileWalkOffset := Point(0, 8);
     Self.RootsTileWalkOffset := Point(5, 2);
   end;
 
