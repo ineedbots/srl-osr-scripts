@@ -184,6 +184,12 @@ begin
 
   // shrink the random points box so we might not randomly miss the box
   B := Box.Expand(-w2, -h2);
+  B.GetDimensions(w, h);
+  if (w <= 0) or (h <= 0) then
+  begin
+    inherited(Box, ForcedMove, Distribution);
+    Exit();
+  end;
 
   // find the random points for today
   RanTPA := Script.AntiBanEnergy.DailyPointsInBox(B);

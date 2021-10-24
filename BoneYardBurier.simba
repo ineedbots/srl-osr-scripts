@@ -84,10 +84,14 @@ begin
 
   if Minimap.PlayersNearby() > 0 then
   begin
-    Script.WriteMsg('Player nearby! Log!');
-    Logout.ClickLogout();
-    Wait(50000, 120000);
-    Exit(True);
+    Keyboard.PressKey(VK_LEFT);
+    if Minimap.PlayersNearby() > 0 then
+    begin
+      Script.WriteMsg('Player nearby! Log!');
+      Logout.ClickLogout();
+      Wait(50000, 120000);
+      Exit(True);
+    end;
   end;
 
   // TODO check for interfaces if opened... close em
@@ -242,7 +246,7 @@ begin
     begin
       Script.WriteMsg('On top of the tile, checking under us...', True);
 
-      Mouse.Move(B.Expand(-MainScreen.ConvertDistance(10)));
+      Mouse.Move(B.Expand(-MainScreen.ConvertDistance(5)));
     end
     else
       Exit();
