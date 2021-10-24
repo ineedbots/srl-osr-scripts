@@ -626,7 +626,6 @@ begin
     end;
 
     Self.DoMainLoopStuff('Going to clicked bank...', False);
-    Self.CheckUnderattack();
   end;
 
   Script.WriteMsg('WaitBankOpen: Timed out...', True);
