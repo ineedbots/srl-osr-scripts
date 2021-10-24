@@ -166,7 +166,7 @@ end;
 {
   Is fishing?
 }
-function TBot.IsFishing(): Boolean;
+function TBot.IsFishing(WaitTime: Int32 = 0): Boolean;
 var
   ATPA: T2DPointArray;
   ARect: array of TRectangle;
@@ -177,7 +177,7 @@ var
   Mean: TPoint;
 begin
   // get adjecent tiles and all colors with the fish spot
-  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), Self.FishSpotColorWait, Script.SleepRate);
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
   ARect := Self.GetAdjTiles();
 
   // look for at each fish spot
@@ -233,6 +233,15 @@ begin
 end;
 
 {
+  Returns all the found banks
+}
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TBot.DebugDraw();
@@ -241,6 +250,10 @@ var
   OurTile, TP: TPoint;
   CompAng: Double;
   TileRect: TRectangle;
+  B: TBox;
+  Text: String;
+  RF, CF, BF, F, R: TIntegerArray;
+  i: Int32;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -249,8 +262,9 @@ begin
   RSClient.Image.DrawATPA(ATPA);
 
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
-  ATPA := Self.FindFireColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clBlue);
+  ATPA := Self.FindFireColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.FireTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
@@ -258,7 +272,43 @@ begin
   for TP in Self.FishTiles do
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
 
-  WriteLn(Self.IsFishing());
+  for TP in Self.BankTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, TP, 4);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clBlue);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clGreen);
+    RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile) + NL
+    + 'Fishing: ' + ToStr(Self.IsFishing());
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.RawFish, RF);
+    Inventory.FindItems(Self.CookedFish, CF);
+    Inventory.FindItems(Self.BurntFish, BF);
+    Inventory.FindItem(Self.BaitItem, F);
+    Inventory.FindItem(Self.RodItem, R);
+
+    for i:=0 to 27 do
+    begin
+      if RF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if CF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if BF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+      else if F.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if R.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray);
+    end;
+  end;
 end;
 
 {
@@ -306,25 +356,7 @@ end;
   Executes when we should do something about our full inventory
 }
 procedure TBot.DoFullInventory();
-var
-  T, RT, RS, S, B, F, FFR: TIntegerArray;
 begin
-  Inventory.FindItem('Raw trout', RT);
-  Inventory.FindItem('Trout', T);
-  Inventory.FindItem('Raw salmon', RS);
-  Inventory.FindItem('Salmon', S);
-  Inventory.FindItem(343, B);
-  Inventory.FindItem('Feather', F);
-  Inventory.FindItem('Fly fishing rod', FFR);
-
-  Script.WriteMsg('Raw trout: ' + ToStr(RT));
-  Script.WriteMsg('Trout: ' + ToStr(T));
-  Script.WriteMsg('Raw salmon: ' + ToStr(RS));
-  Script.WriteMsg('Salmon: ' + ToStr(S));
-  Script.WriteMsg('Burnt fish: ' + ToStr(B));
-  Script.WriteMsg('Feather: ' + ToStr(F));
-  Script.WriteMsg('Fly fishing rod: ' + ToStr(FFR));
-
   Self.AfterActionAntiBan(True);
 end;
 
@@ -407,6 +439,7 @@ begin
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
   Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
   Script.AntiBan.Name := 'Antiban';
 
   Script.Debug := DEBUGMODE;
@@ -420,8 +453,9 @@ begin
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
-  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
-  Script.BaseMouseSpeed := Mouse.Speed;
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;                                 
+  Script.MaxTiredMouseSpeed := 10;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.999;
 
@@ -459,7 +493,7 @@ begin
   Self.FireTile := [4229, 2719];
   Self.BankWalkTile := WorldWeb.LOCATION_EDGEVILLE_BANK;
 
-  Self.BankTiles := [];
+  Self.BankTiles := [[4190, 2484], [4190, 2492]];
   Self.FishTiles := [[4248,2718], [4221,2751]];
 
   Self.CookedFish := ['Trout', 'Salmon'];
@@ -474,7 +508,6 @@ begin
     RSObject.Grow := 3;
     RSObject.ClusterDistance := 7;
     FilterSize := 50;
-    RadiusExpand := 1;
   end;
 
   with Self.RodColor do
@@ -483,7 +516,6 @@ begin
     RSObject.Grow := 2;
     RSObject.ClusterDistance := 5;
     FilterSize := 50;
-    RadiusExpand := 1;
   end;
 
   with Self.BankColor do
@@ -495,7 +527,8 @@ begin
       3];
     RSObject.Grow := 1;
     RSObject.ClusterDistance := 3;
-    FilterSize := 0;
+    FilterSize := 10;
+    RadiusExpand := 1.5;
   end;
 
   with Self.FireColor do

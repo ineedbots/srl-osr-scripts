@@ -185,7 +185,7 @@ end;
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
-  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
 end;
 
 {
@@ -207,6 +207,9 @@ var
   TileRect: TRectangle;
   i: Int32;
   CompAng: Double;
+  Text: String;
+  B: TBox;
+  T, L: TIntegerArray;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -214,8 +217,10 @@ begin
   for TreeTile in Self.TreeTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
-    
-    ATPA := Self.FindTreeColor(TileRect.Expand(Round(TileRect.Radius() * Self.TreeColor.RadiusExpand)).Bounds());
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindTreeColor(B);
     RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TreeTile, CompAng), 4, clBlue);
@@ -225,8 +230,10 @@ begin
   for BankTile in Self.BankTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
-    
-    ATPA := Self.FindBankColor(TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds());
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBankColor(B);
     RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clGreen);
@@ -238,12 +245,31 @@ begin
     FireTile := Self.FireStartTiles[i].Tile;
     
     TileRect := Self.RSW.GetTileMSEx(OurTile, FireTile);
-    
-    ATPA := Self.FindFireColor(TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds());
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindFireColor(B);
     RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, FireTile, CompAng), 4, clOrange);
     RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.LogItems, L);
+    Inventory.FindItems(Self.ToolItems, T);
+
+    for i:=0 to 27 do
+    begin
+      if L.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed);
+    end;
   end;
 end;
 
@@ -279,14 +305,14 @@ begin
   else 
     ChopType := 'Chop and Light';
   
-  WriteOut += 'Chopping type: ' + ChopType + #13#10;
-  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + #13#10;
-  WriteOut += 'Status: ' + Script.Status + #13#10;
-  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + #13#10;
-  WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + #13#10;
-  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + #13#10;
-  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + #13#10;
-  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + #13#10;
+  WriteOut += 'Chopping type: ' + ChopType + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
   
   ClearDebug();
   Writeln(WriteOut);
@@ -1455,8 +1481,9 @@ begin
   
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   
-  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
   
@@ -1529,7 +1556,7 @@ begin
     RSObject.ClusterDistance := 3;
 
     FilterSize := 5;
-    RadiusExpand := 1.15;
+    RadiusExpand := 0.15;
   end;
   
   with Self.FireColor do
@@ -1540,7 +1567,7 @@ begin
     RSObject.Erode := 2;
     FilterSize := 16;
 
-    RadiusExpand := 1;
+    RadiusExpand := 0.5;
   end;
   
   // do login init stuff

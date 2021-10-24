@@ -14,10 +14,10 @@ program Wintertodt;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
 
@@ -36,7 +36,7 @@ const
   _USERNAME       = '';
   _PASSWORD       = '';
   _PIN            = '';
-  _WORLDS         = [-1];
+  _WORLDS         = [307, 309];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?
 
 
@@ -267,52 +267,103 @@ var
   OurTile: TPoint;
   TileRect: TRectangle;
   CompAng: Double;
+  B: TBox;
+  Text: String;
+  L, A, HE, F, K, P, H, T, U, KL: TIntegerArray;
+  i: Int32;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
 
   // roots
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
-  ATPA := Self.FindRootsColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindRootsColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
 
   // braz
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile);
-  ATPA := Self.FindLitBrazierColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindLitBrazierColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  ATPA := Self.FindUnlitBrazierColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindUnlitBrazierColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
 
   // bank
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
-  ATPA := Self.FindBankColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindBankColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
 
   // exit
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
-  ATPA := Self.FindExitColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindExitColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
 
   // entrance
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
-  ATPA := Self.FindEntraceColor(TileRect.Expand(
-    Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindEntraceColor(B);
   RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
+
+  Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItem(Self.LogItem, L);
+    Inventory.FindItems(Self.AxeItems, A);
+    Inventory.FindItem(Self.HerbItem, HE);
+    Inventory.FindItems(Self.FoodItems, F);
+    Inventory.FindItem(Self.KnifeItem, K);
+    Inventory.FindItem(Self.PotionItem, P);
+    Inventory.FindItem(Self.HammerItem, H);
+    Inventory.FindItem(Self.TinderItem, T);
+    Inventory.FindItem(Self.UnfPotionItem, U);
+    Inventory.FindItem(Self.KnifedLogItem, KL);
+
+    for i:=0 to 27 do
+    begin
+      if L.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if A.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if HE.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+      else if F.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if K.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray)
+      else if P.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGreen)
+      else if H.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clNavy)
+      else if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOlive)
+      else if U.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPink)
+      else if KL.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clCream);
+    end;
+  end;
 end;
 
 {
@@ -1599,6 +1650,7 @@ begin
 
   Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
   Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
   Script.AntiBan.Name := 'Antiban';
 
   Script.Debug := DEBUGMODE;
@@ -1612,8 +1664,9 @@ begin
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
-  Mouse.Speed             := 25 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
 
@@ -1715,7 +1768,7 @@ begin
     RSObject.Colors += CTS2(3881520, 4, 0.39, 0.23);
     RSObject.ClusterDistance := 8;
     FilterSize := 30;
-    RadiusExpand := 1.25;
+    RadiusExpand := 0.25;
   end;
 
   with Self.EntranceColor do
@@ -1756,7 +1809,7 @@ begin
     RSObject.Colors += CTS2(4644246, 18, 0.2, 1.45);
     RSObject.ClusterDistance := 3;
     FilterSize := 100;
-    RadiusExpand := 2;
+    RadiusExpand := 1;
   end;
 
   with Self.UnlitBrazColor do
@@ -1765,7 +1818,7 @@ begin
     RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
     RSObject.ClusterDistance := 10;
     FilterSize := 150;
-    RadiusExpand := 2;
+    RadiusExpand := 1;
   end;
 
   // do login init stuff

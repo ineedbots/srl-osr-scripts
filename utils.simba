@@ -14,6 +14,8 @@ const
   DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];
 
+  NL = #13#10;
+
 type
   TScriptColor = record
     RSObject                                                  : TRSObjectFinder;
@@ -28,7 +30,8 @@ type
   TScript = record
     Status, StopReason                                        : String;
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks : Boolean;
-    BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate : Int32;
+    BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
+      MaxTiredMouseSpeed                                      : Int32;
     Activity: record
       XP                                                      : Int32;
       Countdown                                               : TCountDown;
@@ -455,7 +458,7 @@ begin
     Self.Stop('Completed the runtime');
     
   // update our mousespeed, when we get tired, slow it down
-  Mouse.Speed := Self.BaseMouseSpeed - Round(5.0 * (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100));
+  Mouse.Speed := Self.BaseMouseSpeed - Round(Self.MaxTiredMouseSpeed * (1 - (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100)));
 end;
 
 {
@@ -581,6 +584,131 @@ begin
 end;
 
 {
+  Adds tinted colors
+}
+function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
+const
+  COLOR_BARS = [
+  {GREEN} $00FF00,
+  {RED} $0000FF
+  ];
+  COLOR_SPLATS = [
+  {BLUE} $FF4040, $AD0703, $550503,
+  {RED} $0000C0, $03037F, $010161,
+  {BLACK AND WHITE} $FFFFFF, $000000,
+  {TINTED RED} $000046, $01012F, $010124,
+  {TINTED BLUE} $5E1717, $400301, $1F0201,
+  {YELLOW TEXT} $00FFFF
+  ];
+const
+  BAR_WIDTH = 29;
+  BAR_HEIGHT = 4;
+var
+  Matrix: T2DIntegerArray;
+
+  procedure Fix(TPA: TPointArray);
+  var
+    P: TPoint;
+  begin
+    FilterPointsBox(TPA, 1, 0, High(Matrix[0]), High(Matrix));
+    SortTPAByX(TPA, True);
+
+    for P in TPA do
+      if (Matrix[P.Y][P.X-1] <> 0) then
+        Matrix[P.Y][P.X] := 255;
+  end;
+
+  procedure Find(var Result: TRSHPBarArray);
+  var
+    W, H, X, Y, YY: Int32;
+  label
+    Bad;
+  begin
+    W := Length(Matrix[0])-BAR_WIDTH-1;
+    H := Length(Matrix)-5;
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] <> 0) and (Matrix[Y][X+BAR_WIDTH] <> 0) then
+          Matrix[Y][X] := 254;
+
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] = 254) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = 255)) then
+        begin
+          for YY := Max(Y - BAR_HEIGHT, 0) to Y do
+            if Matrix[YY][X] = $00FF00 then
+              goto Bad;
+
+          Matrix[Y][X] := $00FF00;
+          Result += [[X, Y, X + BAR_WIDTH, Y + BAR_HEIGHT]];
+
+          Bad:
+        end;
+  end;
+
+var
+  B: TBox;
+  Color: Int32;
+  TPA, Splats, Temp: TPointArray;
+  P: TPoint;
+  Bars: TRSHPBarArray;
+  Bar: TRSHPBar;
+  Frozen: Boolean;
+begin
+  Frozen := Client.GetIOManager().IsFrozen();
+  if not Frozen then
+    Freeze();
+
+  Area.LimitTo(Self.Bounds);
+
+  try
+    for Color in COLOR_BARS do
+      if FindColors(Temp, Color, Area) then
+        TPA += Temp;
+
+    for TPA in TPA.Cluster(15) do
+    begin
+      Matrix := [];
+      Bars := [];
+      Splats := [];
+
+      B := GetTPABounds(TPA);
+
+      for Color in COLOR_SPLATS do
+        if FindColors(Temp, Color, B.Expand(15, Area)) then
+          Splats += Temp;
+
+      OffsetTPA(Splats, Point(-B.X1+1, -B.Y1+1));
+      SetLength(Matrix, B.Height()+2, B.Width()+2);
+
+      for P in TPA do
+        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := 255;
+
+      Fix(Splats);
+      Find(Bars);
+
+      for Bar in Bars do
+      begin
+        if (Matrix[Bar.Bounds.Y1, Bar.Bounds.X1] = 0) or
+           (Matrix[Bar.Bounds.Y1, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X1] = 0) then
+         Continue;
+
+        Bar.Bounds := Bar.Bounds.Offset([B.X1-1, B.Y1-1]);
+        if FindColors(TPA, $00FF00, Bar.Bounds) then
+          Bar.Percent := TPA.Bounds().Width() / 30 * 100;
+
+        Result += Bar;
+      end;
+    end;
+  finally
+    if not Frozen then
+      UnFreeze();
+  end;
+end;
+
+{
   tries to read the xp bar, makes sure interfaces are not covering it
 }
 function TRSXPBar.ReadXPBar(): Int32;
@@ -640,7 +768,7 @@ begin
   for TP in TPA do
   begin
     // sometimes it false positives with the middle point
-    if TP.DistanceTo(MMC) <= 0 then
+    if TP.DistanceTo(MMC) < 4 then
       continue;
 
     Result += 1;
@@ -666,7 +794,7 @@ begin
 
   for TP in TPA do
   begin
-    if TP.DistanceTo(MMC) <= 0 then
+    if TP.DistanceTo(MMC) < 4 then
       continue;
 
     if Self.IsVisible(Minimap.PointToMs(TP, CompAng)) then
@@ -988,9 +1116,9 @@ begin
   CompAng := Minimap.GetCompassAngle(False);
   MMC := Minimap.Center();
   OurBox := Minimap.ArrToMs([
-    Vec3(MMC.X - 12, MMC.Y - 12, CompAng),
-    Vec3(MMC.X + 12, MMC.Y + 12, CompAng)
-  ]).Bounds();
+    Vec3(MMC.X - 12, MMC.Y - 12, 8),
+    Vec3(MMC.X + 12, MMC.Y + 12, 8)
+  ], CompAng).Bounds();
 
   if Self.Debug and Self.Drawing then
   begin

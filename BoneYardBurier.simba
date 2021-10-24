@@ -74,8 +74,21 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
-  // TODO check combat
-  // TODO check players
+  if Script.IsUnderAttack() then
+  begin
+    Script.WriteMsg('UNDER ATTACK!');
+    Self.RSW.WebWalk(Self.RunawayTile, 0, BioRandomFixed());
+    Wait(10000, 20000);
+    Exit(True);
+  end;
+
+  if Minimap.PlayersNearby() > 0 then
+  begin
+    Script.WriteMsg('Player nearby! Log!');
+    Logout.ClickLogout();
+    Wait(50000, 120000);
+    Exit(True);
+  end;
 
   // TODO check for interfaces if opened... close em
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
@@ -114,6 +127,10 @@ var
   TileRect: TRectangle;
   CompAng: Double;
   ATPA: T2DPointArray;
+  Text: String;
+  B: TBox;
+  i: Int32;
+  BI: TIntegerArray;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -121,8 +138,9 @@ begin
   for BoneTile in Self.BigBoneTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
-
-    ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBoneColor(B);
     RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clBlue);
@@ -132,12 +150,26 @@ begin
   for BoneTile in Self.BoneTiles do
   begin
     TileRect := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
-
-    ATPA := Self.FindBoneColor(TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds());
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BoneColor.RadiusExpand)).Bounds(); 
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBoneColor(B);
     RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BoneTile, CompAng), 4, clOrange);
     RSClient.Image.DrawRect(TileRect, clOrange);
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.BoneItems, BI);
+    for i:=0 to 27 do
+    begin
+      if BI.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite);
+    end;
   end;
 end;
 
@@ -506,8 +538,9 @@ begin
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
-  Mouse.Speed             := 15 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
 
