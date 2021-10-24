@@ -44,12 +44,6 @@ const
   // Below is script stuff
 
 type
-  TScriptColor = record
-    RSObject                                                  : TRSObjectFinder;
-    FilterSize                                                : Int32;
-    RadiusExpand                                              : Double;
-  end;
-
   TBot = record
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;

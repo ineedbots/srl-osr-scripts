@@ -15,6 +15,12 @@ const
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];
 
 type
+  TScriptColor = record
+    RSObject                                                  : TRSObjectFinder;
+    FilterSize                                                : Int32;
+    RadiusExpand                                              : Double;
+  end;
+
   TAntiBanEnergy = record
     BioHash, Endurance, Patience, BoxPTRad: Double;
   end;

@@ -33,17 +33,15 @@ const
   // Below is script stuff
 
 type
-  TScriptColor = record
-    RSObject                                                  : TRSObjectFinder;
-    FilterSize                                                : Int32;
-    RadiusExpand                                              : Double;
-  end;
-
   TBot = record
+    FishSpotColorWait, FishWaitTime                           : Int32;
+    FishSpotUpText, FireUpText                                : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
     BaitItem, RodItem                                         : TRSItem;
-    FishSpotColor, RodColor                                   : TScriptColor;
+    FishSpotColor, RodColor, FireColor, BankColor             : TScriptColor;
+    FireTile, BankWalkTile                                    : TPoint;
+    BankTiles, FishTiles                                      : TPointArray;
   end;
 
 var
@@ -179,7 +177,7 @@ var
   Mean: TPoint;
 begin
   // get adjecent tiles and all colors with the fish spot
-  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), 500, Script.SleepRate);
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), Self.FishSpotColorWait, Script.SleepRate);
   ARect := Self.GetAdjTiles();
 
   // look for at each fish spot
@@ -226,25 +224,39 @@ begin
 end;
 
 {
+  Returns all fires in the area
+}
+function TBot.FindFireColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
+  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  ARect: array of TRectangle;
-  Rect: TRectangle;
+  OurTile, TP: TPoint;
+  CompAng: Double;
+  TileRect: TRectangle;
 begin
-  {ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), 500, Script.SleepRate);
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds());
   RSClient.Image.DrawATPA(ATPA);
 
-  ATPA := Self.FindRodColor(MainScreen.Bounds());
-  RSClient.Image.DrawATPA(ATPA);
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+  ATPA := Self.FindFireColor(TileRect.Expand(
+    Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds());
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.FireTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
 
-  ARect := Self.GetAdjTiles();
-  for Rect in ARect do
-  begin
-    RSClient.Image.DrawRect(Rect, clGreen);
-  end; }
+  for TP in Self.FishTiles do
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
 
   WriteLn(Self.IsFishing());
 end;
@@ -439,6 +451,16 @@ begin
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
   Script.AllowBreaks := True;
+  Self.FishSpotColorWait := 500;
+  Self.FishWaitTime := 15000;
+  Self.FishSpotUpText := ['Lure Rod Fishing spot', 'Lure'];
+  Self.FireUpText := ['Use Raw salmon -> Fire', 'Use Raw trout -> Fire', 'Fire'];
+
+  Self.FireTile := [4229, 2719];
+  Self.BankWalkTile := WorldWeb.LOCATION_EDGEVILLE_BANK;
+
+  Self.BankTiles := [];
+  Self.FishTiles := [[4248,2718], [4221,2751]];
 
   Self.CookedFish := ['Trout', 'Salmon'];
   Self.RawFish := ['Raw trout', 'Raw salmon'];
@@ -452,14 +474,39 @@ begin
     RSObject.Grow := 3;
     RSObject.ClusterDistance := 7;
     FilterSize := 50;
+    RadiusExpand := 1;
   end;
 
   with Self.RodColor do
   begin
-    RSObject.Colors += CTS2(10552, 3, 0.19, 0.01);
+    RSObject.Colors += CTS2(10036, 5, 0.13, 0.01);
     RSObject.Grow := 2;
     RSObject.ClusterDistance := 5;
     FilterSize := 50;
+    RadiusExpand := 1;
+  end;
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+    RSObject.ColorClusters += [
+      CTS2(6120041, 4, 1.11, 1.12), // Grey
+      CTS2(1069929, 2, 0.15, 1.05), // Brown
+      3];
+    RSObject.Grow := 1;
+    RSObject.ClusterDistance := 3;
+    FilterSize := 0;
+  end;
+
+  with Self.FireColor do
+  begin
+    RSObject.Colors += CTS2(16204, 2);
+    RSObject.ClusterDistance := 5;
+    RSObject.Grow := 2;
+    RSObject.Erode := 2;
+    FilterSize := 16;
+
+    RadiusExpand := 2;
   end;
 
   // do login init stuff

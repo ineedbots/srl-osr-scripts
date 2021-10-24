@@ -39,11 +39,7 @@ type
     RunawayTile                                               : TPoint;
     BoneItems                                                 : TRSItemArray;
     BonesDone                                                 : Int32;
-    BoneColor: record
-      RSObject                                                : TRSObjectFinder;
-      FilterSize                                              : Int32;
-      RadiusExpand                                            : Double;
-    end;
+    BoneColor                                                 : TScriptColor;
   end;
 
 var
@@ -67,9 +63,6 @@ begin
   if not RSClient.IsLoggedIn() then
     Exit();
 
-  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
-  Inventory.SetSelectedSlot(-1);
-
   // check we we leveled up
   if Chat.LeveledUp() then
   begin
@@ -85,9 +78,11 @@ begin
   // TODO check players
 
   // TODO check for interfaces if opened... close em
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
 
   // general antiban
-  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
 
 {
@@ -215,7 +210,7 @@ begin
     begin
       Script.WriteMsg('On top of the tile, checking under us...', True);
 
-      Mouse.Move(B.Middle());
+      Mouse.Move(B.Expand(-MainScreen.ConvertDistance(10)));
     end
     else
       Exit();
@@ -243,6 +238,7 @@ end;
 function TBot.GoToBone(BoneTile, OurTile: TPoint; RedDots: TPointArray): Boolean;
 var
   BT2MM: TPoint;
+  Walked: Boolean;
 begin
   BT2MM := Self.RSW.WorldToMM(OurTile, BoneTile, Minimap.GetCompassAngle(False));
 
@@ -251,14 +247,20 @@ begin
     Script.WriteMsg('Going to bone...', True);
 
     try
-      Self.RSW.WebWalk(BoneTile, 0, BioRandomFixed());
-
-      while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
-        Self.DoMainLoopStuff('Going to bone...');
-
-      Result := True;
+      Walked := Self.RSW.WebWalk(BoneTile, 0, BioRandomFixed());
     except
     end;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to bone.');
+      Exit(False);
+    end;
+
+    while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+      Self.DoMainLoopStuff('Going to bone...');
+
+    Result := True;
   end;
 end;
 
@@ -522,7 +524,7 @@ begin
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
   Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
-  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+  Script.Antiban.AddBreak(ONE_MINUTE*30, ONE_SECOND*30, 0.2, 0.0);
 
   if TAKEBREAKS then
   begin
@@ -534,6 +536,7 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
+  Script.AllowBreaks := True;
 
   Self.BoneItems := ['Bones', 'Big bones'];
 

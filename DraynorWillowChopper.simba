@@ -73,21 +73,7 @@ type
       Tile                                                    : TPoint;
       NumFires                                                : Int32;
     end;
-    BankColor: record
-      RSObject                                                : TRSObjectFinder;
-      FilterSize                                              : Int32;
-      RadiusExpand                                            : Double;
-    end;
-    TreeColor: record
-      RSObject                                                : TRSObjectFinder;
-      FilterSize                                              : Int32;
-      RadiusExpand                                            : Double;
-    end;
-    FireColor: record
-      RSObject                                                : TRSObjectFinder;
-      FilterSize                                              : Int32;
-      RadiusExpand                                            : Double;
-    end;
+    BankColor, TreeColor, FireColor                           : TScriptColor;
   end;
   
 var
