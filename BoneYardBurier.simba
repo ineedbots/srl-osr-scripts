@@ -283,7 +283,7 @@ begin
     Script.WriteMsg('Going to bone...', True);
 
     try
-      Walked := Self.RSW.WebWalk(BoneTile, 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(BoneTile.Random(-8, 8, True), 0, BioRandomFixed());
     except
     end;
 

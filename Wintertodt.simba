@@ -600,9 +600,13 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
   TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 0);
+  B := TileRect.Bounds().Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindBankColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.BankColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindBankColor(B);
 
   if Length(ATPA) > 0 then
     B := ATPA.Biggest().Bounds()
@@ -641,12 +645,12 @@ var
 begin
   // we only wait a finite amount of time...
   BankOpenCountDown.Init(5000);
-  while not BankOpenCountDown.IsFinished() do
+  while RSClient.IsLoggedIn() do
   begin
-    if not RSClient.IsLoggedIn() then
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
-      Script.WriteMsg('WaitBankOpen: Not logged in', True);
-      break;
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      Exit(True);
     end;
 
     // only countdown if we are not moving
@@ -664,10 +668,10 @@ begin
       BankOpenCountDown.Restart();
     end;
 
-    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+    if BankOpenCountDown.IsFinished() then
     begin
-      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
     end;
 
     Self.DoMainLoopStuff('Going to clicked bank...', False);
@@ -701,8 +705,8 @@ begin
   begin
     try
       // SRL TODO until nodes exist for this area
-      //Self.RSW.WebWalk(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-1, 1), 0);
+      // WebWalk
+      Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
     except
     end;
 
@@ -764,9 +768,13 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
   TileRect := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile, 0);
+  B := TileRect.Bounds().Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindEntraceColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindEntraceColor(B);
 
   if Length(ATPA) > 0 then
     B := ATPA.Biggest().Bounds()
@@ -814,8 +822,8 @@ begin
   begin
     try
       // SRL TODO until nodes exist for this area
-      //Self.RSW.WebWalk(Self.EnterTile.Random(-1, 1), 0, BioRandomFixed());
-      Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-1, 1), 0);
+      // WebWalk
+      Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
     except
     end;
 
@@ -877,9 +885,14 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
   TileRect := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile, 0);
+  B := TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindExitColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindExitColor(B);
 
   if Length(ATPA) > 0 then
     B := ATPA.Biggest().Bounds()
@@ -927,8 +940,8 @@ begin
   begin
     try
       // SRL TODO until nodes exist for this area
-      //Self.RSW.WebWalk(Self.ExitTile.Random(-1, 1), 0, BioRandomFixed());
-      Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-1, 1), 0);
+      // WebWalk
+      Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
     except
     end;
 
@@ -1116,11 +1129,17 @@ function TBot.FindLitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
+  B: TBox;
 begin
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
+  B := TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindLitBrazierColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindLitBrazierColor(B);
 
   TPA := ATPA.Biggest();
   Result := Length(TPA) > Self.LitBrazColor.FilterSize;
@@ -1133,11 +1152,17 @@ function TBot.FindUnlitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
+  B: TBox;
 begin
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
+  B := TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindUnlitBrazierColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindUnlitBrazierColor(B);
 
   TPA := ATPA.Biggest();
   Result := Length(TPA) > Self.UnlitBrazColor.FilterSize;
@@ -1261,8 +1286,8 @@ begin
   begin
     try
       // SRL TODO until nodes exist for this area
-      //Self.RSW.WebWalk(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-1, 1), 0);
+      // WebWalk
+      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-6, 6, True), 0);
     except
     end;
 
@@ -1330,9 +1355,14 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
   TileRect := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile, 0);
+  B := TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand));
+  B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindRootsColor(TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)));
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  ATPA := Self.FindRootsColor(B);
 
   if Length(ATPA) > 0 then
   begin
@@ -1399,13 +1429,14 @@ begin
 
     while RSClient.IsLoggedIn() do
     begin
-      IC := Inventory.Count();
-      if IC <> InvCount then
+      // check if we should end early and offer it now cause boss is gunna die!
+      if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
       begin
-        Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
-        CountDown.Restart();
+        Script.WriteMsg('ChopLogs: Low boss hp!!', True);
+        break;
       end;
 
+      IC := Inventory.Count();
       // inv is full!
       if IC >= 28 then
       begin
@@ -1413,11 +1444,10 @@ begin
         break;
       end;
 
-      // check if we should end early and offer it now cause boss is gunna die!
-      if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
+      if IC <> InvCount then
       begin
-        Script.WriteMsg('ChopLogs: Low boss hp!!', True);
-        break;
+        Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
+        CountDown.Restart();
       end;
 
       InvCount := IC;
@@ -1473,8 +1503,8 @@ begin
   begin
     try
       // SRL TODO until nodes exist for this area
-      //Self.RSW.WebWalk(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0, BioRandomFixed());
-      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-1, 1), 0);
+      // WebWalk
+      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-3, 3, True), 0);
     except
     end;
 

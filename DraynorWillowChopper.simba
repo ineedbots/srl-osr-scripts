@@ -386,14 +386,8 @@ begin
   
   // we timeout if we do not gain something into our inventory
   TimeoutCounter.Init(Self.ChopWaitTime);
-  while not TimeoutCounter.IsFinished() do
+  while RSClient.IsLoggedIn() do
   begin
-    if not RSClient.IsLoggedIn() then
-    begin
-      Script.WriteMsg('WhileChopping: Not logged in', True);
-      break;
-    end;
-  
     if not Self.FindTree(OurPos, TreeTile, _) then
     begin
       Script.WriteMsg('WhileChopping: Tree not found', True);
@@ -411,8 +405,13 @@ begin
       Script.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
       TimeoutCounter.Restart();
     end;
-  
     InvCount := Inventory.Count();
+
+    if TimeoutCounter.IsFinished() then
+    begin
+      Script.WriteMsg('WhileChopping: Timed out', True);
+      break;
+    end;
     Self.DoMainLoopStuff('Chopping tree...');
   end;
 
@@ -509,7 +508,7 @@ begin
   begin
     Script.SetStatus('Going to trees...');
     try
-      Walked := Self.RSW.WebWalk(Where.Random(-6, 6), 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(Where.Random(-6, 6, True), 0, BioRandomFixed());
     except
     end;
     
@@ -622,7 +621,7 @@ begin
   begin
     Script.SetStatus('Going to bank...');
     try
-      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-4, 4), 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
     except
     end;
     
@@ -726,12 +725,12 @@ var
 begin
   // we only wait a finite amount of time...
   BankOpenCountDown.Init(5000);
-  while not BankOpenCountDown.IsFinished() do
+  while RSClient.IsLoggedIn() do
   begin
-    if not RSClient.IsLoggedIn() then
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
-      Script.WriteMsg('WaitBankOpen: Not logged in', True);
-      break;
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      Exit(True);
     end;
     
     // only countdown if we are not moving
@@ -748,11 +747,11 @@ begin
       BankPin.Enter(Login.GetPlayer().Pin);
       BankOpenCountDown.Restart();
     end;
-    
-    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+
+    if BankOpenCountDown.IsFinished() then
     begin
-      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
     end;
       
     Self.DoMainLoopStuff('Going to clicked bank...', False);
@@ -1241,7 +1240,7 @@ begin
   begin
     Script.SetStatus('Walking to starting fire tile...');
     try
-      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0), 0, BioRandomFixed());
+      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0).Random(-3, 3, True), 0, BioRandomFixed());
     except
     end;
     
@@ -1270,7 +1269,7 @@ begin
 
       if DidMSClick or (Random() < 0.2) then
         // use MM, it is more accurate!
-        Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)).Random(-1, 1), MOUSE_LEFT)
+        Mouse.Click(Self.RSW.WorldToMM(OurPos, FirePos, Minimap.GetCompassAngle(False)).Random(-3, 3, True), MOUSE_LEFT)
       else
       begin
         // try mainscreen, it maybe inaccurate

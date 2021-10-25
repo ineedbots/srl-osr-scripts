@@ -20,6 +20,9 @@ const
   DOREPORTS      = False;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
+  SHIFTDROP      = True;  // Shift drop?
+  COOKINGFISH    = True;  // Cooking?
+  BANKFISH       = True;  // Do banking?
 
   // Account details
   _USERNAME       = '';
@@ -34,13 +37,14 @@ const
 
 type
   TBot = record
-    FishSpotColorWait, FishWaitTime                           : Int32;
+    WalkedFishForward, ShiftDropping, Banking, Cooking        : Boolean;
+    FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime : Int32;
     FishSpotUpText, FireUpText                                : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
     BaitItem, RodItem                                         : TRSItem;
     FishSpotColor, RodColor, FireColor, BankColor             : TScriptColor;
-    FireTile, BankWalkTile                                    : TPoint;
+    FireTile, BankWalkTile, FishWalkTile                      : TPoint;
     BankTiles, FishTiles                                      : TPointArray;
   end;
 
@@ -65,7 +69,7 @@ function TBot.DoAntiBan(): Boolean;
 begin
   Script.DoGeneralChecks();
 
-  if not RSClient.IsLoggedIn() or True then
+  if not RSClient.IsLoggedIn() then
     Exit();
 
   // check we we leveled up
@@ -135,6 +139,7 @@ begin
   TPA := Result.Merge();
   Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
   Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
+  Result.SortByMiddle(MainScreen.Center());
 end;
 
 {
@@ -353,11 +358,298 @@ begin
 end;
 
 {
-  Executes when we should do something about our full inventory
+  Waits while fishing
 }
-procedure TBot.DoFullInventory();
+procedure TBot.WhileFishing();
+var
+  CountDown: TCountDown;
+  InvCount, IC: Int32;
 begin
-  Self.AfterActionAntiBan(True);
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
+
+  Wait(2000, 3000);
+
+  Script.WriteMsg('We are fishing...', True);
+  InvCount := Inventory.Count();
+  CountDown.Init(Self.FishWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    if not Self.IsFishing(Self.FishSpotColorWait) then
+    begin
+      Script.WriteMsg('We are not fishing anymore...', True);
+      break;
+    end;
+
+    IC := Inventory.Count();
+    if IC >= 28 then
+    begin
+      Script.WriteMsg('Inv is full, we stopped fishing', True);
+      break;
+    end;
+
+    if IC <> InvCount then
+    begin
+      Script.WriteMsg('Our inventory changed, restart the timeout timer', True);
+      CountDown.Restart();
+    end;
+    InvCount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('No fish caught in time, we are not fishing anymore', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fishing...', True);
+  end;
+end;
+
+{
+  Returns true if clicked on a fishing spot
+}
+function TBot.ClickFish(): Boolean;
+var
+  FishSpots: T2DPointArray;
+  CFishTiles, TPA: TPointArray;
+  OurPos: TPoint;
+  CurrentFishTileIdx: Int32;
+  Clicked: Boolean;
+begin
+  Script.WriteMsg('Going to click a fish spot...', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  CFishTiles := Copy(Self.FishTiles);
+  CFishTiles.Sort(OurPos);
+  CurrentFishTileIdx := Self.FishTiles.Find(CFishTiles[0]);
+
+  FishSpots := Self.FindFishSpotColor(MainScreen.Bounds(), Self.FishSpotColorWait, Script.SleepRate);
+
+  if Length(FishSpots) <= 0 then
+  begin
+    Script.WriteMsg('No fish spots found', True);
+    Exit(False);
+  end;
+
+  Script.WriteMsg('Fish spot found, checking uptext', True);
+  // should be okay, all fishspot are lure spots
+  Result := True;
+  Self.WalkedFish := CurrentFishTileIdx;
+
+  // check each of the spots for the uptext, then click
+  for TPA in FishSpots do
+  begin
+    Mouse.Move(TPA.Bounds());
+
+    if not MainScreen.IsUpText(Self.FishSpotUpText) then
+      continue;
+
+    Script.WriteMsg('Clicking fish...', True);
+    if Random() < 10 then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      Clicked := Mouse.DidClick(True);
+    end
+    else
+      Clicked := ChooseOption.Select(Self.FishSpotUpText);
+
+    if Clicked then
+    begin
+      Self.AfterActionAntiBan(True);
+      Self.WhileFishing();
+    end;
+    break;
+  end;
+end;
+
+{
+  Walks to the fish
+}
+procedure TBot.GoToFish(Force: Boolean = False);
+var
+  Where, OurPos: TPoint;
+  Walked: Boolean;
+begin
+  Script.WriteMsg('Going to fish spot...', True);
+  OurPos := Self.RSW.GetMyPos();
+  Where := Self.FishTiles[Self.WalkedFish];
+  if Force then
+    Where := Self.FishWalkTile;
+
+  if (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to fish spot...');
+    try
+      Walked := Self.RSW.WebWalk(Where.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to fish spot');
+      Exit();
+    end;
+  end;
+
+  // set the 'next' fish spot...
+  if (Self.FishTiles.Len() > 1) and not Force then
+  begin
+    if Self.WalkedFishForward then
+    begin
+      Self.WalkedFish += 1;
+      if Self.WalkedFish > High(Self.FishTiles) then
+      begin
+        Self.WalkedFish -= 2;
+        Self.WalkedFishForward := False;
+      end;
+    end
+    else
+    begin
+      Self.WalkedFish -= 1;
+      if Self.WalkedFish < Low(Self.FishTiles) then
+      begin
+        Self.WalkedFish += 2;
+        Self.WalkedFishForward := True;
+      end;
+    end;
+  end;
+end;
+
+{
+  Walks to the fire
+}
+procedure TBot.GoToFire(Force: Boolean = False);
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+begin
+  OurPos := Self.RSW.GetMyPos();
+  if (OurPos.DistanceTo(Self.FireTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.FireTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to fire...');
+    try
+      Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to fire!');
+      Exit();
+    end;
+  end;
+end;
+
+{
+  Waits while cooking
+}
+procedure TBot.WhileCooking(RSItem: TRSItem);
+var
+  RawSlots: TIntegerArray;
+  C: Int32;
+  CountDown: TCountDown;
+begin
+  Inventory.FindItem(RSItem, RawSlots);
+  C := Length(RawSlots);
+  CountDown.Init(Self.CookWaitTime);
+
+  while RSClient.IsLoggedIn() and RawSlots.Clear() and Inventory.FindItem(RSItem, RawSlots) do
+  begin
+    if C <> Length(RawSlots) then
+    begin
+      Script.WriteMsg('WhileCooking: Restarting timer', True);
+      CountDown.Restart();
+    end;
+    C := Length(RawSlots);
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WhileCooking: Timed out.', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Cooking the food', True);
+  end;
+end;
+
+{
+  Starts cooking the fish
+}
+function TBot.StartCooking(RSItem: TRSItem): Boolean;
+var
+  RawSlots: TIntegerArray;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+  OurTile: TPoint;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+  begin
+    Script.WriteMsg('StartCooking: Tile no visible', True);
+    Exit();
+  end;
+
+  ATPA := Self.FindFireColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+
+  if not Inventory.FindItem(RSItem, RawSlots) then
+  begin
+    Script.WriteMsg('StartCooking: No item found', True);
+    Exit();
+  end;
+
+  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+  Wait(0, 1000);
+  Mouse.Move(B);
+
+  if MainScreen.IsUpText(Self.FireUpText) and (Random() < 10) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end
+  else
+    Result := ChooseOption.Select(Self.FireUpText);
+
+  if not Result then
+  begin
+    Script.WriteMsg('StartCooking: Didnt click', True);
+    Exit();
+  end;
+
+  Minimap.WaitFlag();
+
+  if not Make.IsOpen(2500 + Random(1000)) then
+  begin
+    Script.WriteMsg('StartCooking: Make screen didnt open', True);
+    Exit(False);
+  end;
+
+  Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
+  Self.WhileCooking(RSItem);
+end;
+
+{
+  Cooks the food
+}
+procedure TBot.CookFish(RSItem: TRSItem);
+begin
+  Self.GoToFire();
+  if not Self.StartCooking(RSItem) then
+    Self.GoToFire(True);
 end;
 
 {
@@ -365,6 +657,39 @@ end;
 }
 procedure TBot.DoGathering();
 begin
+  if not Self.ClickFish() then
+    Self.GoToFish();
+
+  Self.AfterActionAntiBan(True);
+end;
+
+{
+  Executes when we should do something about our full inventory
+}
+procedure TBot.DoFullInventory();
+var
+  RSItem: TRSItem;
+begin
+  if Self.Cooking and Inventory.FindItems(Self.RawFish) then
+  begin
+    for RSItem in Self.RawFish do
+    begin
+      if not Inventory.FindItem(RSItem) then
+        continue;
+
+      Self.CookFish(RSItem);
+    end;
+    Exit();
+  end;
+
+  if Self.Banking then
+  begin
+  end
+  else
+  begin
+  end;
+
+  Self.RSW.WebWalk(Self.BankWalkTile);
   Self.AfterActionAntiBan(True);
 end;
 
@@ -482,11 +807,16 @@ begin
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
 
+  Self.ShiftDropping := SHIFTDROP;
+  Self.Cooking := COOKINGFISH;
+  Self.Banking := BANKFISH;
+
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
   Script.AllowBreaks := True;
   Self.FishSpotColorWait := 500;
   Self.FishWaitTime := 15000;
+  Self.CookWaitTime := 5000;
   Self.FishSpotUpText := ['Lure Rod Fishing spot', 'Lure'];
   Self.FireUpText := ['Use Raw salmon -> Fire', 'Use Raw trout -> Fire', 'Fire'];
 
@@ -495,6 +825,7 @@ begin
 
   Self.BankTiles := [[4190, 2484], [4190, 2492]];
   Self.FishTiles := [[4248,2718], [4221,2751]];
+  Self.FishWalkTile := [4248,2718];
 
   Self.CookedFish := ['Trout', 'Salmon'];
   Self.RawFish := ['Raw trout', 'Raw salmon'];
