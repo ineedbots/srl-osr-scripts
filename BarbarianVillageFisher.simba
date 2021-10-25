@@ -139,7 +139,6 @@ begin
   TPA := Result.Merge();
   Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
   Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
-  Result.SortByMiddle(MainScreen.Center());
 end;
 
 {
@@ -436,6 +435,7 @@ begin
   // should be okay, all fishspot are lure spots
   Result := True;
   Self.WalkedFish := CurrentFishTileIdx;
+  FishSpots.SortByMiddle(MainScreen.Center());
 
   // check each of the spots for the uptext, then click
   for TPA in FishSpots do
