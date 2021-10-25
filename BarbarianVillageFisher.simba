@@ -14,10 +14,10 @@ program BarbarianVillageFisher;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
   SHIFTDROP      = True;  // Shift drop?
@@ -358,6 +358,140 @@ begin
 end;
 
 {
+  Walks to the fire
+}
+procedure TBot.GoToFire(Force: Boolean = False);
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+begin
+  OurPos := Self.RSW.GetMyPos();
+  if (OurPos.DistanceTo(Self.FireTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.FireTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to fire...');
+    try
+      Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to fire!');
+      Exit();
+    end;
+  end;
+end;
+
+{
+  Waits while cooking
+}
+procedure TBot.WhileCooking(RSItem: TRSItem);
+var
+  RawSlots: TIntegerArray;
+  C: Int32;
+  CountDown: TCountDown;
+begin
+  Inventory.FindItem(RSItem, RawSlots);
+  C := Length(RawSlots);
+  CountDown.Init(Self.CookWaitTime);
+
+  while RSClient.IsLoggedIn() and RawSlots.Clear() and Inventory.FindItem(RSItem, RawSlots) do
+  begin
+    if C <> Length(RawSlots) then
+    begin
+      Script.WriteMsg('WhileCooking: Restarting timer', True);
+      CountDown.Restart();
+    end;
+    C := Length(RawSlots);
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WhileCooking: Timed out.', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Cooking the food', True);
+  end;
+end;
+
+{
+  Starts cooking the fish
+}
+function TBot.StartCooking(RSItem: TRSItem): Boolean;
+var
+  RawSlots: TIntegerArray;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+  OurTile: TPoint;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+  B.LimitTo(MainScreen.Bounds());
+  if not MainScreen.IsVisible(B.Middle()) then
+  begin
+    Script.WriteMsg('StartCooking: Tile no visible', True);
+    Exit();
+  end;
+
+  ATPA := Self.FindFireColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+
+  if not Inventory.FindItem(RSItem, RawSlots) then
+  begin
+    Script.WriteMsg('StartCooking: No item found', True);
+    Exit();
+  end;
+
+  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+  Wait(0, 1000);
+  Mouse.Move(B);
+
+  if MainScreen.IsUpText(Self.FireUpText) and (Random() < 10) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end
+  else
+    Result := ChooseOption.Select(Self.FireUpText);
+
+  if not Result then
+  begin
+    Script.WriteMsg('StartCooking: Didnt click', True);
+    Exit();
+  end;
+
+  Minimap.WaitFlag();
+
+  if not Make.IsOpen(2500 + Random(1000)) then
+  begin
+    Script.WriteMsg('StartCooking: Make screen didnt open', True);
+    Exit(False);
+  end;
+
+  Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
+  Self.WhileCooking(RSItem);
+end;
+
+{
+  Cooks the food
+}
+procedure TBot.CookFish(RSItem: TRSItem);
+begin
+  Self.GoToFire();
+  if not Self.StartCooking(RSItem) then
+    Self.GoToFire(True);
+end;
+
+{
   Waits while fishing
 }
 procedure TBot.WhileFishing();
@@ -573,140 +707,6 @@ begin
       end;
     end;
   end;
-end;
-
-{
-  Walks to the fire
-}
-procedure TBot.GoToFire(Force: Boolean = False);
-var
-  Walked: Boolean;
-  OurPos: TPoint;
-begin
-  OurPos := Self.RSW.GetMyPos();
-  if (OurPos.DistanceTo(Self.FireTile) > 30) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.FireTile).Mean()) or
-    Force then
-  begin
-    Script.SetStatus('Going to fire...');
-    try
-      Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
-    except
-    end;
-
-    if not Walked then
-    begin
-      Script.WriteMsg('Failed to go to fire!');
-      Exit();
-    end;
-  end;
-end;
-
-{
-  Waits while cooking
-}
-procedure TBot.WhileCooking(RSItem: TRSItem);
-var
-  RawSlots: TIntegerArray;
-  C: Int32;
-  CountDown: TCountDown;
-begin
-  Inventory.FindItem(RSItem, RawSlots);
-  C := Length(RawSlots);
-  CountDown.Init(Self.CookWaitTime);
-
-  while RSClient.IsLoggedIn() and RawSlots.Clear() and Inventory.FindItem(RSItem, RawSlots) do
-  begin
-    if C <> Length(RawSlots) then
-    begin
-      Script.WriteMsg('WhileCooking: Restarting timer', True);
-      CountDown.Restart();
-    end;
-    C := Length(RawSlots);
-
-    if CountDown.IsFinished() then
-    begin
-      Script.WriteMsg('WhileCooking: Timed out.', True);
-      break;
-    end;
-
-    Self.DoMainLoopStuff('Cooking the food', True);
-  end;
-end;
-
-{
-  Starts cooking the fish
-}
-function TBot.StartCooking(RSItem: TRSItem): Boolean;
-var
-  RawSlots: TIntegerArray;
-  TileRect: TRectangle;
-  B: TBox;
-  ATPA: T2DPointArray;
-  OurTile: TPoint;
-begin
-  OurTile := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
-
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
-  B.LimitTo(MainScreen.Bounds());
-  if not MainScreen.IsVisible(B.Middle()) then
-  begin
-    Script.WriteMsg('StartCooking: Tile no visible', True);
-    Exit();
-  end;
-
-  ATPA := Self.FindFireColor(B);
-
-  if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
-  else
-    B := ATPA.Biggest().Bounds();
-
-  if not Inventory.FindItem(RSItem, RawSlots) then
-  begin
-    Script.WriteMsg('StartCooking: No item found', True);
-    Exit();
-  end;
-
-  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
-  Wait(0, 1000);
-  Mouse.Move(B);
-
-  if MainScreen.IsUpText(Self.FireUpText) and (Random() < 10) then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := Mouse.DidClick(True);
-  end
-  else
-    Result := ChooseOption.Select(Self.FireUpText);
-
-  if not Result then
-  begin
-    Script.WriteMsg('StartCooking: Didnt click', True);
-    Exit();
-  end;
-
-  Minimap.WaitFlag();
-
-  if not Make.IsOpen(2500 + Random(1000)) then
-  begin
-    Script.WriteMsg('StartCooking: Make screen didnt open', True);
-    Exit(False);
-  end;
-
-  Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
-  Self.WhileCooking(RSItem);
-end;
-
-{
-  Cooks the food
-}
-procedure TBot.CookFish(RSItem: TRSItem);
-begin
-  Self.GoToFire();
-  if not Self.StartCooking(RSItem) then
-    Self.GoToFire(True);
 end;
 
 {
