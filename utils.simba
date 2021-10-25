@@ -31,7 +31,7 @@ type
     Status, StopReason                                        : String;
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
-      MaxTiredMouseSpeed                                      : Int32;
+      MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
     Activity: record
       XP                                                      : Int32;
       Countdown                                               : TCountDown;
@@ -41,6 +41,7 @@ type
     DrawCounter, ReportCounter                                : TCountdown;
     AntiBan                                                   : TAntiban;
     AntiBanEnergy                                             : TAntiBanEnergy;
+    LastPos                                                   : TPoint;
   end;
   
 var
@@ -1235,4 +1236,24 @@ begin
   Self.ReportCounter.Restart();
   
   Result := True;
+end;
+
+{
+  Returns the velocity vector
+}
+function TScript.GetVelocity(Position: TPoint): TDoubleArray;
+var
+  TimeDelta: Int32;
+  PosDelta: TPoint;
+begin
+  // calcuate move velocity
+  TimeDelta := GetTimeRunning() - Script.LastPosTime;
+  PosDelta := Position - Script.LastPos;
+
+  SetLength(Result, 2);
+  Result[0] := PosDelta.X / (TimeDelta / 1000);
+  Result[1] := PosDelta.Y / (TimeDelta / 1000);
+
+  Script.LastPos := Position;
+  Script.LastPosTime := GetTimeRunning();
 end;

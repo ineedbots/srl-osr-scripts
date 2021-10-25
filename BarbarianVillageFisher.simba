@@ -38,7 +38,8 @@ const
 type
   TBot = record
     WalkedFishForward, ShiftDropping, Banking, Cooking        : Boolean;
-    FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime : Int32;
+    FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
+    LastWalkedFish                                            : Int32;
     FishSpotUpText, FireUpText                                : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
@@ -363,11 +364,21 @@ procedure TBot.WhileFishing();
 var
   CountDown: TCountDown;
   InvCount, IC: Int32;
+  CFishTiles: TPointArray;
 begin
-  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+  while RSClient.IsLoggedIn() and Minimap.HasFlag(1000) and Minimap.IsPlayerMoving() do
     Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
 
-  Wait(2000, 3000);
+  // update WalkedFish
+  CFishTiles := Copy(Self.FishTiles);
+  CFishTiles.Sort(Self.RSW.GetMyPos());
+
+  Self.LastWalkedFish := Self.WalkedFish;
+  Self.WalkedFish := Self.FishTiles.Find(CFishTiles[0]);
+  if Self.LastWalkedFish <> Self.WalkedFish then
+    Self.WalkedFishForward := Self.LastWalkedFish < Self.WalkedFish;
+
+  Wait(1000, 2000);
 
   Script.WriteMsg('We are fishing...', True);
   InvCount := Inventory.Count();
@@ -408,22 +419,15 @@ end;
 {
   Returns true if clicked on a fishing spot
 }
-function TBot.ClickFish(): Boolean;
+function TBot.ClickFish(out WasClicked: Boolean; SortByPnt: TPoint; WaitTime: Int32; Velocity: TDoubleArray = [0, 0]): Boolean;
 var
   FishSpots: T2DPointArray;
-  CFishTiles, TPA: TPointArray;
-  OurPos: TPoint;
-  CurrentFishTileIdx: Int32;
-  Clicked: Boolean;
+  TPA: TPointArray;
+  VelOffset: TPoint = [0, 0];
 begin
   Script.WriteMsg('Going to click a fish spot...', True);
-  OurPos := Self.RSW.GetMyPos();
 
-  CFishTiles := Copy(Self.FishTiles);
-  CFishTiles.Sort(OurPos);
-  CurrentFishTileIdx := Self.FishTiles.Find(CFishTiles[0]);
-
-  FishSpots := Self.FindFishSpotColor(MainScreen.Bounds(), Self.FishSpotColorWait, Script.SleepRate);
+  FishSpots := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
 
   if Length(FishSpots) <= 0 then
   begin
@@ -431,45 +435,90 @@ begin
     Exit(False);
   end;
 
-  Script.WriteMsg('Fish spot found, checking uptext', True);
-  // should be okay, all fishspot are lure spots
-  Result := True;
-  Self.WalkedFish := CurrentFishTileIdx;
-  FishSpots.SortByMiddle(MainScreen.Center());
+  Script.WriteMsg('Fish spot color found, checking uptext', True);
+  FishSpots.SortByMiddle(SortByPnt);
+
+  // calcuate the offset due to velocity
+  if Velocity <> [0, 0] then
+  begin
+    VelOffset := Point(MainScreen.ConvertDistance(Round(Abs(Velocity[0] * 2))),
+                  MainScreen.ConvertDistance(Round(Abs(Velocity[1] * 2))));
+
+    if Velocity[0] > 0 then
+      VelOffset.X := -VelOffset.X;
+
+    if Velocity[1] > 0 then
+      VelOffset.Y := -VelOffset.Y;
+  end;
 
   // check each of the spots for the uptext, then click
   for TPA in FishSpots do
   begin
-    Mouse.Move(TPA.Bounds());
+    Mouse.Move(TPA.Bounds().Offset(VelOffset));
 
+    // check uptext
     if not MainScreen.IsUpText(Self.FishSpotUpText) then
-      continue;
+    begin
+      Script.WriteMsg('Bad uptext for fish spot', True);
+      if WaitTime = 0 then
+        break
+      else
+        continue;
+    end;
 
-    Script.WriteMsg('Clicking fish...', True);
-    if Random() < 10 then
+    Script.WriteMsg('Good uptext for fish spot! Clicking!', True);
+    Result := True;
+
+    // uptext found, click it!
+    if Random() < 0.1 then
+      WasClicked := ChooseOption.Select(Self.FishSpotUpText)
+    else
     begin
       Mouse.Click(MOUSE_LEFT);
-      Clicked := Mouse.DidClick(True);
-    end
-    else
-      Clicked := ChooseOption.Select(Self.FishSpotUpText);
-
-    if Clicked then
-    begin
-      Self.AfterActionAntiBan(True);
-      Self.WhileFishing();
+      WasClicked := Mouse.DidClick(True);
     end;
+
     break;
   end;
 end;
 
 {
-  Walks to the fish
+  While we walk to the fishes
 }
-procedure TBot.GoToFish(Force: Boolean = False);
+procedure WalkingToFish(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean;
+  S: Int32;
+  Velocity: TDoubleArray;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickFish(WasClicked, Mouse.Position(), 0, Velocity) and WasClicked then
+      Walker^.Enabled := False;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+end;
+
+{
+  Walks to the fish,
+  Returns true if we clicked the fishing spot while walking
+}
+function TBot.GoToFish(Force: Boolean = False): Boolean;
 var
   Where, OurPos: TPoint;
   Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
 begin
   Script.WriteMsg('Going to fish spot...', True);
   OurPos := Self.RSW.GetMyPos();
@@ -482,16 +531,24 @@ begin
     Force then
   begin
     Script.SetStatus('Going to fish spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToFish;
     try
       Walked := Self.RSW.WebWalk(Where.Random(-8, 8, True), 0, BioRandomFixed());
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fish spot');
       Exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 
   // set the 'next' fish spot...
@@ -656,9 +713,15 @@ end;
   Executes when we need to gather items to fill our inventory
 }
 procedure TBot.DoGathering();
+var
+  WasClicked: Boolean;
 begin
-  if not Self.ClickFish() then
-    Self.GoToFish();
+  if (Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked)
+    or Self.GoToFish() then
+  begin
+    Self.AfterActionAntiBan(True);
+    Self.WhileFishing();
+  end;
 
   Self.AfterActionAntiBan(True);
 end;
@@ -781,6 +844,7 @@ begin
   Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;                                 
   Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.999;
 
