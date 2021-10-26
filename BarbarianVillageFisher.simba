@@ -39,7 +39,7 @@ type
   TBot = record
     WalkedFishForward, ShiftDropping, Banking, Cooking        : Boolean;
     FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
-    LastWalkedFish                                            : Int32;
+    LastWalkedFish, FishDone                                  : Int32;
     FishSpotUpText, FireUpText                                : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
@@ -88,7 +88,6 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
-  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
   // TODO detect clues
 
   // general antiban
@@ -431,12 +430,14 @@ begin
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
 
   B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
-  B.LimitTo(MainScreen.Bounds());
+
   if not MainScreen.IsVisible(B.Middle()) then
   begin
     Script.WriteMsg('StartCooking: Tile no visible', True);
     Exit();
   end;
+
+  B.LimitTo(MainScreen.Bounds());
 
   ATPA := Self.FindFireColor(B);
 
@@ -476,8 +477,11 @@ begin
     Script.WriteMsg('StartCooking: Make screen didnt open', True);
     Exit(False);
   end;
+  Wait(0, 1000);
 
   Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
+
+  Self.AfterActionAntiBan(True);
   Self.WhileCooking(RSItem);
 end;
 
@@ -492,25 +496,474 @@ begin
 end;
 
 {
+  Drops all the logs in our inventory
+
+  Part of this is from Flight's AIOFisher
+}
+procedure TBot.DropItems();
+var
+  R: Extended;
+  Pattern, FishSlots: TIntegerArray;
+  CurFish, i: Int32;
+begin
+  Script.SetStatus('Dropping fish...');
+
+  // query the fish
+  Inventory.FindItems(Self.RawFish, FishSlots);
+  Inventory.FindItems(Self.CookedFish, FishSlots);
+  Inventory.FindItems(Self.BurntFish, FishSlots);
+  CurFish := FishSlots.Len();
+  Script.WriteMsg('DropItems: Fish slots (before drop): ' + ToStr(FishSlots), True);
+
+  // choose a random drop pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // possibly not drop all logs, for antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  for i:=High(Pattern) downto Low(Pattern) do
+    if FishSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+
+  // drop
+  if Self.ShiftDropping then
+    Inventory.ShiftDrop(Pattern)
+  else
+  begin
+    for i in Pattern do
+    begin
+      Inventory.HoverSlot(i);
+
+      if MainScreen.IsUpText('Drop') then
+        Mouse.Click(MOUSE_LEFT)
+      else
+        ChooseOption.Select('Drop');
+    end;
+  end;
+
+  // see how many logs we actually dropped, and log it
+  FishSlots.Clear();
+  Inventory.FindItems(Self.RawFish, FishSlots);
+  Inventory.FindItems(Self.CookedFish, FishSlots);
+  Inventory.FindItems(Self.BurntFish, FishSlots);
+  Self.FishDone += CurFish - FishSlots.Len();
+  Script.WriteMsg('DropItems: Fish slots (after drop): ' + ToStr(FishSlots), True);
+
+  Script.SetStatus('Fish dropped!');
+  Script.WriteMsg('Dropped fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
+end;
+
+{
+  Banks the items
+}
+procedure TBot.DoBanking();
+var
+  ToolSlots, FishSlots, Pattern: TIntegerArray;
+  CurFish, i: Int32;
+  R: Extended;
+  IsBank: Boolean;
+begin
+  if not Bank.IsOpen() and not DepositBox.IsOpen() then
+    Exit();
+
+  IsBank := Bank.IsOpen();
+  Script.SetStatus('Depositing items...');
+  Script.AntiBan.AfterBankAntiBan(20);
+
+  // query the items in our inventory
+  if IsBank then
+  begin
+    Inventory.FindItem(Self.BaitItem, ToolSlots);
+    Inventory.FindItem(Self.RodItem, ToolSlots);
+    Inventory.FindItems(Self.BurntFish, FishSlots);
+    Inventory.FindItems(Self.CookedFish, FishSlots);
+    Inventory.FindItems(Self.RawFish, FishSlots);
+  end
+  else
+  begin
+    DepositBox.FindItems([Self.BaitItem], ToolSlots);
+    DepositBox.FindItems([Self.RodItem], ToolSlots);
+    DepositBox.FindItems(Self.BurntFish, FishSlots);
+    DepositBox.FindItems(Self.CookedFish, FishSlots);
+    DepositBox.FindItems(Self.RawFish, FishSlots);
+  end;
+
+  Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
+  Script.WriteMsg('DepositItems: FishSlots: ' + ToStr(FishSlots), True);
+  CurFish := FishSlots.Len();
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  // deposit our stuff
+  for i in Pattern do
+  begin
+    if IsBank then
+    begin
+      if Inventory.IsSlotUsed(i) then
+      begin
+        // TODO randomize using deposit buttons
+        Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
+        Wait(750, 1250);
+      end;
+    end
+    else
+    begin
+      if DepositBox.IsSlotUsed(i) then
+      begin
+        // TODO randomize using deposit buttons
+        Mouse.Move(DepositBox.GetSlotBox(i));
+        ChooseOption.Select('Deposit-All');
+        Wait(750, 1250);
+      end;
+    end;
+  end;
+
+  // query how many logs we actually depositted
+  FishSlots.Clear();
+
+  if IsBank then
+  begin
+    Inventory.FindItems(Self.BurntFish, FishSlots);
+    Inventory.FindItems(Self.CookedFish, FishSlots);
+    Inventory.FindItems(Self.RawFish, FishSlots);
+  end
+  else
+  begin
+    DepositBox.FindItems(Self.BurntFish, FishSlots);
+    DepositBox.FindItems(Self.CookedFish, FishSlots);
+    DepositBox.FindItems(Self.RawFish, FishSlots);
+  end;
+
+  // update how many logs we completed chopping
+  Self.FishDone += CurFish - FishSlots.Len();
+
+  Script.WriteMsg('DepositItems: FishSlots (after bank): ' + ToStr(FishSlots), True);
+
+  Script.SetStatus('Fish depositted!');
+  Script.WriteMsg('Banked fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
+
+  Script.AntiBan.AfterBankAntiBan(30);
+
+  // randomly close the bank
+  if Random() > 0.75 then
+  begin
+    if IsBank then
+      Bank.Close()
+    else
+      DepositBox.Close();
+  end;
+end;
+
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
+function TBot.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+begin
+  // we only wait a finite amount of time...
+  BankOpenCountDown.Init(5000);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      Exit(True);
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end;
+
+    // enter pin if needed
+    if BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      BankOpenCountDown.Restart();
+    end;
+
+    if BankOpenCountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+
+  Script.WriteMsg('WaitBankOpen: Timed out...', True);
+  // bank didnt open... failed.
+end;
+
+{
+  Returns true if we clicked the bank
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  BankTiles, TPA: TPointArray;
+  BankTile: TPoint;
+  Tile: TRectangle;
+  B: TBox;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+  begin
+    WasClicked := True;
+    Exit(True);
+  end;
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  BankTiles := Copy(Self.BankTiles);
+  BankTiles.Sort(OurTile);
+  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  Script.SetStatus('Finding bank...');
+
+  // search for every bank
+  for BankTile in BankTiles do
+  begin
+    // try see if we can find this bank
+    Tile := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+    B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+
+    if not MainScreen.IsVisible(B.Middle()) then
+      continue;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    // check the bank's colors within the tile
+    TPA := Self.FindBankColor(B).Biggest();
+
+    if Length(TPA) <= 0 then
+      B := Tile.Bounds()
+    else
+      B := TPA.Bounds();
+
+    Script.SetStatus('Found bank! Checking uptext...');
+
+    // hover over the banktile and see if it is actually a bank
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    begin
+      Script.SetStatus('Bad uptext for bank');
+      if Velocity = Point(0, 0) then
+        break
+      else
+        continue;
+    end;
+
+    Result := True;
+
+    Script.SetStatus('Confirmed bank! Opening bank...');
+
+    // open the bank
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    break;
+  end;
+end;
+
+{
+  While we walk to the bank
+}
+procedure WalkingToBank(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickBank(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the bank while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+end;
+
+{
+  Walks to the bank,
+  Returns true if we clicked the bank while walking
+}
+function TBot.GoToBank(Force: Boolean = False): Boolean;
+var
+  OurPos: TPoint;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to bank spot....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to fish spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToBank;
+    try
+      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to bank spot');
+      Exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Does banking
+}
+procedure TBot.DoBank();
+var
+  WasClicked: Boolean;
+begin
+  if (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank() or Self.GoToBank(True) then
+  begin
+    if Self.WaitBankOpen() then
+    begin
+      Self.DoBanking();
+      Self.UpdateWalkedFish(True);
+    end;
+  end;
+end;
+
+{
+  Updates which fish tile we are at
+}
+procedure TBot.UpdateWalkedFish(Here: Boolean = True);
+var
+  CFishTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CFishTiles := Copy(Self.FishTiles);
+    CFishTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedFish := Self.WalkedFish;
+    Self.WalkedFish := Self.FishTiles.Find(CFishTiles[0]);
+    if Self.LastWalkedFish <> Self.WalkedFish then
+      Self.WalkedFishForward := Self.LastWalkedFish < Self.WalkedFish;
+  end
+  else
+  begin
+    if (Self.FishTiles.Len() > 1) then
+    begin
+      if Self.WalkedFishForward then
+      begin
+        Self.WalkedFish += 1;
+        if Self.WalkedFish > High(Self.FishTiles) then
+        begin
+          Self.WalkedFish -= 2;
+          Self.WalkedFishForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedFish -= 1;
+        if Self.WalkedFish < Low(Self.FishTiles) then
+        begin
+          Self.WalkedFish += 2;
+          Self.WalkedFishForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
+
+{
   Waits while fishing
 }
 procedure TBot.WhileFishing();
 var
   CountDown: TCountDown;
   InvCount, IC: Int32;
-  CFishTiles: TPointArray;
 begin
   while RSClient.IsLoggedIn() and Minimap.HasFlag(1000) and Minimap.IsPlayerMoving() do
     Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
 
   // update WalkedFish
-  CFishTiles := Copy(Self.FishTiles);
-  CFishTiles.Sort(Self.RSW.GetMyPos());
-
-  Self.LastWalkedFish := Self.WalkedFish;
-  Self.WalkedFish := Self.FishTiles.Find(CFishTiles[0]);
-  if Self.LastWalkedFish <> Self.WalkedFish then
-    Self.WalkedFishForward := Self.LastWalkedFish < Self.WalkedFish;
+  Self.UpdateWalkedFish(True);
 
   Wait(1000, 2000);
 
@@ -553,11 +1006,11 @@ end;
 {
   Returns true if clicked on a fishing spot
 }
-function TBot.ClickFish(out WasClicked: Boolean; SortByPnt: TPoint; WaitTime: Int32; Velocity: TDoubleArray = [0, 0]): Boolean;
+function TBot.ClickFish(out WasClicked: Boolean; SortByPnt: TPoint; WaitTime: Int32; Velocity: TPoint = Point(0, 0)): Boolean;
 var
   FishSpots: T2DPointArray;
   TPA: TPointArray;
-  VelOffset: TPoint = [0, 0];
+  B: TBox;
 begin
   Script.WriteMsg('Going to click a fish spot...', True);
 
@@ -572,30 +1025,35 @@ begin
   Script.WriteMsg('Fish spot color found, checking uptext', True);
   FishSpots.SortByMiddle(SortByPnt);
 
-  // calcuate the offset due to velocity
-  if Velocity <> [0, 0] then
-  begin
-    VelOffset := Point(MainScreen.ConvertDistance(Round(Abs(Velocity[0] * 2))),
-                  MainScreen.ConvertDistance(Round(Abs(Velocity[1] * 2))));
-
-    if Velocity[0] > 0 then
-      VelOffset.X := -VelOffset.X;
-
-    if Velocity[1] > 0 then
-      VelOffset.Y := -VelOffset.Y;
-  end;
-
   // check each of the spots for the uptext, then click
   for TPA in FishSpots do
   begin
-    Mouse.Move(TPA.Bounds().Offset(VelOffset));
+    B := TPA.Bounds();
+
+    // check if we need apply velocity
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    Script.MouseLooksForUpText := Self.FishSpotUpText;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
 
     // check uptext
-    if not MainScreen.IsUpText(Self.FishSpotUpText) then
+    if not MainScreen.IsUpText(Self.FishSpotUpText, Random(100, 250)) then
     begin
       Script.WriteMsg('Bad uptext for fish spot', True);
-      if WaitTime = 0 then
-        break
+      if Velocity = Point(0, 0) then
+        break // things are moving, we took up time by moving mouse, colors are innaccurate
       else
         continue;
     end;
@@ -621,9 +1079,10 @@ end;
 }
 procedure WalkingToFish(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 var
-  WasClicked: Boolean;
+  WasClicked: Boolean = False;
   S: Int32;
   Velocity: TDoubleArray;
+  MSVel: TPoint;
 begin
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
@@ -635,9 +1094,13 @@ begin
     S := Mouse.Speed;
     Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
 
+    MSVel := Script.WalkerVelToMSVel(Velocity);
     // if we clicked the fish spot, then stop the walker
-    if Bot.ClickFish(WasClicked, Mouse.Position(), 0, Velocity) and WasClicked then
+    if Bot.ClickFish(WasClicked, Mouse.Position(), 0, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the fishing spot while moving, nice!');
       Walker^.Enabled := False;
+    end;
 
     // reset the mosue speed back
     Mouse.Speed := S;
@@ -686,26 +1149,24 @@ begin
   end;
 
   // set the 'next' fish spot...
-  if (Self.FishTiles.Len() > 1) and not Force then
+  if not Force then
+    Self.UpdateWalkedFish(False);
+end;
+
+{
+  Returns true if clicked the fish
+}
+function TBot.TryClickFish(): Boolean;
+var
+  WasClicked: Boolean;
+  i: Int32;
+begin
+  for i:=1 to 3 do
   begin
-    if Self.WalkedFishForward then
-    begin
-      Self.WalkedFish += 1;
-      if Self.WalkedFish > High(Self.FishTiles) then
-      begin
-        Self.WalkedFish -= 2;
-        Self.WalkedFishForward := False;
-      end;
-    end
-    else
-    begin
-      Self.WalkedFish -= 1;
-      if Self.WalkedFish < Low(Self.FishTiles) then
-      begin
-        Self.WalkedFish += 2;
-        Self.WalkedFishForward := True;
-      end;
-    end;
+    Minimap.WaitPlayerMoving();
+
+    if Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked then
+      Exit(True);
   end;
 end;
 
@@ -713,17 +1174,12 @@ end;
   Executes when we need to gather items to fill our inventory
 }
 procedure TBot.DoGathering();
-var
-  WasClicked: Boolean;
 begin
-  if (Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked)
-    or Self.GoToFish() then
+  if Self.TryClickFish() or Self.GoToFish() then
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileFishing();
   end;
-
-  Self.AfterActionAntiBan(True);
 end;
 
 {
@@ -746,14 +1202,9 @@ begin
   end;
 
   if Self.Banking then
-  begin
-  end
+    Self.DoBank()
   else
-  begin
-  end;
-
-  Self.RSW.WebWalk(Self.BankWalkTile);
-  Self.AfterActionAntiBan(True);
+    Self.DropItems();
 end;
 
 {
@@ -777,7 +1228,7 @@ begin
         Self.OnLogin();
     end;
 
-    Self.DoMainLoopStuff();
+    Self.DoMainLoopStuff('', False);
   end;
 
   Logout.ClickLogout();
@@ -847,6 +1298,7 @@ begin
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.999;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
@@ -878,7 +1330,7 @@ begin
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
   Script.AllowBreaks := True;
-  Self.FishSpotColorWait := 500;
+  Self.FishSpotColorWait := 100;
   Self.FishWaitTime := 15000;
   Self.CookWaitTime := 5000;
   Self.FishSpotUpText := ['Lure Rod Fishing spot', 'Lure'];

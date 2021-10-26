@@ -29,6 +29,7 @@ type
 
   TScript = record
     Status, StopReason                                        : String;
+    MouseLooksForUpText                                       : TStringArray;
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
       MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
@@ -294,7 +295,7 @@ end;
 {
   From Flight's AIOFisher
 }
-procedure TMouse.Move(Point: TPoint); override;
+procedure TMouse.HumanMove(Point: TPoint);
 var
   mPt: TPoint;
   S: Int32;
@@ -311,13 +312,9 @@ begin
   mPt.X += SRL.NormalRange(-Range, Range);
   mPt.Y += SRL.NormalRange(-Range, Range);
 
-  if Random() < 0.6 then
-  begin
-    inherited(mPt);
-    Self.Speed := round(S*0.85);
-  end;
-
-  inherited(Point);
+  Mouse.Move(mPt);
+  Self.Speed := round(S*0.85);
+  Mouse.Move(Point);
   Self.Speed := S;
 end;
 
@@ -1256,4 +1253,74 @@ begin
 
   Script.LastPos := Position;
   Script.LastPosTime := GetTimeRunning();
+end;
+
+{
+  Converts Walker velocity to MS velocity
+}
+function TScript.WalkerVelToMSVel(Vel: TDoubleArray): TPoint;
+begin
+  // velocity is minimap pixels per second
+
+  // convert from MM pixels to tiles
+  Vel[0] /= 4;
+  Vel[1] /= 4;
+
+  // convert to pixels on mainscreen at normal zoom
+  Vel[0] *= 40;
+  Vel[1] *= 40;
+
+  // get zoomed
+  Result := Point(MainScreen.ConvertDistance(Round(Abs(Vel[0]))),
+                MainScreen.ConvertDistance(Round(Abs(Vel[1]))));
+
+  // fix the abs
+  if Vel[0] > 0 then
+    Result.X := -Result.X;
+
+  if Vel[1] > 0 then
+    Result.Y := -Result.Y;
+
+  // rotate it according to compass
+  Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+end;
+
+{
+  Returns a predicted offset vector from where the box will be when the mouse finally arrives to it
+}
+function TScript.GetOffsetForMSVel(TarBox: TBox; MSVelocity: TPoint): TPoint;
+var
+  Dist, TimeForMouse: Double;
+begin
+  // get the mouse distance to the target
+  Dist := TarBox.Middle().DistanceTo(Mouse.Position());
+
+  // predict how long it will take for the mouse to reach the target
+  // TODO complete, its some function of Dist, Spped and possibly some constant
+  TimeForMouse := 0.333;
+
+  // now apply the velocity and the time to the result
+  Result := Point(
+    Round(MSVelocity.X * TimeForMouse),
+    Round(MSVelocity.Y * TimeForMouse)
+  );
+end;
+
+{
+  While the mouse looks for uptext
+}
+procedure WhileMouseMovesLookForUpText(Sender: PMouse; var X, Y: Double; var Done: Boolean);
+var
+  UpText: String;
+begin
+  if Script.MouseLooksForUpText.Len() <= 0 then
+    Exit();
+
+  Sender := Sender;
+  X := X;
+  Y := Y;
+
+  UpText := MainScreen.GetUpText();
+  if UpText.IsInString(Script.MouseLooksForUpText) then
+    Done := True;
 end;
