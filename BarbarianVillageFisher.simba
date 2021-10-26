@@ -88,6 +88,11 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
+  if not Inventory.FindItem(Self.BaitItem) then
+  begin
+    Script.Stop('Ran out of bait.');
+  end;
+
   // TODO detect clues
 
   // general antiban
