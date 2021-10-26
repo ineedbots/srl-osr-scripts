@@ -14,8 +14,8 @@ program BarbarianVillageFisher;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = True;  // Do proggies onto the console?
 
