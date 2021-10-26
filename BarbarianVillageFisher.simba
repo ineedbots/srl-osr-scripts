@@ -14,8 +14,8 @@ program BarbarianVillageFisher;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = False; // For debugging purposes
-  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
   MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = True;  // Do proggies onto the console?
 
@@ -356,30 +356,207 @@ begin
   Wait(Script.SleepRate);
 end;
 
+////////////////////////////////
+// COOKING FOOD FUNCS
+
 {
-  Walks to the fire
+  Returns true if the fire is visible, B is the bounds of the fire on the screen
 }
-procedure TBot.GoToFire(Force: Boolean = False);
+function TBot.FindFire(OurTile: TPoint; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    Exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindFireColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the fire, WasClicked true if clicked it
+}
+function TBot.ClickFire(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  // we only want to click the fire if we have an item selected
+  if Inventory.GetSelectedSlot() = -1 then
+  begin
+    Script.WriteMsg('ClickFire: No item selected', True);
+    Exit();
+  end;
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  // find the fire
+  if not Self.FindFire(OurTile, B) then
+  begin
+    Script.WriteMsg('ClickFire: Fire not visible', True);
+    Exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickFire: Tile velocity no visible', True);
+      Exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  Script.MouseLooksForUpText := Self.FireUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(Self.FireUpText, Random(100, 250)) and (Random() < 10) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else
+    WasClicked := ChooseOption.Select(Self.FireUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickFire: Didnt click', True);
+    Exit();
+  end;
+end;
+
+{
+  Returns true if we clicked the fire
+}
+function TBot.TryClickFire(RSItem: TRSItem): Boolean;
+var
+  _: TBox;
+  RawSlots: TIntegerArray;
+  OurTile: TPoint;
+  WasClicked: Boolean;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  if not Self.FindFire(OurTile, _) then
+  begin
+    Script.WriteMsg('Did not find fire', True);
+    Exit();
+  end;
+
+  Inventory.FindItem(RSItem, RawSlots);
+  if RawSlots.Len() <= 0 then
+    Exit();
+
+  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+  Wait(0, 1500);
+  if Self.ClickFire(WasClicked, OurTile) then
+    Result := WasClicked;
+end;
+
+{
+  While we walk to the fire
+}
+var Bot_CurrentCookingItem: TRSItem;
+procedure WalkingToFire(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+  _: TBox;
+  RawSlots: TIntegerArray;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if (Destination = Walker^.Path[High(Walker^.Path)]) {and Bot.FindFire(Position, _)} then
+  begin
+    if Inventory.GetSelectedSlot() = -1 then
+    begin
+      if not Inventory.FindItem(Bot_CurrentCookingItem, RawSlots) then
+        Exit();
+
+      Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+      Exit(); // try again next go, we moved our mouse, velocity, position is out of date
+    end;
+
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickFire(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the fire while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+end;
+
+{
+  Walks to the fire, return true if we clicked it early
+}
+function TBot.GoToFire(RSItem: TRSItem; Force: Boolean = False): Boolean;
 var
   Walked: Boolean;
   OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
 begin
+  Script.WriteMsg('Going to fire....', True);
   OurPos := Self.RSW.GetMyPos();
+
   if (OurPos.DistanceTo(Self.FireTile) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.FireTile).Mean()) or
     Force then
   begin
-    Script.SetStatus('Going to fire...');
+    Script.SetStatus('Going to fire spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Bot_CurrentCookingItem := RSItem;
+    Self.RSW.OnWalkingEvent := @WalkingToFire;
     try
       Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fire!');
       Exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
@@ -416,73 +593,18 @@ begin
 end;
 
 {
-  Starts cooking the fish
+  Returns if we start cooking the fish
 }
-function TBot.StartCooking(RSItem: TRSItem): Boolean;
-var
-  RawSlots: TIntegerArray;
-  TileRect: TRectangle;
-  B: TBox;
-  ATPA: T2DPointArray;
-  OurTile: TPoint;
+function TBot.StartCooking(): Boolean;
 begin
-  OurTile := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
-
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
-
-  if not MainScreen.IsVisible(B.Middle()) then
-  begin
-    Script.WriteMsg('StartCooking: Tile no visible', True);
-    Exit();
-  end;
-
-  B.LimitTo(MainScreen.Bounds());
-
-  ATPA := Self.FindFireColor(B);
-
-  if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
-  else
-    B := ATPA.Biggest().Bounds();
-
-  if not Inventory.FindItem(RSItem, RawSlots) then
-  begin
-    Script.WriteMsg('StartCooking: No item found', True);
-    Exit();
-  end;
-
-  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
-  Wait(0, 1000);
-  Mouse.Move(B);
-
-  if MainScreen.IsUpText(Self.FireUpText) and (Random() < 10) then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := Mouse.DidClick(True);
-  end
-  else
-    Result := ChooseOption.Select(Self.FireUpText);
-
-  if not Result then
-  begin
-    Script.WriteMsg('StartCooking: Didnt click', True);
-    Exit();
-  end;
-
   Minimap.WaitFlag();
 
   if not Make.IsOpen(2500 + Random(1000)) then
-  begin
-    Script.WriteMsg('StartCooking: Make screen didnt open', True);
-    Exit(False);
-  end;
+    Exit();
+
   Wait(0, 1000);
 
-  Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
-
-  Self.AfterActionAntiBan(True);
-  Self.WhileCooking(RSItem);
+  Result := Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
 end;
 
 {
@@ -490,10 +612,23 @@ end;
 }
 procedure TBot.CookFish(RSItem: TRSItem);
 begin
-  Self.GoToFire();
-  if not Self.StartCooking(RSItem) then
-    Self.GoToFire(True);
+  if Self.TryClickFire(RSItem) or
+    Self.GoToFire(RSItem) or
+    Self.TryClickFire(RSItem) or
+    Self.GoToFire(RSItem, True) then
+  begin
+    if Self.StartCooking() then
+    begin
+      Self.AfterActionAntiBan(True);
+      Self.WhileCooking(RSItem);
+    end;
+  end;
 end;
+
+////////////////////////
+
+///////////////////////////
+// BANKING FUNCS
 
 {
   Drops all the logs in our inventory
@@ -898,7 +1033,9 @@ var
   WasClicked: Boolean;
 begin
   if (Self.ClickBank(WasClicked) and WasClicked)
-    or Self.GoToBank() or Self.GoToBank(True) then
+    or Self.GoToBank()
+    or (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank(True) then
   begin
     if Self.WaitBankOpen() then
     begin
@@ -907,6 +1044,11 @@ begin
     end;
   end;
 end;
+
+////////////////////////////////////
+
+/////////////////////////////////////
+// FISHING FUNCS
 
 {
   Updates which fish tile we are at
@@ -1170,12 +1312,16 @@ begin
   end;
 end;
 
+////////////////////////////////////////
+
 {
   Executes when we need to gather items to fill our inventory
 }
 procedure TBot.DoGathering();
 begin
-  if Self.TryClickFish() or Self.GoToFish() then
+  if Self.TryClickFish() or
+    Self.GoToFish() or
+    Self.TryClickFish() then
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileFishing();
