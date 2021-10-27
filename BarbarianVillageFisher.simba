@@ -5,7 +5,9 @@
 
   Version: 1.1.0
 
-  Fishes at barb village
+  Fishes at barb village.
+
+  Has mouse prediction while moving (will click objects as it approaches it)
 }
 
 program BarbarianVillageFisher;
@@ -21,8 +23,8 @@ const
 
   TAKEBREAKS     = True;  // Take breaks?
   SHIFTDROP      = True;  // Shift drop?
-  COOKINGFISH    = True;  // Cooking?
-  BANKFISH       = True;  // Do banking?
+  COOKINGFISH    = True; // Cooking?
+  BANKFISH       = True; // Do banking?
 
   // Account details
   _USERNAME       = '';
@@ -71,7 +73,7 @@ begin
   Script.DoGeneralChecks();
 
   if not RSClient.IsLoggedIn() then
-    Exit();
+    exit();
 
   // check we we leveled up
   if Chat.LeveledUp() then
@@ -131,7 +133,7 @@ begin
     Interval := SRL.TruncatedGauss(50, 1500);
 
   T.Init(SearchTime);
-  while RSClient.IsLoggedIn() and (not T.IsFinished() or (SearchTime = 0)) do
+  while not T.IsFinished() or (SearchTime = 0) do
   begin
     Result += MainScreen.FindObject(Self.FishSpotColor.RSObject, Area);
 
@@ -144,32 +146,6 @@ begin
   TPA := Result.Merge();
   Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
   Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
-end;
-
-{
-  Gets adjencent tiles
-}
-function TBot.GetAdjTiles(): array of TRectangle;
-var
-  i: Int32;
-  MMC: TPoint;
-  Ang, NormDist: Double;
-  AdjRect: TRectangle;
-  MMTiles: TPointArray;
-begin
-  MMC := Minimap.Center();
-  Ang := Minimap.GetCompassAngle(False);
-  NormDist := MainScreen.ConvertDistance(3);
-
-  MMTiles := [[MMC.X-4,MMC.Y],[MMC.X,MMC.Y-4],[MMC.X+4,MMC.Y],[MMC.X,MMC.Y+4]];
-  for i:=Low(MMTiles) to High(MMTiles) do
-  begin
-    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
-    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
-    AdjRect.Expand(NormDist);
-
-    Result += AdjRect;
-  end;
 end;
 
 {
@@ -187,7 +163,7 @@ var
 begin
   // get adjecent tiles and all colors with the fish spot
   ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
-  ARect := Self.GetAdjTiles();
+  ARect := Script.GetAdjTiles();
 
   // look for at each fish spot
   for TPA in ATPA do
@@ -210,7 +186,7 @@ begin
   end;
 
   if not FishInAdjTile then
-    Exit(False);
+    exit(False);
 
   if Script.Debug and Script.Drawing then
     RSClient.Image.DrawRect(Rect, clOrange);
@@ -224,7 +200,7 @@ begin
   ATPA := Self.FindRodColor(B);
 
   if Length(ATPA) <= 0 then
-    Exit(False);
+    exit(False);
 
   if Script.Debug and Script.Drawing then
     RSClient.Image.DrawATPA(ATPA);
@@ -304,7 +280,7 @@ begin
     Inventory.FindItem(Self.BaitItem, F);
     Inventory.FindItem(Self.RodItem, R);
 
-    for i:=0 to 27 do
+    for i := 0 to 27 do
     begin
       if RF.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
@@ -326,7 +302,7 @@ end;
 procedure TBot.Draw();
 begin
   if not Script.CanDraw() then
-    Exit();
+    exit();
 
   RSClient.Image.Clear();
   // TODO complete
@@ -339,9 +315,24 @@ end;
   Does the proggy report to the console window
 }
 procedure TBot.ReportConsole();
+var
+  WriteOut: String;
 begin
   if not Script.CanReportConsole() then
-    Exit();
+    exit();
+
+  WriteOut += 'Banking: ' + ToStr(Self.Banking) + NL;
+  WriteOut += 'Cooking: ' + ToStr(Self.Cooking) + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Fished: ' + IntToStr(Self.FishDone) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
 end;
 
 {
@@ -378,7 +369,7 @@ begin
   B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   Result := True;
 
@@ -403,7 +394,7 @@ begin
   if Inventory.GetSelectedSlot() = -1 then
   begin
     Script.WriteMsg('ClickFire: No item selected', True);
-    Exit();
+    exit();
   end;
 
   if OurTile = Point(-1, -1) then
@@ -413,7 +404,7 @@ begin
   if not Self.FindFire(OurTile, B) then
   begin
     Script.WriteMsg('ClickFire: Fire not visible', True);
-    Exit();
+    exit();
   end;
 
   // now apply velocity and check uptext
@@ -424,7 +415,7 @@ begin
     if not MainScreen.IsVisible(B.Middle()) then
     begin
       Script.WriteMsg('ClickFire: Tile velocity no visible', True);
-      Exit();
+      exit();
     end;
 
     B.LimitTo(MainScreen.Bounds());
@@ -450,7 +441,7 @@ begin
   if not WasClicked then
   begin
     Script.WriteMsg('ClickFire: Didnt click', True);
-    Exit();
+    exit();
   end;
 end;
 
@@ -464,16 +455,21 @@ var
   OurTile: TPoint;
   WasClicked: Boolean;
 begin
+  Script.WriteMsg('Going to try start cooking', True);
+
   OurTile := Self.RSW.GetMyPos();
   if not Self.FindFire(OurTile, _) then
   begin
     Script.WriteMsg('Did not find fire', True);
-    Exit();
+    exit();
   end;
 
   Inventory.FindItem(RSItem, RawSlots);
   if RawSlots.Len() <= 0 then
-    Exit();
+  begin
+    Script.WriteMsg('TryClickFire: No raw fish', True);
+    exit();
+  end;
 
   Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
   Wait(0, 1500);
@@ -491,7 +487,7 @@ var
   S: Int32;
   Velocity: TDoubleArray;
   MSVel: TPoint;
-  _: TBox;
+  //_: TBox;
   RawSlots: TIntegerArray;
 begin
   // calcuate move velocity
@@ -503,10 +499,10 @@ begin
     if Inventory.GetSelectedSlot() = -1 then
     begin
       if not Inventory.FindItem(Bot_CurrentCookingItem, RawSlots) then
-        Exit();
+        exit();
 
       Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
-      Exit(); // try again next go, we moved our mouse, velocity, position is out of date
+      exit(); // try again next go, we moved our mouse, velocity, position is out of date
     end;
 
     // make the mouse fast, because we are moving, its harder to keep up with objs
@@ -556,7 +552,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fire!');
-      Exit();
+      exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
@@ -602,10 +598,15 @@ end;
 }
 function TBot.StartCooking(): Boolean;
 begin
+  Script.WriteMsg('StartCooking: Waiting make menu', True);
+
   Minimap.WaitFlag();
 
   if not Make.IsOpen(2500 + Random(1000)) then
-    Exit();
+  begin
+    Script.WriteMsg('ClickFire: make didnt open', True);
+    exit();
+  end;
 
   Wait(0, 1000);
 
@@ -670,7 +671,7 @@ begin
   if SRL.Dice(20) then
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
-  for i:=High(Pattern) downto Low(Pattern) do
+  for i := High(Pattern) downto Low(Pattern) do
     if FishSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
 
@@ -713,7 +714,7 @@ var
   IsBank: Boolean;
 begin
   if not Bank.IsOpen() and not DepositBox.IsOpen() then
-    Exit();
+    exit();
 
   IsBank := Bank.IsOpen();
   Script.SetStatus('Depositing items...');
@@ -800,7 +801,7 @@ begin
     DepositBox.FindItems(Self.RawFish, FishSlots);
   end;
 
-  // update how many logs we completed chopping
+  // update how many we did
   Self.FishDone += CurFish - FishSlots.Len();
 
   Script.WriteMsg('DepositItems: FishSlots (after bank): ' + ToStr(FishSlots), True);
@@ -835,7 +836,7 @@ begin
     if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      exit(True);
     end;
 
     // only countdown if we are not moving
@@ -867,20 +868,46 @@ begin
 end;
 
 {
-  Returns true if we clicked the bank
+  Returns true if bank is visible, B is bounds of it
+}
+function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
+var
+  Tile: TRectangle;
+  TPA: TPointArray;
+begin
+  Tile := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+  B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+  B.LimitTo(MainScreen.Bounds());
+
+  // check the bank's colors within the tile
+  TPA := Self.FindBankColor(B).Biggest();
+
+  if Length(TPA) <= 0 then
+    B := Tile.Bounds()
+  else
+    B := TPA.Bounds();
+end;
+
+{
+  Returns true if we clicked any bank
 }
 function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  BankTiles, TPA: TPointArray;
+  BankTiles: TPointArray;
   BankTile: TPoint;
-  Tile: TRectangle;
   B: TBox;
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
   begin
+    Script.WriteMsg('ClickBank: Bank already opened', True);
     WasClicked := True;
-    Exit(True);
+    exit(True);
   end;
 
   if OurTile = Point(-1, -1) then
@@ -896,25 +923,10 @@ begin
   for BankTile in BankTiles do
   begin
     // try see if we can find this bank
-    Tile := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
-    B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
-
-    if not MainScreen.IsVisible(B.Middle()) then
+    if not Self.FindBank(OurTile, BankTile, B) then
       continue;
 
-    B.LimitTo(MainScreen.Bounds());
-
-    // check the bank's colors within the tile
-    TPA := Self.FindBankColor(B).Biggest();
-
-    if Length(TPA) <= 0 then
-      B := Tile.Bounds()
-    else
-      B := TPA.Bounds();
-
-    Script.SetStatus('Found bank! Checking uptext...');
-
-    // hover over the banktile and see if it is actually a bank
+    // apply velocity
     if Velocity <> Point(0, 0) then
     begin
       B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
@@ -928,6 +940,7 @@ begin
         RSClient.Image.DrawBox(B, clMoneyGreen);
     end;
 
+    // hover over the banktile and see if it is actually a bank
     Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
@@ -1021,7 +1034,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bank spot');
-      Exit();
+      exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
@@ -1166,7 +1179,7 @@ begin
   if Length(FishSpots) <= 0 then
   begin
     Script.WriteMsg('No fish spots found', True);
-    Exit(False);
+    exit(False);
   end;
 
   Script.WriteMsg('Fish spot color found, checking uptext', True);
@@ -1287,7 +1300,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fish spot');
-      Exit();
+      exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
@@ -1308,12 +1321,12 @@ var
   WasClicked: Boolean;
   i: Int32;
 begin
-  for i:=1 to 3 do
+  for i := 1 to 3 do
   begin
     Minimap.WaitPlayerMoving();
 
     if Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked then
-      Exit(True);
+      exit(True);
   end;
 end;
 
@@ -1349,7 +1362,7 @@ begin
 
       Self.CookFish(RSItem);
     end;
-    Exit();
+    exit();
   end;
 
   if Self.Banking then

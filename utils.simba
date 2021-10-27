@@ -74,7 +74,7 @@ var
 begin
   // Fowler–Noll–Vo
   Result := $811C9DC5;
-  for i:=1 to Length(Str) do
+  for i := 1 to Length(Str) do
     Result := (Result * $1000193) xor Ord(Str[i]);
 end;
 
@@ -154,7 +154,7 @@ begin
   B.GetDimensions(wid, hig);
   h_str := IntToStr(Round(Self.BioHash * 10000)) + IntToStr(GetSystemDay());
 
-  for i:=1 to C do
+  for i := 1 to C do
   begin
     Result += Point(B.X1 + FNVHash(h_str + IntToStr(i) + 'x') mod wid,
       B.Y1 + FNVHash(h_str + IntToStr(i) + 'y') mod hig);
@@ -172,7 +172,7 @@ var
   B: TBox;
 begin
   if Box.Contains(Self.Position()) and (not ForcedMove) then
-    Exit;
+    exit();
 
   if Distribution = MOUSE_DISTRIBUTION_DEFAULT then
     Distribution := Self.Distribution;
@@ -190,7 +190,7 @@ begin
   if (w <= 0) or (h <= 0) then
   begin
     inherited(Box, ForcedMove, Distribution);
-    Exit();
+    exit();
   end;
 
   // find the random points for today
@@ -216,7 +216,7 @@ end;
 function TAntiban.TimeSinceBreak(LongerThan:Double=0): UInt64;
 var i: Int32;
 begin
-  for i:=0 to High(Self.Breaks) do
+  for i := 0 to High(Self.Breaks) do
     if (Self.Breaks[i].Length >= LongerThan) and (Self.Breaks[i].PrevAtTime >= Result) then
       Result := Trunc(Self.Breaks[i].PrevAtTime);
   Result := GetTimeRunning() - Result;
@@ -235,7 +235,7 @@ var
   i: Int32;
 begin
   Active := Min(Timespan, GetTimeRunning());
-  for i:=0 to High(Self.Breaks) do
+  for i := 0 to High(Self.Breaks) do
     if Self.Breaks[i].PrevAtTime >= XHoursAgo then
     begin
       if Self.Breaks[i].PrevAtTime = 0 then
@@ -344,7 +344,7 @@ var
   cArr: TIntegerArray;
 begin
   tpa := Minimap.GetDots(DotType);
-  if tpa.Len() < 1 then Exit;
+  if tpa.Len() < 1 then exit();
   a := Minimap.GetCompassAngle(False);
   repeat
     inc(Tries);
@@ -360,7 +360,7 @@ begin
       cArr := getColors(tpaFromBox(msRect.Bounds));
       cArr.Sort();
       cArr.ClearDuplicates();
-      for i:=0 to cArr.Len-1 do
+      for i := 0 to cArr.Len-1 do
         if (SRL.FindColors(cTPA, CTS1(cArr[i], 10), msRect.Bounds) > 5) then
         begin
           Mouse.Move(cTPA.Mean());
@@ -370,7 +370,7 @@ begin
           wait(1500, 2700);
           if RightClick then
             ChooseOption.Close();
-          Exit;
+          exit();
         end;
     end;
   until(Tries > 10);
@@ -420,7 +420,7 @@ begin
   XP := XPBar.ReadXPBar();
   
   if XP = -1 then
-    Exit();
+    exit();
     
   if XP <> Self.Activity.XP then
   begin
@@ -540,10 +540,10 @@ begin
   while RSClient.IsLoggedIn() do
   begin
     if Self.FindOption(Option, Colors) then
-      Exit(True);
+      exit(True);
 
     if CountDown.IsFinished() then
-      Exit(False);
+      exit(False);
 
     Wait(Interval);
   end;
@@ -561,9 +561,9 @@ function T2DPointArray.Intersection(ATPA: T2DPointArray): T2DPointArray;
 var
   i, h: Int32;
 begin
-  for i:=Low(Self) to High(Self) do
+  for i := Low(Self) to High(Self) do
   begin
-    for h:=Low(ATPA) to High(ATPA) do
+    for h := Low(ATPA) to High(ATPA) do
     begin
       if ATPA[h].Bounds().Contains(Self[i].Bounds()) then
       begin
@@ -719,10 +719,10 @@ function TRSXPBar.ReadXPBar(): Int32;
 begin
   // TODO check all interfaces?
   if DepositBox.IsOpen() or Bank.IsOpen() or BankPin.IsOpen() then
-    Exit(-1);
+    exit(-1);
     
   if not Self.Open() then
-    Exit(-1);
+    exit(-1);
     
   Result := Self.Read();
 end;
@@ -752,7 +752,7 @@ begin
       break;
 
     if Temp <> C then
-      Exit(True);
+      exit(True);
 
     Wait(Interval);
   end;
@@ -791,7 +791,7 @@ begin
   TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
 
   if Length(TPA) <= 0 then
-    Exit(0);
+    exit(0);
 
   CompAng := Minimap.GetCompassAngle(False);
   MMC := Minimap.Center();
@@ -840,7 +840,7 @@ var
   Item: TRSItem;
 begin
   if not Self.IsOpen() then
-    Exit;
+    exit();
 
   for Item in Items do
     Slots += ItemFinder.Find(Item, Self.GetSlotBoxes());
@@ -885,7 +885,7 @@ begin
       for J := 0 to High(Text) do
         if (CaseSensitive and (Text[J] in Choices[I].Text)) or ((not CaseSensitive) and (Lowercase(Text[J]) in Lowercase(Choices[I].Text))) then
         begin
-          Exit(True);
+          exit(True);
         end;
 
     if CloseIfNotFound then
@@ -903,7 +903,7 @@ var
 begin
   for I := 0 to High(A) do
       if (A[I] in Self) or (A[I] = Self) then
-        Exit(True);
+        exit(True);
 end;
 
 function TRSInventory.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
@@ -923,7 +923,7 @@ begin
       break;
 
     if C <> Self.Count() then
-      Exit(True);
+      exit(True);
 
     Wait(Interval);
   end;
@@ -935,7 +935,7 @@ end;
 function TIntegerArray.Clear(): Boolean;
 begin
   SetLength(Self, 0);
-  Exit(True);
+  exit(True);
 end;
 
 function TPointArray.InRangeOfAny(PT: TPoint; Dist: Double): Int32;
@@ -944,10 +944,10 @@ var
 begin
   Result := -1;
 
-  for i:=Low(Self) to High(Self) do
+  for i := Low(Self) to High(Self) do
   begin
     if Self[i].DistanceTo(PT) <= Dist then
-      Exit(i);
+      exit(i);
   end;
 end;
 
@@ -955,9 +955,9 @@ procedure TPointArray.RandomizeNearDists(PT: TPoint; Dist: Double; Chance: Doubl
 var
   i, h: Int32;
 begin
-  for i:=Low(Self) to High(Self) do
+  for i := Low(Self) to High(Self) do
   begin
-    for h:=Low(Self) to High(Self) do
+    for h := Low(Self) to High(Self) do
     begin
       if i = h then
         continue;
@@ -987,7 +987,7 @@ begin
   CompAng := Self.GetCompassAngle(True);
 
   if (CompAng > 355) or (CompAng < 5) then
-    Exit(True);
+    exit(True);
 
   if DoClick then
   begin
@@ -1068,16 +1068,16 @@ begin
     if Red then
     begin
       if (G > 8) then
-        Exit;
+        exit();
       Result := (R > 20);
     end else
     begin
       if (R > 5) then
-        Exit;
+        exit();
       Result := (G > 35);
     end;
     if Result then
-      Exit;
+      exit();
   end;
 end;
 
@@ -1095,7 +1095,7 @@ begin
       break;
 
     if Self.Attacking() then
-      Exit(True);
+      exit(True);
 
     Wait(Interval);
   end;
@@ -1114,7 +1114,7 @@ var
 begin
   if MainScreen.PlayersOnMainScreen() > 0 then
   begin
-    Exit(Self.IsUnderAttack());
+    exit(Self.IsUnderAttack());
   end;
 
   CompAng := Minimap.GetCompassAngle(False);
@@ -1133,7 +1133,7 @@ begin
   HPBars := MainScreen.FindHPBars(OurBox);
 
   if Length(HPBars) <= 1 then
-    Exit(False);
+    exit(False);
 
   HPBars := HPBars.Sort(OurBox.Middle());
 
@@ -1146,10 +1146,10 @@ begin
   for HPBar in HPBars do
   begin
     if HPBar.Percent <= 0.0 then
-      Exit(False);
+      exit(False);
   end;
 
-  Exit(True);
+  exit(True);
 end;
 
 {
@@ -1174,12 +1174,38 @@ begin
 end;
 
 {
+  Gets adjencent tiles
+}
+function TScript.GetAdjTiles(): array of TRectangle;
+var
+  i: Int32;
+  MMC: TPoint;
+  Ang, NormDist: Double;
+  AdjRect: TRectangle;
+  MMTiles: TPointArray;
+begin
+  MMC := Minimap.Center();
+  Ang := Minimap.GetCompassAngle(False);
+  NormDist := MainScreen.ConvertDistance(3);
+
+  MMTiles := [[MMC.X-4,MMC.Y],[MMC.X,MMC.Y-4],[MMC.X+4,MMC.Y],[MMC.X,MMC.Y+4]];
+  for i := Low(MMTiles) to High(MMTiles) do
+  begin
+    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
+    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
+    AdjRect.Expand(NormDist);
+
+    Result += AdjRect;
+  end;
+end;
+
+{
   Logs to the console.
 }
 procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False);
 begin
   if not Self.Debug and IsDebug then
-    Exit();
+    exit();
     
   WriteLn(SRL.TimeStamp() + ':[Bot]: ' + ToStr(Message));
 end;
@@ -1190,7 +1216,7 @@ end;
 procedure TScript.SetStatus(S: String);
 begin
   if Self.Status = S then
-    Exit();
+    exit();
 
   Self.Status := S;
   
@@ -1215,7 +1241,7 @@ end;
 function TScript.CanDraw(): Boolean;
 begin
   if not Self.DrawCounter.IsFinished() or not Self.Drawing then
-    Exit();
+    exit();
     
   Self.DrawCounter.Restart();
 
@@ -1228,7 +1254,7 @@ end;
 function TScript.CanReportConsole(): Boolean;
 begin
   if not Self.ReportCounter.IsFinished() or not Self.Reporting then
-    Exit();
+    exit();
     
   Self.ReportCounter.Restart();
   
@@ -1314,7 +1340,7 @@ var
   UpText: String;
 begin
   if Script.MouseLooksForUpText.Len() <= 0 then
-    Exit();
+    exit();
 
   Sender := Sender;
   X := X;
