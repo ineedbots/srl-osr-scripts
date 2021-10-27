@@ -23,8 +23,8 @@ const
 
   TAKEBREAKS     = True;  // Take breaks?
   SHIFTDROP      = True;  // Shift drop?
-  COOKINGFISH    = True; // Cooking?
-  BANKFISH       = True; // Do banking?
+  COOKINGFISH    = False; // Cooking?
+  BANKFISH       = False; // Do banking?
 
   // Account details
   _USERNAME       = '';
