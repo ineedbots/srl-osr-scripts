@@ -645,7 +645,7 @@ procedure TBot.DropItems();
 var
   R: Extended;
   Pattern, FishSlots: TIntegerArray;
-  CurFish, i: Int32;
+  CurFish, i, S: Int32;
 begin
   Script.SetStatus('Dropping fish...');
 
@@ -675,6 +675,8 @@ begin
     if FishSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
 
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
   // drop
   if Self.ShiftDropping then
     Inventory.ShiftDrop(Pattern)
@@ -690,6 +692,7 @@ begin
         ChooseOption.Select('Drop');
     end;
   end;
+  Mouse.Speed := S;
 
   // see how many logs we actually dropped, and log it
   FishSlots.Clear();
