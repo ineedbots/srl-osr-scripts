@@ -64,7 +64,6 @@ begin
     Script.WriteMsg('UNDER ATTACK!');
     Self.RSW.WebWalk(Self.RunawayTile, 0, BioRandomFixed());
     Wait(10000, 20000);
-    exit(True);
   end;
 end;
 
@@ -321,7 +320,8 @@ begin
 
   Result := True;
 
-  Script.MouseLooksForUpText := Self.BoneUpText;
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.BoneUpText;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
 

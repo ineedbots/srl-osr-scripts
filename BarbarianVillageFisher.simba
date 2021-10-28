@@ -45,7 +45,7 @@ type
     FishSpotUpText, FireUpText                                : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
-    BaitItem, RodItem                                         : TRSItem;
+    BaitItem, RodItem, CurrentCookingItem                     : TRSItem;
     FishSpotColor, RodColor, FireColor, BankColor             : TScriptColor;
     FireTile, BankWalkTile, FishWalkTile                      : TPoint;
     BankTiles, FishTiles                                      : TPointArray;
@@ -426,7 +426,8 @@ begin
 
   Result := True;
 
-  Script.MouseLooksForUpText := Self.FireUpText;
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.FireUpText;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
 
@@ -480,7 +481,6 @@ end;
 {
   While we walk to the fire
 }
-var Bot_CurrentCookingItem: TRSItem;
 procedure WalkingToFire(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 var
   WasClicked: Boolean = False;
@@ -498,7 +498,7 @@ begin
   begin
     if Inventory.GetSelectedSlot() = -1 then
     begin
-      if not Inventory.FindItem(Bot_CurrentCookingItem, RawSlots) then
+      if not Inventory.FindItem(Bot.CurrentCookingItem, RawSlots) then
         exit();
 
       Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
@@ -541,7 +541,7 @@ begin
     Script.SetStatus('Going to fire spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
-    Bot_CurrentCookingItem := RSItem;
+    Bot.CurrentCookingItem := RSItem;
     Self.RSW.OnWalkingEvent := @WalkingToFire;
     try
       Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
@@ -944,7 +944,8 @@ begin
     end;
 
     // hover over the banktile and see if it is actually a bank
-    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
 
@@ -952,9 +953,9 @@ begin
     begin
       Script.SetStatus('Bad uptext for bank');
       if Velocity = Point(0, 0) then
-        break
+        continue
       else
-        continue;
+        break;
     end;
 
     Result := True;
@@ -1207,7 +1208,8 @@ begin
         RSClient.Image.DrawBox(B, clMoneyGreen);
     end;
 
-    Script.MouseLooksForUpText := Self.FishSpotUpText;
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Self.FishSpotUpText;
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
 
@@ -1216,9 +1218,9 @@ begin
     begin
       Script.WriteMsg('Bad uptext for fish spot', True);
       if Velocity = Point(0, 0) then
-        break // things are moving, we took up time by moving mouse, colors are innaccurate
+        continue // things are moving, we took up time by moving mouse, colors are innaccurate
       else
-        continue;
+        break;
     end;
 
     Script.WriteMsg('Good uptext for fish spot! Clicking!', True);
