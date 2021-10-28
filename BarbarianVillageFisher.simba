@@ -1024,7 +1024,7 @@ begin
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
     Force then
   begin
-    Script.SetStatus('Going to fish spot...');
+    Script.SetStatus('Going to bank spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     Self.RSW.OnWalkingEvent := @WalkingToBank;
@@ -1467,6 +1467,8 @@ begin
   ItemFinder.Similarity   := 0.999;
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
+  Script.AllowBreaks := True;
+
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
   Script.Antiban.OnFinishBreak   := @ResumeRunTime;
@@ -1496,7 +1498,6 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
-  Script.AllowBreaks := True;
   Self.FishSpotColorWait := 100;
   Self.FishWaitTime := 15000;
   Self.CookWaitTime := 5000;

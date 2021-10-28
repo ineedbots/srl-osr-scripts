@@ -17,20 +17,12 @@
   Do note that lower combat levels will agro the wizards.
   You can lose agro by being the area (without leaving) for about 10 minutes.
   WARNING: Lighting fires will make your character leave the area! So you will reagro the wizards.
-
-
-  BIG TODO THINK
-  Wait for changes to finalize to srl-development and simba...
-  Do I use Wasplib?
 }
 
 program DraynorWillowChopper;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 {$i utils.simba}
-
-type
-  TChopMode = (ChopDrop, ChopBank, ChopFire);
 
 const
   DEBUGMODE      = False; // For debugging purposes
@@ -42,9 +34,14 @@ const
   
   TAKEBREAKS     = True;  // Take breaks?
 
-  // One of 'ChopDrop', 'ChopBank' or 'ChopFire'
-  // What should we do with the logs? Drop them? Bank them? Or light them?
-  CHOPMODE       = ChopDrop;
+  // use bank?
+  BANKLOGS        = False;
+
+  // fletch the logs?
+  FLETCHLOGS      = False;
+
+  // fire make the logs?
+  FIRELOGS        = False;
   
   // Account details
   _USERNAME       = '';
@@ -59,13 +56,14 @@ const
   
 type
   TBot = record
-    WalkedTreeForward, Specing, ShiftDropping                 : Boolean;
+    WalkedTreeForward, Specing, ShiftDropping, Fletching,
+      Banking, Firemaking                                     : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
-      LastWalkedTree, FiredTile                               : Int32;
+      LastWalkedTree, FiredTile, FletchWaitTime               : Int32;
     RSW                                                       : TRSWalker;
-    TinderItem                                                : TRSItem;
-    LogItems, ToolItems                                       : TRSItemArray;
+    TinderItem, KnifeItem                                     : TRSItem;
+    LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;
     TreeOptions, NoLightText                                  : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
     TreeWalkTile, BankWalkTile                                : TPoint;
@@ -84,7 +82,10 @@ var
 }
 procedure TBot.DoSkillHover();
 begin
-  Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+  end;
 end;
 
 {
@@ -93,9 +94,9 @@ end;
 function TBot.CheckSpec(): Boolean;
 begin
   if not Self.Specing then
-    Exit();
+    exit();
     
-  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle) >= 100 then
+  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle()) >= 100 then
   begin
     Script.WriteMsg('Special attack boosting');
     
@@ -106,6 +107,9 @@ begin
   end;
 end;
 
+{
+  Checks if we are under attack
+}
 procedure TBot.CheckUnderAttack();
 begin
   if Script.CheckUnderAttack() then
@@ -149,11 +153,8 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
-  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
-
   // TODO check birdnests
   // TODO check cluescroll
-  // TODO add fletching
     
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -209,7 +210,7 @@ var
   CompAng: Double;
   Text: String;
   B: TBox;
-  T, L: TIntegerArray;
+  T, L, K: TIntegerArray;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -262,13 +263,16 @@ begin
   begin
     Inventory.FindItems(Self.LogItems, L);
     Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.KnifedLogItems, K);
 
     for i:=0 to 27 do
     begin
       if L.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if T.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed);
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if K.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple);
     end;
   end;
 end;
@@ -293,19 +297,14 @@ end;
 }
 procedure TBot.ReportConsole();
 var
-  WriteOut, ChopType: String;
+  WriteOut: String;
 begin
   if not Script.CanReportConsole() then
     Exit();
   
-  if CHOPMODE = ChopDrop then
-    ChopType := 'Chop and Drop'
-  else if CHOPMODE = ChopBank then
-    ChopType := 'Chop and Bank'
-  else 
-    ChopType := 'Chop and Light';
-  
-  WriteOut += 'Chopping type: ' + ChopType + NL;
+  WriteOut += 'Banking: ' + ToStr(Self.Banking) + NL;
+  WriteOut += 'Firemaking: ' + ToStr(Self.Firemaking) + NL;
+  WriteOut += 'Fletching: ' + ToStr(Self.Fletching) + NL;
   WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
   WriteOut += 'Status: ' + Script.Status + NL;
   WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
@@ -338,6 +337,52 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT LOGIC
+
+////////////////
+// CHOP FUNCS
+
+{
+  Updates which fish tile we are at
+}
+procedure TBot.UpdateWalkedTree(Here: Boolean = True);
+var
+  CTreeTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CTreeTiles := Copy(Self.TreeTiles);
+    CTreeTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedTree := Self.WalkedTree;
+    Self.WalkedTree := Self.TreeTiles.Find(CTreeTiles[0]);
+    if Self.LastWalkedTree <> Self.WalkedTree then
+      Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
+  end
+  else
+  begin
+    if (Self.TreeTiles.Len() > 1) then
+    begin
+      if Self.WalkedTreeForward then
+      begin
+        Self.WalkedTree += 1;
+        if Self.WalkedTree > High(Self.TreeTiles) then
+        begin
+          Self.WalkedTree -= 2;
+          Self.WalkedTreeForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedTree -= 1;
+        if Self.WalkedTree < Low(Self.TreeTiles) then
+        begin
+          Self.WalkedTree += 2;
+          Self.WalkedTreeForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
 
 {
   Tries to find the tree at the tile, returns true if it does, also the area of where it is
@@ -543,24 +588,30 @@ begin
   end;
 end;
 
+///////////////////
+
+/////////////////////////
+// BANK FUNCS
+
 {
   Drops all the logs in our inventory
-  
+
   Part of this is from Flight's AIOFisher
 }
 procedure TBot.DropItems();
 var
   R: Extended;
   Pattern, LogSlots: TIntegerArray;
-  CurLogs, i: Int32;
+  CurLogs, i, S: Int32;
 begin
   Script.SetStatus('Dropping logs...');
-  
-  // query the logs
+
+  // query the fish
   Inventory.FindItems(Self.LogItems, LogSlots);
+  Inventory.FindItems(Self.KnifedLogItems, LogSlots);
   CurLogs := LogSlots.Len();
   Script.WriteMsg('DropItems: Log slots (before drop): ' + ToStr(LogSlots), True);
-  
+
   // choose a random drop pattern
   R := Random();
   if R < 0.1 then
@@ -569,22 +620,24 @@ begin
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
   else
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
-    
+
   // possibly not drop all logs, for antiban
   if SRL.Dice(20) then
     SetLength(Pattern, Random(Length(Pattern)));
   if SRL.Dice(20) then
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
+  for i := High(Pattern) downto Low(Pattern) do
+    if LogSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
   // drop
   if Self.ShiftDropping then
-    Inventory.ShiftDrop(Self.LogItems, Pattern)
+    Inventory.ShiftDrop(Pattern)
   else
   begin
-    for i:=High(Pattern) downto Low(Pattern) do
-      if LogSlots.Find(Pattern[i]) = -1 then
-        Pattern.Remove(Pattern[i]);
-
     for i in Pattern do
     begin
       Inventory.HoverSlot(i);
@@ -595,124 +648,17 @@ begin
         ChooseOption.Select('Drop');
     end;
   end;
-    
+  Mouse.Speed := S;
+
   // see how many logs we actually dropped, and log it
   LogSlots.Clear();
   Inventory.FindItems(Self.LogItems, LogSlots);
+  Inventory.FindItems(Self.KnifedLogItems, LogSlots);
   Self.LogsDone += CurLogs - LogSlots.Len();
   Script.WriteMsg('DropItems: Log slots (after drop): ' + ToStr(LogSlots), True);
-  
+
   Script.SetStatus('Logs dropped!');
   Script.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
-end;
-
-{
-  Walks to the bank tiles
-}
-procedure TBot.GoToBank(Force: Boolean = False);
-var
-  Walked: Boolean;
-  OurPos: TPoint;
-begin
-  OurPos := Self.RSW.GetMyPos();
-  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
-    Force then
-  begin
-    Script.SetStatus('Going to bank...');
-    try
-      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
-    except
-    end;
-    
-    if not Walked then
-    begin
-      Script.WriteMsg('Failed to go to bank!');
-      Exit();
-    end;
-  end;
-end;
-
-{
-  Returns true if it can see the bank
-}
-function TBot.FindBank(PlayerPos: TPoint; BankPos: TPoint; out TPA: TPointArray): Boolean;
-var
-  Tile: TRectangle;
-  B: TBox;
-begin
-  // TODO improve finding bank
-  // find the bank's tile on the mainscreen
-  Tile := Self.RSW.GetTileMSEx(PlayerPos, BankPos, 4);
-
-  B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
-  B.LimitTo(MainScreen.Bounds());
-  if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
-
-  // check the bank's colors within the tile
-  TPA := Self.FindBankColor(B).Biggest();
-
-  // is it good? if so then return!
-  if Length(TPA) > 0 then
-  begin
-    Result := True;
-  end;
-end;
-
-{
-  Attempts to open the bank, returns true if it clicked on it.
-}
-function TBot.ClickBank(): Boolean;
-var
-  OurPos, BankTile: TPoint;
-  BankTiles, BankTPA: TPointArray;
-begin
-  // bank might be already opened, lets return true
-  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
-    Exit(True);
-
-  OurPos := Self.RSW.GetMyPos();
-  BankTiles := Copy(Self.BankTiles);
-  BankTiles.Sort(OurPos);
-  BankTiles.RandomizeNearDists(OurPos, 12, 0.2);
-  
-  Script.SetStatus('Finding bank...');
-  
-  // search for every bank
-  for BankTile in BankTiles do
-  begin
-    // try see if we can find this bank
-    if not Self.FindBank(OurPos, BankTile, BankTPA) then
-      continue;
-      
-    Script.SetStatus('Found bank! Checking uptext...');
-    
-    // hover over the banktile and see if it is actually a bank
-    Mouse.Move(BankTPA.Bounds());
-    
-    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT) then
-      continue;
-      
-    Script.SetStatus('Confirmed bank! Opening bank...');
-      
-    // open the bank
-    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
-      Result := ChooseOption.Select(Bank.FINDER_OPTION)
-    else
-    begin
-      Mouse.Click(MOUSE_LEFT);
-
-      Result := Mouse.DidClick(True);
-    end;
-    
-    if Result then
-    begin
-      Script.SetStatus('Bank clicked!');
-      Self.AfterActionAntiBan();
-      break;
-    end;
-  end;
 end;
 
 {
@@ -730,16 +676,16 @@ begin
     if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      exit(True);
     end;
-    
+
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin
       Script.WriteMsg('WaitBankOpen: Still moving...', True);
       BankOpenCountDown.Restart();
     end;
-      
+
     // enter pin if needed
     if BankPin.IsOpen() then
     begin
@@ -753,9 +699,8 @@ begin
       Script.WriteMsg('WaitBankOpen: Timed out', True);
       break;
     end;
-      
+
     Self.DoMainLoopStuff('Going to clicked bank...', False);
-    Self.CheckUnderattack();
   end;
 
   Script.WriteMsg('WaitBankOpen: Timed out...', True);
@@ -763,18 +708,18 @@ begin
 end;
 
 {
-  Deposit our items into the depositbox or bank, which ever is open
-  
-  Part of this is from Flight's AIOFisher
+  Banks the items
 }
-procedure TBot.DepositItems();
+procedure TBot.DoBanking();
 var
   ToolSlots, LogSlots, Pattern: TIntegerArray;
   CurLogs, i: Int32;
   R: Extended;
   IsBank: Boolean;
 begin
-  // we assume depositbox or bank is open at this point
+  if not Bank.IsOpen() and not DepositBox.IsOpen() then
+    exit();
+
   IsBank := Bank.IsOpen();
   Script.SetStatus('Depositing items...');
   Script.AntiBan.AfterBankAntiBan(20);
@@ -784,90 +729,86 @@ begin
   begin
     Inventory.FindItems(Self.ToolItems, ToolSlots);
     Inventory.FindItems(Self.LogItems, LogSlots);
+    Inventory.FindItems(Self.KnifedLogItems, LogSlots);
   end
   else
   begin
     DepositBox.FindItems(Self.ToolItems, ToolSlots);
     DepositBox.FindItems(Self.LogItems, LogSlots);
+    DepositBox.FindItems(Self.KnifedLogItems, LogSlots);
   end;
 
   Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
   Script.WriteMsg('DepositItems: LogSlots: ' + ToStr(LogSlots), True);
-  
   CurLogs := LogSlots.Len();
-  
-  // if we can deposit all our stuff
-  // TODO randomize
-  if ToolSlots.Len() <= 0 then
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  // deposit our stuff
+  for i in Pattern do
   begin
     if IsBank then
-      Bank.DepositAll()
-    else
-      DepositBox.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
-  end
-  else
-  begin
-    // randomize the deposit pattern
-    R := Random();
-    if R < 0.1 then
-      Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-    else if inRange(R, 0.1, 0.35) then
-      Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-    else
-      Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
-      
-    // randomly chop it off for extra antiban
-    if SRL.Dice(20) then
-      SetLength(Pattern, Random(Length(Pattern)));
-    if SRL.Dice(20) then
-      Pattern := Copy(Pattern, Random(Length(Pattern)));
-      
-    // make sure we do not deposit our tools
-    for i in ToolSlots do
-      Pattern.Remove(i);
-      
-    // deposit our stuff
-    for i in Pattern do
     begin
-      if IsBank then
+      if Inventory.IsSlotUsed(i) then
       begin
-        if Inventory.IsSlotUsed(i) then
-        begin
-          // TODO randomize using deposit buttons
-          Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
-          Wait(200, Random(550, 700));
-        end;
-      end
-      else
+        // TODO randomize using deposit buttons
+        Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
+        Wait(750, 1250);
+      end;
+    end
+    else
+    begin
+      if DepositBox.IsSlotUsed(i) then
       begin
-        if DepositBox.IsSlotUsed(i) then
-        begin
-          // TODO randomize using deposit buttons
-          Mouse.Move(DepositBox.GetSlotBox(i));
-          ChooseOption.Select('Deposit-All');
-        end;
+        // TODO randomize using deposit buttons
+        Mouse.Move(DepositBox.GetSlotBox(i));
+        ChooseOption.Select('Deposit-All');
+        Wait(750, 1250);
       end;
     end;
   end;
-  
+
   // query how many logs we actually depositted
   LogSlots.Clear();
-  
+
   if IsBank then
-    Inventory.FindItems(Self.LogItems, LogSlots)
+  begin
+    Inventory.FindItems(Self.LogItems, LogSlots);
+    Inventory.FindItems(Self.KnifedLogItems, LogSlots);
+  end
   else
+  begin
     DepositBox.FindItems(Self.LogItems, LogSlots);
-  
-  // update how many logs we completed chopping
+    DepositBox.FindItems(Self.KnifedLogItems, LogSlots);
+  end;
+
+  // update how many we did
   Self.LogsDone += CurLogs - LogSlots.Len();
 
-  Script.WriteMsg('DepositItems: LogItems (after bank): ' + ToStr(LogSlots), True);
-  
+  Script.WriteMsg('DepositItems: LogSlots (after bank): ' + ToStr(LogSlots), True);
+
   Script.SetStatus('Logs depositted!');
-  Script.WriteMsg('Banked logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
-  
+  Script.WriteMsg('Banked log... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+
   Script.AntiBan.AfterBankAntiBan(30);
-  
+
   // randomly close the bank
   if Random() > 0.75 then
   begin
@@ -876,41 +817,212 @@ begin
     else
       DepositBox.Close();
   end;
-  
-  // fun fact: Inventory.IsFull will return false if it cannot open the gametab
-  // and when we are inside an interface, we cannot open the gametab
-  // so it returns false, but it is okay because we are actually not full
 end;
 
 {
-  Goes and banks our items
-  Will go to bank, open it, and deposit
+  Returns true if bank is visible, B is bounds of it
 }
-procedure TBot.BankItems();
+function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
 var
-  ClickedBank: Boolean;
+  Tile: TRectangle;
+  TPA: TPointArray;
 begin
-  Self.GoToBank();
+  Tile := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+  B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
 
-  // try to click on the bank
-  ClickedBank := Self.ClickBank();
-  if not ClickedBank then
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+  B.LimitTo(MainScreen.Bounds());
+
+  // check the bank's colors within the tile
+  TPA := Self.FindBankColor(B).Biggest();
+
+  if Length(TPA) <= 0 then
+    B := Tile.Bounds()
+  else
+    B := TPA.Bounds();
+end;
+
+{
+  Returns true if we clicked any bank
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  BankTiles: TPointArray;
+  BankTile: TPoint;
+  B: TBox;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
   begin
-    // walk to the bank, and then try to open it
-    Self.GoToBank(True);
-    ClickedBank := Self.ClickBank();
+    Script.WriteMsg('ClickBank: Bank already opened', True);
+    WasClicked := True;
+    exit(True);
   end;
-    
-  // we clicked it, lets wait for it to open
-  if ClickedBank and Self.WaitBankOpen() then
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  BankTiles := Copy(Self.BankTiles);
+  BankTiles.Sort(OurTile);
+  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  Script.SetStatus('Finding bank...');
+
+  // search for every bank
+  for BankTile in BankTiles do
   begin
-    // it is now open! lets deposit
-    Self.DepositItems();
-    
-    // Lets go to the trees
-    Self.GoToTrees(True);
+    // try see if we can find this bank
+    if not Self.FindBank(OurTile, BankTile, B) then
+      continue;
+
+    // apply velocity
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    // hover over the banktile and see if it is actually a bank
+    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    begin
+      Script.SetStatus('Bad uptext for bank');
+      if Velocity = Point(0, 0) then
+        break
+      else
+        continue;
+    end;
+
+    Result := True;
+
+    Script.SetStatus('Confirmed bank! Opening bank...');
+
+    // banker can make us stuck
+    if ('Banker' in MainScreen.GetUpText()) and (Velocity <> Point(0, 0)) then
+      exit(False);
+
+    // open the bank
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    break;
   end;
 end;
+
+{
+  While we walk to the bank
+}
+procedure WalkingToBank(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickBank(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the bank while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+end;
+
+{
+  Walks to the bank,
+  Returns true if we clicked the bank while walking
+}
+function TBot.GoToBank(Force: Boolean = False): Boolean;
+var
+  OurPos: TPoint;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to bank spot....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to bank spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToBank;
+    try
+      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to bank spot');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Does banking
+}
+procedure TBot.DoBank();
+var
+  WasClicked: Boolean;
+begin
+  if (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank()
+    or (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank(True) then
+  begin
+    if Self.WaitBankOpen() then
+    begin
+      Self.DoBanking();
+      Self.UpdateWalkedTree(True);
+    end;
+  end;
+end;
+
+//////////////////////////
+
+//////////////
+// FIRE FUNCS
 
 {
   Waits for the fire to be created, when it is returns true
@@ -1061,7 +1173,7 @@ begin
   CurLogs := LogSlots.Len();
   // CurPos := Self.RSW.GetMyPos();
   
-  for Idx:=Low(Pattern) to High(Pattern) do
+  for Idx := Low(Pattern) to High(Pattern) do
   begin
     i := Pattern[Idx];
     
@@ -1094,6 +1206,7 @@ begin
       begin
         // we need to select this slot then
         Inventory.SetSelectedSlot(CurHoveredItem);
+        Wait(0, 1000);
         
         // start the fire now!
         Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
@@ -1109,6 +1222,7 @@ begin
       begin
         // we need to select this slot then...
         Inventory.SetSelectedSlot(TinderBoxSlot);
+        Wait(0, 1000);
         
         // start the fire
         Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
@@ -1127,11 +1241,13 @@ begin
         if Random() > 0.5 then
         begin
           Inventory.SetSelectedSlot(i);
+          Wait(0, 1000);
           Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
         end
         else
         begin
           Inventory.SetSelectedSlot(TinderBoxSlot);
+          Wait(0, 1000);
           Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
         end;
       end;
@@ -1142,23 +1258,24 @@ begin
       break;
     
     // fires should be starting... lets prepare for next action if needed
-    // TODO randomize
-    if Idx < High(Pattern) then
+    if (Idx < High(Pattern)) and (Random() < 0.95) then
     begin
       CurHoveredItem := Inventory.PointToSlot(Mouse.Position());
       NextLog := Pattern[Idx + 1];
       
       // Check if select tinderbox and hover over next log
-      if CurHoveredItem = TinderBoxSlot then
+      if (CurHoveredItem = TinderBoxSlot) and (Random() < 0.8) then
       begin
         // select tinder, hover next log
         Inventory.SetSelectedSlot(TinderBoxSlot);
+        Wait(0, 1000);
         Mouse.Move(Inventory.GetSlotBox(NextLog));
       end
       else
       begin
         // select nextlog, hover tinder
         Inventory.SetSelectedSlot(NextLog);
+        Wait(0, 1000);
         Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
       end;
     end;
@@ -1188,18 +1305,19 @@ end;
 {
   Tries to find a fire at the location
 }
-function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out TPA: TPointArray): Boolean;
+function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
-  B: TBox;
+  TPA: TPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
 
   B := Tile.Expand(Round(Tile.Radius() * Self.FireColor.RadiusExpand)).Bounds();
-  B.LimitTo(MainScreen.Bounds());
   if not MainScreen.IsVisible(B.Middle()) then
     Exit();
+
+  B.LimitTo(MainScreen.Bounds());
 
   // find the tree's colors in this tile
   TPA := Self.FindFireColor(B).Biggest();
@@ -1221,7 +1339,7 @@ var
   Timeout: TCountdown;
   Walked, DidMSClick: Boolean;
   TileRect: TRectangle;
-  _: TPointArray;
+  _: TBox;
 begin
   // Minimap.SetCompassAngle(0);
   OurPos := Self.RSW.GetMyPos();
@@ -1368,19 +1486,39 @@ begin
   end;
 end;
 
+//////////////////////////////////
+
+/////////////
+// FLETCH FUNCS
+
+procedure TBot.FletchItems();
+begin
+  // TODO complete
+end;
+
+///////////////////////////
+
 {
   Executes when we should do something about our full inventory
 }
 procedure TBot.DoFullInventory();
 begin
-  if CHOPMODE = ChopDrop then
-    Self.DropItems()
-  else if CHOPMODE = ChopBank then
-    Self.BankItems()
-  else
+  if Self.Firemaking then
+  begin
     Self.FireItems();
-    
-  Self.AfterActionAntiBan(True);
+    exit();
+  end;
+
+  if Inventory.FindItems(Self.LogItems) and Self.Fletching then
+  begin
+    Self.FletchItems();
+    exit();
+  end;
+
+  if Self.Banking then
+    Self.DoBank()
+  else
+    Self.DropItems();
 end;
 
 {
@@ -1415,7 +1553,7 @@ begin
         Self.OnLogin();
     end;
     
-    Self.DoMainLoopStuff();
+    Self.DoMainLoopStuff('', False);
   end;
   
   Logout.ClickLogout();
@@ -1476,15 +1614,18 @@ begin
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
   Script.Activity.Countdown.Init(180000);
-  Script.AllowBreaks := True;
   
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
   
   Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
   
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
@@ -1513,13 +1654,19 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
   Self.Specing := USESPEC;
   Self.ShiftDropping := SHIFTDROP;
+  Self.Banking := BANKLOGS;
+  Self.Firemaking := FIRELOGS;
+  Self.Fletching := FLETCHLOGS;
   
   // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
   Self.TinderItem := 'Tinderbox';
+  Self.KnifeItem := 'Knife';
+  Self.KnifedLogItems := [];
+  Self.FletchWaitTime := 3000;
   Self.NoLightText := ['You can''t light a fire here.'];
-  Self.ToolItems := [Self.TinderItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
+  Self.ToolItems := [Self.TinderItem, Self.KnifeItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
     'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
     'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
   Self.ChopWaitTime := 10000;
@@ -1529,6 +1676,9 @@ begin
   Self.TreeTiles := [Point(4144, 3498), Point(4152, 3504), Point(4164, 3508),
     Point(4158, 3520), Point(4162, 3536)];
   Self.TreeWalkTile := Point(4148, 3496);
+
+  SetLength(Self.TreeTiles, 2);
+
   with Self.TreeColor do
   begin
     RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
@@ -1548,14 +1698,15 @@ begin
 
   with Self.BankColor do
   begin
-    RSObject.Colors += CTS2(6251626, 3, 1.29, 0.97);
-    RSObject.Colors +=  CTS2(1069415, 2, 0.07, 1.23);
-    RSObject.Erode := 2;
-    RSObject.Grow := 2;
+    RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+    RSObject.ColorClusters += [
+      CTS2(6120041, 4, 1.11, 1.12), // Grey
+      CTS2(1069929, 2, 0.15, 1.05), // Brown
+      3];
+    RSObject.Grow := 1;
     RSObject.ClusterDistance := 3;
-
-    FilterSize := 5;
-    RadiusExpand := 0.15;
+    FilterSize := 10;
+    RadiusExpand := 0.25;
   end;
   
   with Self.FireColor do

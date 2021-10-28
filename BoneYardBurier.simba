@@ -55,6 +55,37 @@ begin
 end;
 
 {
+  Check under attack
+}
+procedure TBot.CheckUnderAttack();
+begin
+  if Script.IsUnderAttack() then
+  begin
+    Script.WriteMsg('UNDER ATTACK!');
+    Self.RSW.WebWalk(Self.RunawayTile, 0, BioRandomFixed());
+    Wait(10000, 20000);
+    exit(True);
+  end;
+end;
+
+{
+  Check for other players
+}
+procedure TBot.CheckOtherPlayers();
+begin
+  if (SRL.CountColor($FEFEFE, Minimap.Bounds()) > 0) and (Minimap.PlayersNearby() > 0) then
+  begin
+    Keyboard.PressKey(VK_LEFT);
+    if Minimap.PlayersNearby() > 0 then
+    begin
+      Script.WriteMsg('Player nearby! Log!');
+      Logout.ClickLogout();
+      Wait(50000, 120000);
+    end;
+  end;
+end;
+
+{
   Does general checks and does antiban.
 }
 function TBot.DoAntiBan(): Boolean;
@@ -75,25 +106,8 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
-  if Script.IsUnderAttack() then
-  begin
-    Script.WriteMsg('UNDER ATTACK!');
-    Self.RSW.WebWalk(Self.RunawayTile, 0, BioRandomFixed());
-    Wait(10000, 20000);
-    exit(True);
-  end;
-
-  if (SRL.CountColor($FEFEFE, Minimap.Bounds()) > 0) and (Minimap.PlayersNearby() > 0) then
-  begin
-    Keyboard.PressKey(VK_LEFT);
-    if Minimap.PlayersNearby() > 0 then
-    begin
-      Script.WriteMsg('Player nearby! Log!');
-      Logout.ClickLogout();
-      Wait(50000, 120000);
-      exit(True);
-    end;
-  end;
+  Self.CheckUnderAttack();
+  Self.CheckOtherPlayers();
 
   // TODO check for interfaces if opened... close em
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
@@ -601,8 +615,12 @@ begin
   Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
 
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
@@ -629,7 +647,6 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
-  Script.AllowBreaks := True;
 
   Self.BoneItems := ['Bones', 'Big bones'];
   Self.BoneUpText := ['Take'];
