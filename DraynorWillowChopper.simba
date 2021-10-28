@@ -131,7 +131,7 @@ begin
   Script.DoGeneralChecks();
     
   if not RSClient.IsLoggedIn() then
-    Exit();
+    exit();
     
   // are we under attack?
   Self.CheckUnderAttack();
@@ -241,7 +241,7 @@ begin
     RSClient.Image.DrawRect(TileRect, clGreen);
   end;
   
-  for i:=Low(Self.FireStartTiles) to High(Self.FireStartTiles) do
+  for i := Low(Self.FireStartTiles) to High(Self.FireStartTiles) do
   begin
     FireTile := Self.FireStartTiles[i].Tile;
     
@@ -265,7 +265,7 @@ begin
     Inventory.FindItems(Self.ToolItems, T);
     Inventory.FindItems(Self.KnifedLogItems, K);
 
-    for i:=0 to 27 do
+    for i := 0 to 27 do
     begin
       if L.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
@@ -283,7 +283,7 @@ end;
 procedure TBot.Draw();
 begin
   if not Script.CanDraw() then
-    Exit();
+    exit();
 
   RSClient.Image.Clear();
   // TODO complete
@@ -300,7 +300,7 @@ var
   WriteOut: String;
 begin
   if not Script.CanReportConsole() then
-    Exit();
+    exit();
   
   WriteOut += 'Banking: ' + ToStr(Self.Banking) + NL;
   WriteOut += 'Firemaking: ' + ToStr(Self.Firemaking) + NL;
@@ -456,7 +456,7 @@ begin
   B := Tile.Expand(Round(Tile.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   B.LimitTo(MainScreen.Bounds());
 
@@ -1086,7 +1086,7 @@ begin
         Wait(75, 500);
         
       Wait(2000 + Random(1000));
-      Exit(True);
+      exit(True);
     end;
       
     // did we gain xp? if so then the fire is lit!
@@ -1094,13 +1094,13 @@ begin
     if NowXP = -1 then
     begin
       Script.WriteMsg('WaitFireCreated: Cannot read XP Bar.', True);
-      Exit(False);
+      exit(False);
     end;
 
     if NowXP <> XP then
     begin
       Script.WriteMsg('WaitFireCreated: XP changed! Lit!', True);
-      Exit(True);
+      exit(True);
     end;
     
     Self.DoMainLoopStuff('', False);
@@ -1128,7 +1128,7 @@ begin
     if Inventory.Count() < InvCount then
     begin
       Script.WriteMsg('WaitPlaceLog: Invcount lowered, log placed!', True);
-      Exit(True);
+      exit(True);
     end;
   
     // check for the message if we cannot light a fire
@@ -1141,7 +1141,7 @@ begin
       Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
       Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
       ChooseOption.Select('Examine');
-      Exit(False);
+      exit(False);
     end;
       
     Self.DoMainLoopStuff('', False);
@@ -1166,13 +1166,13 @@ begin
   if not Inventory.FindItem(Self.TinderItem, TinderBoxSlot) then
   begin
     Script.WriteMsg('LightLogs: No tinder box.', True);
-    Exit();
+    exit();
   end;
     
   if not Inventory.FindItems(Self.LogItems, LogSlots) then
   begin
     Script.WriteMsg('LightLogs: No logs.', True);
-    Exit();
+    exit();
   end;
     
   // make sure we can see the xp counter
@@ -1180,7 +1180,7 @@ begin
   if XP = -1 then
   begin
     Script.WriteMsg('LightLogs: Cannot see XP bar.', True);
-    Exit();
+    exit();
   end;
 
   Script.WriteMsg('LightLogs: Tinderbox: ' + ToStr(TinderBoxSlot), True);
@@ -1202,7 +1202,7 @@ begin
     Pattern := Copy(Pattern, Random(Length(Pattern)));}
     
   // remove all slots that are not a log
-  for i:=High(Pattern) downto Low(Pattern) do
+  for i := High(Pattern) downto Low(Pattern) do
     if LogSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
       
@@ -1356,7 +1356,7 @@ begin
 
   B := Tile.Expand(Round(Tile.Radius() * Self.FireColor.RadiusExpand)).Bounds();
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   B.LimitTo(MainScreen.Bounds());
 
@@ -1389,7 +1389,7 @@ begin
   if Self.FindFire(OurPos, FirePos, _) then
   begin
     Script.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
-    Exit();
+    exit();
   end;
   
   // Go to the starting fire tile
@@ -1406,7 +1406,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to walk to fire pos');
-      Exit();
+      exit();
     end;
   end;
 
@@ -1414,7 +1414,7 @@ begin
   if Self.FindFire(OurPos, FirePos, _) then
   begin
     Script.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
-    Exit();
+    exit();
   end;
     
   // make sure that we are on the tile..
@@ -1469,11 +1469,11 @@ function TBot.TryFireItems(): Boolean;
 begin
   // make sure we have logs and a tinderbox
   if not Inventory.FindItem(Self.TinderItem) or not Inventory.FindItems(Self.LogItems) then
-    Exit(True);
+    exit(True);
   
   // try go to the fire
   if not Self.GoToFireStart() then
-    Exit();
+    exit();
     
   // pause antiban so tasks won't 100% run once we are done
   Script.Antiban.PauseAllTasks();
