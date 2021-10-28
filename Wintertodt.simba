@@ -73,7 +73,7 @@ var
 function TBot.CheckSpec(): Boolean;
 begin
   if not Self.Specing then
-    Exit();
+    exit();
 
   if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle) >= 100 then
   begin
@@ -144,13 +144,13 @@ begin
   BL := SRL.CountColor($000000, B);
 
   if (R + G) < 600 then
-    Exit(-1);
+    exit(-1);
 
   Result := Round((G / (R + G)) * 100);
 
   // sometimes no green can be found, but 1% still remains
   if (Result = 0) and (BL = 230) then
-    Exit(1);
+    exit(1);
 end;
 
 {
@@ -161,7 +161,7 @@ begin
   Script.DoGeneralChecks();
 
   if not RSClient.IsLoggedIn() then
-    Exit();
+    exit();
 
   // check if we gained xp, failsafe
   Script.CheckActivity();
@@ -338,7 +338,7 @@ begin
     Inventory.FindItem(Self.UnfPotionItem, U);
     Inventory.FindItem(Self.KnifedLogItem, KL);
 
-    for i:=0 to 27 do
+    for i := 0 to 27 do
     begin
       if L.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
@@ -370,7 +370,7 @@ end;
 procedure TBot.Draw();
 begin
   if not Script.CanDraw() then
-    Exit();
+    exit();
 
   RSClient.Image.Clear();
   // TODO complete
@@ -385,7 +385,7 @@ end;
 procedure TBot.ReportConsole();
 begin
   if not Script.CanReportConsole() then
-    Exit();
+    exit();
 
   // TODO complete
 end;
@@ -437,12 +437,12 @@ var
   Eaten: Boolean;
 begin
   if Bank.IsOpen() then
-    Exit();
+    exit();
 
   if not Inventory.FindItems(Self.FoodItems, FoodSlots) then
   begin
     Script.WriteMsg('No food!', True);
-    Exit();
+    exit();
   end;
 
   Script.WriteMsg('Eating food...', True);
@@ -456,7 +456,7 @@ begin
     Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
 
   // remove all slots that isnt food
-  for i:=High(Pattern) downto Low(Pattern) do
+  for i := High(Pattern) downto Low(Pattern) do
   begin
     if FoodSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
@@ -556,13 +556,13 @@ begin
   if not Inventory.FindItem(Self.LogItem, LogSlots) then
   begin
     Script.WriteMsg('No logs...', True);
-    Exit();
+    exit();
   end;
 
   if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
   begin
     Script.WriteMsg('No knife...', True);
-    Exit();
+    exit();
   end;
 
   Script.WriteMsg('Fletching logs...', True);
@@ -573,11 +573,13 @@ begin
   if Random() < 0.5 then
   begin
     Inventory.SetSelectedSlot(LogSlot);
+    Wait(0, 1000);
     Inventory.ClickSlot(KnifeSlot);
   end
   else
   begin
     Inventory.SetSelectedSlot(KnifeSlot);
+    Wait(0, 1000);
     Inventory.ClickSlot(LogSlot);
   end;
 
@@ -716,7 +718,7 @@ begin
     begin
       Script.Stop('No food in bank.');
       Bank.Close();
-      Exit();
+      exit();
     end;
   end;
 
@@ -742,7 +744,7 @@ var
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
-    Exit(True);
+    exit(True);
 
   Script.WriteMsg('Going to click the bank....', True);
 
@@ -752,7 +754,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindBankColor(B);
 
@@ -768,7 +770,7 @@ begin
   begin
     // rotate camera, try again
     Self.SetCompass();
-    Exit();
+    exit();
   end;
 
   // found uptext, clicking...
@@ -798,7 +800,7 @@ begin
     if Bank.IsOpen(True) or DepositBox.IsOpen() then
     begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
-      Exit(True);
+      exit(True);
     end;
 
     // only countdown if we are not moving
@@ -839,7 +841,7 @@ var
   Walked: Boolean;
 begin
   if Self.GetWinterTodtEnergyPerc() <> -1 then
-    Exit();
+    exit();
 
   Script.WriteMsg('Going to bank...', True);
 
@@ -861,7 +863,7 @@ begin
     if not Walked then
     begin   
       Script.WriteMsg('Failed to walk to bank');
-      Exit();
+      exit();
     end;
   end;
 end;
@@ -925,7 +927,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindEntraceColor(B);
 
@@ -941,7 +943,7 @@ begin
   begin
     // rotate camera, try again
     Self.SetCompass();
-    Exit();
+    exit();
   end;
 
   // found uptext, clicking...
@@ -983,7 +985,7 @@ begin
     if not Walked then
     begin           
       Script.WriteMsg('Failed to walk to inside door');
-      Exit();
+      exit();
     end;
   end;
 end;
@@ -998,14 +1000,14 @@ begin
   if Self.GetWinterTodtEnergyPerc() <> -1 then
   begin
     Script.WriteMsg('Already inside of arena', True);
-    Exit();
+    exit();
   end;
 
   Self.GoToEntrance();
   if not Self.ClickEnterDoor() then
   begin
     Self.GoToEntrance(True);
-    Exit();
+    exit();
   end;
 
   Minimap.WaitFlag();
@@ -1043,7 +1045,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindExitColor(B);
 
@@ -1059,7 +1061,7 @@ begin
   begin
     // rotate camera, try again
     Self.SetCompass();
-    Exit();
+    exit();
   end;
 
   // found uptext, clicking...
@@ -1101,7 +1103,7 @@ begin
     if not Walked then
     begin       
       Script.WriteMsg('Failed to walk to outside door');
-      Exit();
+      exit();
     end;
   end;
 end;
@@ -1117,14 +1119,14 @@ begin
   if Self.GetWinterTodtEnergyPerc() = -1 then
   begin
     Script.WriteMsg('Already outside of arena', True);
-    Exit();
+    exit();
   end;
 
   Self.GoToExit();
   if not Self.ClickExitDoor() then
   begin
     Self.GoToExit(True);
-    Exit();
+    exit();
   end;
 
   Minimap.WaitFlag();
@@ -1169,7 +1171,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindLitBrazierColor(B);
 
@@ -1192,7 +1194,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindUnlitBrazierColor(B);
 
@@ -1326,7 +1328,7 @@ begin
     if not Walked then
     begin           
       Script.WriteMsg('Failed to walk to brazier');
-      Exit();
+      exit();
     end;
   end;
 end;
@@ -1397,7 +1399,7 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
 
   ATPA := Self.FindRootsColor(B);
 
@@ -1416,7 +1418,7 @@ begin
   begin
     // rotate camera, try again
     Self.SetCompass();
-    Exit();
+    exit();
   end;
 
   // found uptext, clicking...
@@ -1530,7 +1532,7 @@ begin
     if not Walked then
     begin         
       Script.WriteMsg('Failed to walk to roots');
-      Exit();
+      exit();
     end;
   end;
 end;
@@ -1587,13 +1589,13 @@ begin
           (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc)) then
       begin
         Self.GoOutsideBossArea();
-        Exit();
+        exit();
       end;
 
       if OurHpPerc < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
       begin
         Self.EatFood();
-        Exit();
+        exit();
       end;
 
       // check if we should fletch
@@ -1605,14 +1607,14 @@ begin
           Self.GoToBrazier();
 
         Self.FletchLogs();
-        Exit();
+        exit();
       end;
 
       // check if we need to do stuff at the braz
       if Inventory.FindItems([Self.LogItem, Self.KnifedLogItem]) then
       begin
         Self.OfferStuffToBrazier();
-        Exit();
+        exit();
       end;
 
       // just gather logs
