@@ -170,8 +170,6 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
-  // TODO use RSW.OnWalkEvent for dest tile, quickly detect our goal obj
-
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
@@ -410,6 +408,24 @@ begin
 end;
 
 {
+  Gets amount of things to braz
+}
+function TBot.GetAmountToOffer(Chopping: Boolean): Int32;
+var
+  LogSlots, KnifedLogSlots: TIntegerArray;
+begin
+  LogSlots.Clear();
+  Inventory.FindItem(Self.LogItem, LogSlots);
+  KnifedLogSlots.Clear();
+  Inventory.FindItem(Self.KnifedLogItem, KnifedLogSlots);
+  Result += Round(Length(KnifedLogSlots) * 1.2);
+  if Inventory.FindItem(Self.KnifeItem) and Chopping then
+    Result += Round(Length(LogSlots) * 2.4)
+  else
+    Result += Round(Length(LogSlots) * 1.2);
+end;
+
+{
   Eats food until good
 }
 procedure TBot.EatFood();
@@ -503,6 +519,135 @@ begin
 end;
 
 {
+  Waits for the boss to start
+}
+procedure TBot.WaitForBossStart();
+begin
+  Script.WriteMsg('Waitting for boss start...', True);
+
+  Self.GoToBrazier();
+
+  if Self.GetWinterTodtEnergyPerc() = 0 then
+  begin
+    while RSClient.IsLoggedIn() do
+    begin
+      if (Self.GetWinterTodtEnergyPerc() > 0) or
+        Self.GetWinterTodtRemainingTime().EndsWith('0:00') then
+        break;
+
+      Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
+
+      Self.DoMainLoopStuff('Waiting for boss to start', False);
+    end;
+
+    Self.OfferStuffToBrazier();
+  end;
+end;
+
+{
+  Fletches the logs
+}
+procedure TBot.FletchLogs();
+var
+  KnifeSlot, LogSlot, HPP, OurHPPerc, ICount, IC: Int32;
+  LogSlots: TIntegerArray;
+  CountDown: TCountDown;
+begin
+  if not Inventory.FindItem(Self.LogItem, LogSlots) then
+  begin
+    Script.WriteMsg('No logs...', True);
+    Exit();
+  end;
+
+  if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
+  begin
+    Script.WriteMsg('No knife...', True);
+    Exit();
+  end;
+
+  Script.WriteMsg('Fletching logs...', True);
+  LogSlot := LogSlots[Random(0, High(LogSlots))];
+  ICount := Length(LogSlots);
+
+  // start fletching
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(LogSlot);
+    Inventory.ClickSlot(KnifeSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(KnifeSlot);
+    Inventory.ClickSlot(LogSlot);
+  end;
+
+  // wait while fletching
+  OurHPPerc := Minimap.GetHPPercent();
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.FletchWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check hp
+    HPP := Minimap.GetHPPercent();
+    if HPP < OurHPPerc then
+    begin
+      Script.WriteMsg('FletchLogs: HP lowered...', True);
+      break;
+    end;
+    OurHPPerc := HPP;
+
+    // check inv
+    LogSlots.Clear();
+    Inventory.FindItem(Self.LogItem, LogSlots);
+    IC := Length(LogSlots);
+
+    if IC <= 0 then
+    begin
+      Script.WriteMsg('FletchLogs: No more logs', True);
+      break;
+    end;
+
+    if IC <> ICount then
+    begin
+      Script.WriteMsg('FletchLogs: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    ICount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('FletchLogs: Countdown expired', True);
+      break;
+    end;
+
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('FletchLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
+    if Self.GetAmountToOffer(False) > Self.GetWinterTodtEnergyPerc() then
+    begin
+      Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fletching logs...', True);
+  end;
+end;
+
+////////////////////////
+// BANKING FUNCS
+
+{
   Does all the banking...
 }
 procedure TBot.DoBanking();
@@ -513,6 +658,9 @@ var
   Item: TRSItem;
   HadFood: Boolean;
 begin
+  if not Bank.IsOpen(True) then
+    exit();
+
   Script.AntiBan.AfterBankAntiBan(20);
 
   Self.ShouldBank := False;
@@ -548,7 +696,7 @@ begin
     if Inventory.IsSlotUsed(i) then
     begin
       Bank.DepositSlot([i, BANK_DEPOSIT_ALL], BioRandomCoinflip());
-      Wait(200, Random(550, 700));
+      Wait(750, 1250);
     end;
   end;
 
@@ -753,6 +901,11 @@ begin
     Self.GoToEntrance(True);
   end;
 end;
+
+////////////////////////
+
+//////////////////////////
+// BOSSDOOR FUNCS
 
 {
   Returns true when clicked the door
@@ -996,131 +1149,10 @@ begin
   end;
 end;
 
-{
-  Waits for the boss to start
-}
-procedure TBot.WaitForBossStart();
-begin
-  Script.WriteMsg('Waitting for boss start...', True);
+/////////////////////////
 
-  Self.GoToBrazier();
-
-  if Self.GetWinterTodtEnergyPerc() = 0 then
-  begin
-    while RSClient.IsLoggedIn() do
-    begin
-      if (Self.GetWinterTodtEnergyPerc() > 0) or
-        Self.GetWinterTodtRemainingTime().EndsWith('0:00') then
-        break;
-
-      Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
-
-      Self.DoMainLoopStuff('Waiting for boss to start', False);
-    end;
-
-    Self.OfferStuffToBrazier();
-  end;
-end;
-
-{
-  Fletches the logs
-}
-procedure TBot.FletchLogs();
-var
-  KnifeSlot, LogSlot, HPP, OurHPPerc, ICount, IC: Int32;
-  LogSlots: TIntegerArray;
-  CountDown: TCountDown;
-begin
-  if not Inventory.FindItem(Self.LogItem, LogSlots) then
-  begin
-    Script.WriteMsg('No logs...', True);
-    Exit();
-  end;
-
-  if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
-  begin
-    Script.WriteMsg('No knife...', True);
-    Exit();
-  end;
-
-  Script.WriteMsg('Fletching logs...', True);
-  LogSlot := LogSlots[Random(0, High(LogSlots))];
-  ICount := Length(LogSlots);
-
-  // start fletching
-  if Random() < 0.5 then
-  begin
-    Inventory.SetSelectedSlot(LogSlot);
-    Inventory.ClickSlot(KnifeSlot);
-  end
-  else
-  begin
-    Inventory.SetSelectedSlot(KnifeSlot);
-    Inventory.ClickSlot(LogSlot);
-  end;
-
-  // wait while fletching
-  OurHPPerc := Minimap.GetHPPercent();
-
-  Self.AfterActionAntiBan(True);
-  CountDown.Init(Self.FletchWaitTime);
-
-  while RSClient.IsLoggedIn() do
-  begin
-    // check hp
-    HPP := Minimap.GetHPPercent();
-    if HPP < OurHPPerc then
-    begin
-      Script.WriteMsg('FletchLogs: HP lowered...', True);
-      break;
-    end;
-    OurHPPerc := HPP;
-
-    // check inv
-    LogSlots.Clear();
-    Inventory.FindItem(Self.LogItem, LogSlots);
-    IC := Length(LogSlots);
-
-    if IC <= 0 then
-    begin
-      Script.WriteMsg('FletchLogs: No more logs', True);
-      break;
-    end;
-
-    if IC <> ICount then
-    begin
-      Script.WriteMsg('FletchLogs: InvCount changed, restarting countdown', True);
-      CountDown.Restart();
-    end;
-
-    ICount := IC;
-
-    if CountDown.IsFinished() then
-    begin
-      Script.WriteMsg('FletchLogs: Countdown expired', True);
-      break;
-    end;
-
-    if Chat.LeveledUp() then
-    begin
-      Script.WriteMsg('FletchLogs: Leveld', True);
-      if Random() < 0.2 then
-      begin
-        Wait(0, 1500);
-        Chat.ChatToOption('doesnt matter');
-      end;
-      break;
-    end;
-
-    if Self.GetAmountToOffer(False) > Self.GetWinterTodtEnergyPerc() then
-    begin
-      Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
-      break;
-    end;
-
-    Self.DoMainLoopStuff('Fletching logs...', True);
-  end;
-end;
+////////////////////////
+// BRAZIER FUNCS
 
 {
   Returns true if it found a lit brazier
@@ -1341,6 +1373,11 @@ begin
     Self.GoToBrazier(True);
 end;
 
+//////////////////////////
+
+///////////////////////////
+// ROOTS FUNCS
+
 {
   Returns true if we clicked the roots
 }
@@ -1390,24 +1427,6 @@ begin
   end
   else
     Result := ChooseOption.Select(Self.ChopRootUpText);
-end;
-
-{
-  Gets amount of things to braz
-}
-function TBot.GetAmountToOffer(Chopping: Boolean): Int32;
-var
-  LogSlots, KnifedLogSlots: TIntegerArray;
-begin
-  LogSlots.Clear();
-  Inventory.FindItem(Self.LogItem, LogSlots);
-  KnifedLogSlots.Clear();
-  Inventory.FindItem(Self.KnifedLogItem, KnifedLogSlots);
-  Result += Round(Length(KnifedLogSlots) * 1.2);
-  if Inventory.FindItem(Self.KnifeItem) and Chopping then
-    Result += Round(Length(LogSlots) * 2.4)
-  else
-    Result += Round(Length(LogSlots) * 1.2);
 end;
 
 {
@@ -1527,6 +1546,8 @@ begin
   if not Self.ChopLogs() then
     Self.GoToLogs(True);
 end;
+
+////////////////////////////
 
 {
   Executes when we are logged in
@@ -1697,8 +1718,10 @@ begin
   Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
