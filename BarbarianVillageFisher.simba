@@ -435,7 +435,7 @@ begin
     Mouse.Click(MOUSE_LEFT);
     WasClicked := Mouse.DidClick(True);
   end
-  else
+  else if MainScreen.IsUpText('options') then
     WasClicked := ChooseOption.Select(Self.FireUpText);
 
   if not WasClicked then

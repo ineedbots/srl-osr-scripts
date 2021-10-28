@@ -35,6 +35,7 @@ const
 type
   TBot = record
     RSW                                                       : TRSWalker;
+    BoneUpText                                                : TStringArray;
     BoneTiles, BigBoneTiles                                   : TPointArray;
     RunawayTile                                               : TPoint;
     BoneItems                                                 : TRSItemArray;
@@ -61,7 +62,7 @@ begin
   Script.DoGeneralChecks();
 
   if not RSClient.IsLoggedIn() then
-    Exit();
+    exit();
 
   // check we we leveled up
   if Chat.LeveledUp() then
@@ -79,10 +80,10 @@ begin
     Script.WriteMsg('UNDER ATTACK!');
     Self.RSW.WebWalk(Self.RunawayTile, 0, BioRandomFixed());
     Wait(10000, 20000);
-    Exit(True);
+    exit(True);
   end;
 
-  if Minimap.PlayersNearby() > 0 then
+  if (SRL.CountColor($FEFEFE, Minimap.Bounds()) > 0) and (Minimap.PlayersNearby() > 0) then
   begin
     Keyboard.PressKey(VK_LEFT);
     if Minimap.PlayersNearby() > 0 then
@@ -90,7 +91,7 @@ begin
       Script.WriteMsg('Player nearby! Log!');
       Logout.ClickLogout();
       Wait(50000, 120000);
-      Exit(True);
+      exit(True);
     end;
   end;
 
@@ -169,7 +170,7 @@ begin
   if Inventory.IsOpen() then
   begin
     Inventory.FindItems(Self.BoneItems, BI);
-    for i:=0 to 27 do
+    for i := 0 to 27 do
     begin
       if BI.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite);
@@ -183,7 +184,7 @@ end;
 procedure TBot.Draw();
 begin
   if not Script.CanDraw() then
-    Exit();
+    exit();
 
   RSClient.Image.Clear();
   // TODO complete
@@ -198,7 +199,7 @@ end;
 procedure TBot.ReportConsole();
 begin
   if not Script.CanReportConsole() then
-    Exit();
+    exit();
 
   // TODO complete
 end;
@@ -221,21 +222,22 @@ begin
 end;
 
 {
-  Returns true if picked up bone
+  Returns true if found the bone
 }
-function TBot.PickupBone(BoneTile, OurTile: TPoint): Boolean;
+function TBot.FindBone(OurTile, BoneTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
-  B: TBox;
   TPA: TPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.RSW.GetTileMSEx(OurTile, BoneTile, 0);
 
   B := Tile.Expand(Round(Tile.Radius() * Self.BoneColor.RadiusExpand)).Bounds();
-  B.LimitTo(MainScreen.Bounds());
+
   if not MainScreen.IsVisible(B.Middle()) then
-    Exit();
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
 
   // find the tree's colors in this tile
   TPA := Self.FindBoneColor(B).Biggest();
@@ -246,26 +248,71 @@ begin
     begin
       Script.WriteMsg('On top of the tile, checking under us...', True);
 
-      Mouse.Move(B.Expand(-MainScreen.ConvertDistance(5)));
-    end
-    else
-      Exit();
+      B := Tile.Bounds().Expand(-MainScreen.ConvertDistance(5));
+      exit(True);
+    end;
   end
   else
   begin
-    Script.WriteMsg('Bone found, picking up...', True);
+    B := TPA.Bounds();
 
-    Mouse.Move(TPA.Bounds());
+    exit(True);
+  end;
+end;
+
+{
+  Returns true if found the bone, WasClicked true if clicked it
+}
+function TBot.ClickBone(BoneTile: TPoint; out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  // find the fire
+  if not Self.FindBone(OurTile, BoneTile, B) then
+  begin
+    Script.WriteMsg('ClickBone: Bone not visible', True);
+    exit();
   end;
 
-  if MainScreen.IsUpText('Take') then
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickBone: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  Script.MouseLooksForUpText := Self.BoneUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(Self.BoneUpText, Random(100, 250)) and (Random() < 10) then
   begin
     Mouse.Click(MOUSE_LEFT);
-
-    Result := True;
+    WasClicked := Mouse.DidClick(True);
   end
   else if MainScreen.IsUpText('options') then
-    Result := ChooseOption.Select('Take');
+    WasClicked := ChooseOption.Select(Self.BoneUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickBone: Didnt click', True);
+    exit();
+  end;
 end;
 
 {
@@ -290,7 +337,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bone.');
-      Exit(False);
+      exit(False);
     end;
 
     while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
@@ -324,10 +371,8 @@ begin
     if not RSClient.IsLoggedIn() then
       break;
 
-    if not Self.PickupBone(BoneTile, OurPos) then
+    if not Self.ClickBone(BoneTile, WasRed, OurPos) then
       continue;
-
-    WasRed := Mouse.DidClick(True);
 
     Script.WriteMsg('Bone clicked, waiting to grab it.', True);
 
@@ -421,7 +466,7 @@ begin
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
   // remove all slots that are not a bone
-  for i:=High(Pattern) downto Low(Pattern) do
+  for i := High(Pattern) downto Low(Pattern) do
     if BoneSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
 
@@ -429,7 +474,7 @@ begin
   for i in Pattern do
   begin
     if not RSClient.IsLoggedIn() then
-      Exit();
+      exit();
 
     if not Inventory.Open() then
       break;
@@ -576,6 +621,7 @@ begin
   Script.AllowBreaks := True;
 
   Self.BoneItems := ['Bones', 'Big bones'];
+  Self.BoneUpText := ['Take'];
 
   Self.BoneTiles := [Point(4682, 1492), Point(4672, 1483), Point(4672, 1456),
     Point(4689, 1496), Point(4688, 1483), Point(4695, 1472),
