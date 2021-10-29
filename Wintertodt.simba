@@ -48,10 +48,10 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ExitChatOption                                            : String;
-    ShouldBank, Specing                                       : Boolean;
+    ShouldBank, Specing, BrazIsLit                            : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
-      RandomGoodHPPerc                                        : Int32;
+      RandomGoodHPPerc, Did                                   : Int32;
     FoodItems, AxeItems                                       : TRSItemArray;
     LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
       HerbItem, UnfPotionItem, PotionItem                     : TRSItem;
@@ -322,20 +322,21 @@ begin
   RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clOrange);
   RSClient.Image.DrawRect(TileRect, clGreen);
 
-  Text := 'Pos: ' + ToStr(OurTile);
+  Text := 'Pos: ' + ToStr(OurTile) + NL;
+  Text += 'Boss HP: ' + ToStr(Self.GetWinterTodtEnergyPerc());
   RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
   if Inventory.IsOpen() then
   begin
     Inventory.FindItem(Self.LogItem, L);
     Inventory.FindItems(Self.AxeItems, A);
-    Inventory.FindItem(Self.HerbItem, HE);
+    //Inventory.FindItem(Self.HerbItem, HE);
     Inventory.FindItems(Self.FoodItems, F);
     Inventory.FindItem(Self.KnifeItem, K);
-    Inventory.FindItem(Self.PotionItem, P);
+    //Inventory.FindItem(Self.PotionItem, P);
     Inventory.FindItem(Self.HammerItem, H);
     Inventory.FindItem(Self.TinderItem, T);
-    Inventory.FindItem(Self.UnfPotionItem, U);
+    //Inventory.FindItem(Self.UnfPotionItem, U);
     Inventory.FindItem(Self.KnifedLogItem, KL);
 
     for i := 0 to 27 do
@@ -383,11 +384,22 @@ end;
   Does the proggy report to the console window
 }
 procedure TBot.ReportConsole();
+var
+  WriteOut: String;
 begin
   if not Script.CanReportConsole() then
     exit();
 
-  // TODO complete
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
 end;
 
 {
@@ -428,9 +440,9 @@ end;
 {
   Eats food until good
 }
-procedure TBot.EatFood();
+function TBot.EatFood(Num: Int32 = -1): Boolean;
 var
-  HPPrec, i: Int32;
+  HPPrec, i, NumEaten: Int32;
   FoodSlots, Pattern: TIntegerArray;
   R: Extended;
   CountDown: TCountDown;
@@ -465,6 +477,10 @@ begin
   // eat
   for i in Pattern do
   begin
+    if (Num <> -1) and (NumEaten >= Num) then
+      break;
+    NumEaten += 1;
+
     // check if hp is good now
     if Minimap.GetHPPercent() >
       (Self.GoodHPPerc + Random(-Self.RandomGoodHPPerc, Self.RandomGoodHPPerc)) then
@@ -514,6 +530,8 @@ begin
     if not Eaten then
       break;
 
+    Result := True;
+
     Wait(1250 + Random(500));
   end;
 end;
@@ -525,7 +543,7 @@ procedure TBot.WaitForBossStart();
 begin
   Script.WriteMsg('Waitting for boss start...', True);
 
-  Self.GoToBrazier();
+  Self.GoToBrazier(True, False);
 
   if Self.GetWinterTodtEnergyPerc() = 0 then
   begin
@@ -564,6 +582,9 @@ begin
     Script.WriteMsg('No knife...', True);
     exit();
   end;
+
+  // its safe here
+  Self.GoToLogs(True, False);
 
   Script.WriteMsg('Fletching logs...', True);
   LogSlot := LogSlots[Random(0, High(LogSlots))];
@@ -665,7 +686,10 @@ begin
 
   Script.AntiBan.AfterBankAntiBan(20);
 
+  if Self.ShouldBank then
+    Self.Did += 1;
   Self.ShouldBank := False;
+  Script.WriteMsg('Banking... Completed wintertotd ' + IntToStr(Self.Did) + ' times');
 
   // query the items in our inventory
   Inventory.FindItems(Self.AxeItems, ToolSlots);
@@ -707,7 +731,7 @@ begin
   begin
     for Item in Self.FoodItems do
     begin
-      if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], BioRandomCoinflip()) then
+      if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], False) then
       begin
         HadFood := True;
         break;
@@ -730,59 +754,6 @@ begin
 
   Script.AntiBan.DoBreak();
   Script.AntiBan.DoSleep();
-end;
-
-{
-  Returns true when clicked the bank
-}
-function TBot.ClickBank(): Boolean;
-var
-  OurPos: TPoint;
-  TileRect: TRectangle;
-  B: TBox;
-  ATPA: T2DPointArray;
-begin
-  // bank might be already opened, lets return true
-  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
-    exit(True);
-
-  Script.WriteMsg('Going to click the bank....', True);
-
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 0);
-  B := TileRect.Bounds().Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
-
-  if not MainScreen.IsVisible(B.Middle()) then
-    exit();
-
-  ATPA := Self.FindBankColor(B);
-
-  if Length(ATPA) > 0 then
-    B := ATPA.Biggest().Bounds()
-  else
-    B := TileRect.Bounds();
-
-  // check uptext
-  Mouse.Move(B, True);
-
-  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT) then
-  begin
-    // rotate camera, try again
-    Self.SetCompass();
-    exit();
-  end;
-
-  // found uptext, clicking...
-  // open the bank
-  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
-    Result := ChooseOption.Select(Bank.FINDER_OPTION)
-  else
-  begin
-    Mouse.Click(MOUSE_LEFT);
-
-    Result := Mouse.DidClick(True);
-  end;
 end;
 
 {
@@ -832,39 +803,186 @@ begin
 end;
 
 {
-  Goes to the bank
+  Returns true if the bank is visible, B is the bounds of the fire on the screen
 }
-procedure TBot.GoToBank(Forced: Boolean = False);
+function TBot.FindBank(OurTile: TPoint; out B: TBox): Boolean;
 var
-  OurPos: TPoint;
   TileRect: TRectangle;
-  Walked: Boolean;
+  ATPA: T2DPointArray;
 begin
-  if Self.GetWinterTodtEnergyPerc() <> -1 then
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
     exit();
 
-  Script.WriteMsg('Going to bank...', True);
+  Result := True;
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 0);
+  B.LimitTo(MainScreen.Bounds());
 
-  // walk to the roots
-  if (OurPos.DistanceTo(Self.BankTile) >= 30) or
-    not MainScreen.IsVisible(TileRect.Mean()) or
-    Forced then
+  ATPA := Self.FindBankColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the bank, WasClicked true if clicked it
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    exit(True);
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  // find the bank
+  if not Self.FindBank(OurTile, B) then
   begin
+    Script.WriteMsg('ClickBank: Bank not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickBank: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+  begin
+    Script.WriteMsg('ClickBank: Bad uptext', True);
+    exit();
+  end;
+
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+
+    WasClicked := Mouse.DidClick(True);
+  end;
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickBank: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the bank
+}
+procedure WalkingToBank(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel, FlagMMPT, FlagPT, MMVel, VelOffset, ClickPos: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickBank(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the bank while moving, nice!');
+      Walker^.Enabled := False;
+    end
+    else if Minimap.FindFlag(FlagMMPT) then
+    begin
+      FlagPT := Walker^.MSToWorldEx(Position, Minimap.PointToMs(FlagMMPT));
+
+      // make sure that we dont stupidly misclick into the long path behind the bank
+      if ((FlagPT.X - 4) > Bot.BankTile.X) or ((FlagPT.Y - 4) > Bot.BankTile.Y) then
+      begin
+        MMVel := Script.WalkerVelToMMVel(Velocity);
+        ClickPos := Walker^.WorldToMM(Position, Bot.BankTile.Offset(Bot.BankTileWalkOffset),
+                          Minimap.GetCompassAngle(False));
+
+        VelOffset := Script.GetOffsetForVel(Box(ClickPos, 1, 1), MMVel);
+
+        Mouse.Click(ClickPos.Offset(VelOffset).Random(-2, 2, True), MOUSE_LEFT);
+      end;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking to bank
+end;
+
+{
+  Walks to the bank, return true if we clicked it early
+}
+function TBot.GoToBank(Force: Boolean = False): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to bank spot....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.BankTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to bank spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToBank;
     try
-      // SRL TODO until nodes exist for this area
-      // WebWalk
+      // WebWalk when nodes exist for this area, SRL TODO
       Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
-    begin   
-      Script.WriteMsg('Failed to walk to bank');
+    begin
+      Script.WriteMsg('Failed to go to bank!');
       exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked the bank
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
@@ -877,30 +995,16 @@ var
 begin
   Script.WriteMsg('Doing bank...', True);
 
-  if Random() > 0.6 then
-    Self.EatFood();
-
-  // try to click on the bank
-  Self.GoToBank();
-
-  // make sure we top off on hp before we bank
-  Self.EatFood();
-
-  ClickedBank := Self.ClickBank();
-  if not ClickedBank then
+  if (Self.ClickBank(ClickedBank) and ClickedBank)
+    or Self.GoToBank()
+    or (Self.ClickBank(ClickedBank) and ClickedBank)
+    or Self.GoToBank(True)
+    or (Self.ClickBank(ClickedBank) and ClickedBank) then
   begin
-    // walk to the bank, and then try to open it
-    Self.GoToBank(True);
-    ClickedBank := Self.ClickBank();
-  end;
-
-  // we clicked it, lets wait for it to open
-  if ClickedBank and Self.WaitBankOpen() then
-  begin
-    // it is now open! lets deposit
-    Self.DoBanking();
-
-    Self.GoToEntrance(True);
+    // SRL TODO  bank is open bugging when there is uptext, we do this to clear uptext
+    Mouse.Move(Minimap.Bounds());
+    if Self.WaitBankOpen() then
+      Self.DoBanking();
   end;
 end;
 
@@ -909,84 +1013,161 @@ end;
 //////////////////////////
 // BOSSDOOR FUNCS
 
+// ENTER
+
 {
-  Returns true when clicked the door
+  Returns true if the door is visible, B is the bounds of the door on the screen
 }
-function TBot.ClickEnterDoor(): Boolean;
+function TBot.FindEnterDoor(OurTile: TPoint; out B: TBox): Boolean;
 var
-  OurPos: TPoint;
   TileRect: TRectangle;
-  B: TBox;
   ATPA: T2DPointArray;
 begin
-  Script.WriteMsg('Going to click enter door....', True);
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile, 0);
-  B := TileRect.Bounds().Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
 
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
   ATPA := Self.FindEntraceColor(B);
 
-  if Length(ATPA) > 0 then
-    B := ATPA.Biggest().Bounds()
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
   else
-    B := TileRect.Bounds();
-
-  // check uptext
-  Mouse.Move(B, True);
-
-  if not MainScreen.IsUpText(Self.DoorUpText) then
-  begin
-    // rotate camera, try again
-    Self.SetCompass();
-    exit();
-  end;
-
-  // found uptext, clicking...
-  if Random() < 80 then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := True;
-  end
-  else
-    Result := ChooseOption.Select(Self.DoorUpText);
+    B := ATPA.Biggest().Bounds();
 end;
 
 {
-  Goes to the exit door
+  Returns true if found the bank, WasClicked true if clicked it
 }
-procedure TBot.GoToEntrance(Forced: Boolean = False);
+function TBot.ClickEnterDoor(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  OurPos: TPoint;
-  TileRect: TRectangle;
-  Walked: Boolean;
+  B: TBox;
 begin
-  Script.WriteMsg('Going inside boss area...', True);
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile, 0);
-
-  // walk to the roots
-  if (OurPos.DistanceTo(Self.EnterTile) >= 30) or
-    not MainScreen.IsVisible(TileRect.Mean()) or
-    Forced then
+  if not Self.FindEnterDoor(OurTile, B) then
   begin
+    Script.WriteMsg('ClickEnterDoor: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickEnterDoor: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.DoorUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.DoorUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickEnterDoor: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the enter door
+}
+procedure WalkingToEnterDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+
+    if Bot.ClickEnterDoor(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the enter door while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+end;
+
+{
+  Walks to the enter door, return true if we clicked it early
+}
+function TBot.GoToEntrance(Force: Boolean = False): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to enter door....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.EnterTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.EnterTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to enter door...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToEnterDoor;
     try
-      // SRL TODO until nodes exist for this area
-      // WebWalk
+      // WebWalk when nodes exist for this area, SRL TODO
       Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
-    begin           
-      Script.WriteMsg('Failed to walk to inside door');
+    begin
+      Script.WriteMsg('Failed to go to enter door!');
       exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
@@ -996,6 +1177,7 @@ end;
 procedure TBot.GoInsideBossArea();
 var
   CountDown: TCountDown;
+  WasClicked: Boolean;
 begin
   if Self.GetWinterTodtEnergyPerc() <> -1 then
   begin
@@ -1003,118 +1185,198 @@ begin
     exit();
   end;
 
-  Self.GoToEntrance();
-  if not Self.ClickEnterDoor() then
+  if (Self.ClickEnterDoor(WasClicked) and WasClicked) or
+    Self.GoToEntrance() or
+    (Self.ClickEnterDoor(WasClicked) and WasClicked) or
+    Self.GoToEntrance(True) or
+    (Self.ClickEnterDoor(WasClicked) and WasClicked) then
   begin
-    Self.GoToEntrance(True);
-    exit();
-  end;
+    Minimap.WaitFlag();
 
-  Minimap.WaitFlag();
+    // wait for the boss bar
+    CountDown.Init(5000);
+    while RSClient.IsLoggedIn() do
+    begin
+      if CountDown.IsFinished() then
+        break;
 
-  // wait for the boss bar
-  CountDown.Init(5000);
-  while RSClient.IsLoggedIn() do
-  begin
-    if CountDown.IsFinished() then
-      break;
+      if Self.GetWinterTodtEnergyPerc() <> -1 then
+        break;
 
-    if Self.GetWinterTodtEnergyPerc() <> -1 then
-      break;
-
-    Wait(Script.SleepRate);
+      Wait(Script.SleepRate);
+    end;
   end;
 end;
 
+// EXIT
+
 {
-  Returns true when clicked the door
+  Returns true if the door is visible, B is the bounds of the door on the screen
 }
-function TBot.ClickExitDoor(): Boolean;
+function TBot.FindExitDoor(OurTile: TPoint; out B: TBox): Boolean;
 var
-  OurPos: TPoint;
   TileRect: TRectangle;
-  B: TBox;
   ATPA: T2DPointArray;
 begin
-  Script.WriteMsg('Going to click exit door....', True);
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile, 0);
-  B := TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.ExitColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
 
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
   ATPA := Self.FindExitColor(B);
 
-  if Length(ATPA) > 0 then
-    B := ATPA.Biggest().Bounds()
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
   else
-    B := TileRect.Bounds();
-
-  // check uptext
-  Mouse.Move(B, True);
-
-  if not MainScreen.IsUpText(Self.DoorUpText) then
-  begin
-    // rotate camera, try again
-    Self.SetCompass();
-    exit();
-  end;
-
-  // found uptext, clicking...
-  if Random() < 80 then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := True;
-  end
-  else
-    Result := ChooseOption.Select(Self.DoorUpText);
+    B := ATPA.Biggest().Bounds();
 end;
 
 {
-  Goes to the exit door
+  Returns true if found the bank, WasClicked true if clicked it
 }
-procedure TBot.GoToExit(Forced: Boolean = False);
+function TBot.ClickExitDoor(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  OurPos: TPoint;
-  TileRect: TRectangle;
-  Walked: Boolean;
+  B: TBox;
 begin
-  Script.WriteMsg('Going outside boss area...', True);
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile, 0);
-
-  // walk to the roots
-  if (OurPos.DistanceTo(Self.ExitTile) >= 30) or
-    not MainScreen.IsVisible(TileRect.Mean()) or
-    Forced then
+  if not Self.FindExitDoor(OurTile, B) then
   begin
+    Script.WriteMsg('ClickExitDoor: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickExitDoor: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.DoorUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.DoorUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickExitDoor: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the door
+}
+procedure WalkingToExitDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    if Bot.GetWinterTodtEnergyPerc() = 0 then
+    begin
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+
+      if Bot.ClickExitDoor(WasClicked, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the exit door while moving, nice!');
+        Walker^.Enabled := False;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end;
+  end else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+end;
+
+{
+  Walks to the door, return true if we clicked it early
+}
+function TBot.GoToExit(Force: Boolean = False): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to exit door....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.ExitTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.ExitTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to enter door...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToExitDoor;
     try
-      // SRL TODO until nodes exist for this area
-      // WebWalk
+      // WebWalk when nodes exist for this area, SRL TODO
       Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
-    begin       
-      Script.WriteMsg('Failed to walk to outside door');
+    begin
+      Script.WriteMsg('Failed to go to exit door!');
       exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
 {
   Exits the arena
 }
-procedure TBot.GoOutsideBossArea();
+procedure TBot.GoOutsideBossArea(WaitForDeadBoss: Boolean = False);
 var
   CountDown: TCountDown;
   OurPos: TPoint;
+  WasClicked: Boolean;
 begin
   if Self.GetWinterTodtEnergyPerc() = -1 then
   begin
@@ -1122,32 +1384,37 @@ begin
     exit();
   end;
 
-  Self.GoToExit();
-  if not Self.ClickExitDoor() then
+  if WaitForDeadBoss then
   begin
-    Self.GoToExit(True);
-    exit();
+    // TODO
   end;
 
-  Minimap.WaitFlag();
-  if Self.GetWinterTodtEnergyPerc() > 0 then
+  if (Self.ClickExitDoor(WasClicked) and WasClicked) or
+    Self.GoToExit() or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) or
+    Self.GoToExit(True) or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) then
   begin
-    Chat.WaitOption(Self.ExitChatOption, 2000);
-    Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
-  end;
+    Minimap.WaitFlag();
+    if Self.GetWinterTodtEnergyPerc() > 0 then
+    begin
+      Chat.WaitOption(Self.ExitChatOption, 2000);
+      Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
+    end;
 
-  // wait to exit
-  CountDown.Init(5000);
-  OurPos := Self.RSW.GetMyPos();
-  while RSClient.IsLoggedIn() do
-  begin
-    if CountDown.IsFinished() then
-      break;
+    // wait to exit
+    CountDown.Init(5000);
+    OurPos := Self.RSW.GetMyPos();
+    while RSClient.IsLoggedIn() do
+    begin
+      if CountDown.IsFinished() then
+        break;
 
-    if Self.RSW.GetMyPos().DistanceTo(OurPos) > 16 then
-      break;
+      if Self.RSW.GetMyPos().DistanceTo(OurPos) > 16 then
+        break;
 
-    Wait(Script.SleepRate);
+      Wait(Script.SleepRate);
+    end;
   end;
 end;
 
@@ -1157,87 +1424,56 @@ end;
 // BRAZIER FUNCS
 
 {
-  Returns true if it found a lit brazier
+  Returns true if the brazier is visible
 }
-function TBot.FindLitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
+function TBot.FindBrazier(OurTile: TPoint; out IsLit: Boolean; out B: TBox): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
-  B: TBox;
 begin
   TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
   B := TileRect.Bounds().Expand(
     Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
+
+  Result := True;
+  B.LimitTo(MainScreen.Bounds());
 
   ATPA := Self.FindLitBrazierColor(B);
-
-  TPA := ATPA.Biggest();
-  Result := Length(TPA) > Self.LitBrazColor.FilterSize;
-end;
-
-{
-  Returns true if it found a unlit brazier
-}
-function TBot.FindUnlitBrazier(OurTile: TPoint; out TPA: TPointArray): Boolean;
-var
-  TileRect: TRectangle;
-  ATPA: T2DPointArray;
-  B: TBox;
-begin
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
-  B := TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
-
-  if not MainScreen.IsVisible(B.Middle()) then
+  if Length(ATPA) > 0 then
+  begin
+    B := ATPA.Biggest().Bounds();
+    IsLit := True;
     exit();
+  end;
 
   ATPA := Self.FindUnlitBrazierColor(B);
 
-  TPA := ATPA.Biggest();
-  Result := Length(TPA) > Self.UnlitBrazColor.FilterSize;
-end;
-
-{
-  Fixes/Lights the unlit brazier
-}
-procedure TBot.FixUnlitBrazier();
-begin
-  if Random() < 90 then
-    Mouse.Click(MOUSE_LEFT)
+  if Length(ATPA) > 0 then
+    B := ATPA.Biggest().Bounds()
   else
-    ChooseOption.Select(Self.FixBrazUpText.Combine(Self.LightBrazUpText));
-
-  Minimap.WaitFlag();
-  Wait(2500, 3000);
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5));
 end;
 
 {
-  Offers stuff to it
+  While offering to the brazier
 }
-procedure TBot.OfferLitBrazier();
+procedure TBot.WhileOffering();
 var
   OurHPPerc, HPP, ICount, IC: Int32;
   CountDown: TCountDown;
   FireItemSlots: TIntegerArray;
-  _: TPointArray;
+  _: TBox;
+  IsLit: Boolean;
 begin
-  if Random() < 90 then
-    Mouse.Click(MOUSE_LEFT)
-  else
-    ChooseOption.Select(Self.FeedBrazUpText);
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked brazier', True);
 
   OurHPPerc := Minimap.GetHPPercent();
   Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
   ICount := Length(FireItemSlots);
-
-  Self.AfterActionAntiBan(True);
-
-  Minimap.WaitFlag();
 
   CountDown.Init(Self.BurnWaitTime);
   while RSClient.IsLoggedIn() do
@@ -1277,7 +1513,7 @@ begin
     end;
 
     // check if still fired
-    if not Self.FindLitBrazier(Self.RSW.GetMyPos(), _) then
+    if not Self.FindBrazier(Self.RSW.GetMyPos(), IsLit, _) or not IsLit then
     begin
       Script.WriteMsg('OfferLitBrazier: No lit color found', True);
       break;
@@ -1300,36 +1536,149 @@ begin
 end;
 
 {
-  Goes to the logs
+  Fixes/Lights the unlit brazier
 }
-procedure TBot.GoToBrazier(Forced: Boolean = False);
-var
-  OurPos: TPoint;
-  TileRect: TRectangle;
-  Walked: Boolean;
+procedure TBot.WhileUnlitBrazier();
 begin
-  Script.WriteMsg('Going to brazier...', True);
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked brazier', True);
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile, 0);
+  // TODO make better
+  // TODO check pyro
+  Wait(2500, 3000);
+end;
 
-  // walk to the roots
-  if (OurPos.DistanceTo(Self.BrazierTile) >= 30) or
-    not MainScreen.IsVisible(TileRect.Mean()) or
-    Forced then
+{
+  Returns true if found the brazier, WasClicked true if clicked it
+}
+function TBot.ClickBrazier(out WasClicked: Boolean; out IsLit: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+  UpTexts: TStringArray;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  if not Self.FindBrazier(OurTile, IsLit, B) then
   begin
+    Script.WriteMsg('ClickBrazier: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickBrazier: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+  UpTexts := Copy(Self.FixBrazUpText);
+  UpTexts := UpTexts.Combine(Self.LightBrazUpText);
+  UpTexts := UpTexts.Combine(Self.FeedBrazUpText);
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := UpTexts;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(UpTexts, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(UpTexts);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickBrazier: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the braz
+}
+procedure WalkingToBrazier(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked, IsLit: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+
+    if Bot.ClickBrazier(WasClicked, IsLit, Position, MSVel) and WasClicked then
+    begin
+      Bot.BrazIsLit := IsLit;
+      Script.WriteMsg('Clicked the brazier while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+end;
+
+{
+  Walks to the door, return true if we clicked it early
+}
+function TBot.GoToBrazier(Force: Boolean = False; DoClick: Boolean = True): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to brazier....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.BrazierTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to brazier...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    if DoClick then
+      Self.RSW.OnWalkingEvent := @WalkingToBrazier;
     try
-      // SRL TODO until nodes exist for this area
-      // WebWalk
+      // WebWalk when nodes exist for this area, SRL TODO
       Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-6, 6, True), 0);
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
-    begin           
-      Script.WriteMsg('Failed to walk to brazier');
+    begin
+      Script.WriteMsg('Failed to go to brazier!');
       exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
@@ -1338,41 +1687,27 @@ end;
 }
 procedure TBot.OfferStuffToBrazier();
 var
-  OurPos: TPoint;
-  TPA, TPA2, TPA3: TPointArray;
-  B: TBox;
-  TileRect: TRectangle;
+  DidClick, IsLit: Boolean;
 begin
   Script.WriteMsg('Offering to the brazier...', True);
 
-  Self.GoToBrazier();
-
-  // TODO check pyro, heal if needed
-
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile, 0);
-
-  Self.FindUnlitBrazier(OurPos, TPA);
-  Self.FindLitBrazier(OurPos, TPA2);
-  TPA3 := TPA.Combine(TPA2);
-
-  // check uptext for what it is
-  if Length(TPA3) > 0 then
+  if (Self.ClickBrazier(DidClick, IsLit) and DidClick) or
+    Self.GoToBrazier() or
+    (Self.ClickBrazier(DidClick, IsLit) and DidClick) or
+    Self.GoToBrazier(True) or
+    (Self.ClickBrazier(DidClick, IsLit) and DidClick) then
   begin
-    B := TPA3.Bounds();
-    B.LimitTo(TileRect.Bounds());
-  end
-  else
-    B := TileRect.Bounds();
+    if DidClick then
+      Self.BrazIsLit := IsLit;
 
-  Mouse.Move(B, True);
-
-  if MainScreen.IsUpText(Self.FixBrazUpText.Combine(Self.LightBrazUpText)) then
-    Self.FixUnlitBrazier()
-  else if MainScreen.IsUpText(Self.FeedBrazUpText) then
-    Self.OfferLitBrazier()
-  else
-    Self.GoToBrazier(True);
+    if Self.BrazIsLit then
+    begin
+      Self.AfterActionAntiBan(True);
+      Self.WhileOffering();
+    end
+    else
+      Self.WhileUnlitBrazier();
+  end;
 end;
 
 //////////////////////////
@@ -1381,159 +1716,233 @@ end;
 // ROOTS FUNCS
 
 {
-  Returns true if we clicked the roots
+  While we chop
 }
-function TBot.ClickRoots(): Boolean;
-var
-  OurPos: TPoint;
-  TileRect: TRectangle;
-  B: TBox;
-  ATPA: T2DPointArray;
-begin
-  Script.WriteMsg('Going to click roots....', True);
-
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile, 0);
-  B := TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.RootsColor.RadiusExpand));
-  B.LimitTo(MainScreen.Bounds());
-
-  if not MainScreen.IsVisible(B.Middle()) then
-    exit();
-
-  ATPA := Self.FindRootsColor(B);
-
-  if Length(ATPA) > 0 then
-  begin
-    B := ATPA.Biggest().Bounds();
-    B.LimitTo(TileRect.Bounds());
-  end
-  else
-    B := TileRect.Bounds();
-
-  // check uptext
-  Mouse.Move(B, True);
-
-  if not MainScreen.IsUpText(Self.ChopRootUpText) then
-  begin
-    // rotate camera, try again
-    Self.SetCompass();
-    exit();
-  end;
-
-  // found uptext, clicking...
-  if Random() < 80 then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := True;
-  end
-  else
-    Result := ChooseOption.Select(Self.ChopRootUpText);
-end;
-
-{
-  Returns true if we clicked the roots
-}
-function TBot.ChopLogs(): Boolean;
+procedure TBot.WhileChopping();
 var
   InvCount, IC: Int32;
   CountDown: TCountDown;
 begin
-  if Self.ClickRoots() then
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked tree', True);
+
+  InvCount := Inventory.Count();
+  CountDown.Init(Self.ChopWaitTime);
+
+  while RSClient.IsLoggedIn() do
   begin
-    Script.WriteMsg('Clicked roots, waiting for finish', True);
-    Self.AfterActionAntiBan(True);
-    Result := True;
-
-    InvCount := Inventory.Count();
-    CountDown.Init(Self.ChopWaitTime);
-
-    while RSClient.IsLoggedIn() do
+    // check if we should end early and offer it now cause boss is gunna die!
+    if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
     begin
-      // check if we should end early and offer it now cause boss is gunna die!
-      if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
-      begin
-        Script.WriteMsg('ChopLogs: Low boss hp!!', True);
-        break;
-      end;
-
-      IC := Inventory.Count();
-      // inv is full!
-      if IC >= 28 then
-      begin
-        Script.WriteMsg('ChopLogs: InvFull!', True);
-        break;
-      end;
-
-      if IC <> InvCount then
-      begin
-        Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
-        CountDown.Restart();
-      end;
-
-      InvCount := IC;
-
-      if CountDown.IsFinished() then
-      begin
-        Script.WriteMsg('ChopLogs: CountDown expired...', True);
-        break;
-      end;
-
-      // check levelup
-      if Chat.LeveledUp() then
-      begin
-        Script.WriteMsg('ChopLogs: Leveld', True);
-        if Random() < 0.2 then
-        begin
-          Wait(0, 1500);
-          Chat.ChatToOption('doesnt matter');
-        end
-        else
-          break;
-      end;
-
-      if Minimap.GetHPPercent() < (Self.EatHpPerc - Self.RandomEatHpPerc) then
-      begin
-        Script.WriteMsg('ChopLogs: Low hp!', True);
-        break;
-      end;
-
-      Self.DoMainLoopStuff('Chopping logs...', True);
+      Script.WriteMsg('ChopLogs: Low boss hp!!', True);
+      break;
     end;
+
+    IC := Inventory.Count();
+    // inv is full!
+    if IC >= 28 then
+    begin
+      Script.WriteMsg('ChopLogs: InvFull!', True);
+      break;
+    end;
+
+    if IC <> InvCount then
+    begin
+      Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
+      CountDown.Restart();
+    end;
+
+    InvCount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('ChopLogs: CountDown expired...', True);
+      break;
+    end;
+
+    // check levelup
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('ChopLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500);
+        Chat.ChatToOption('doesnt matter');
+      end
+      else
+        break;
+    end;
+
+    if Minimap.GetHPPercent() < (Self.EatHpPerc - Self.RandomEatHpPerc) then
+    begin
+      Script.WriteMsg('ChopLogs: Low hp!', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Chopping logs...', True);
   end;
 end;
 
 {
-  Goes to the logs
+  Returns true if the roots is visible, B is the bounds of the door on the screen
 }
-procedure TBot.GoToLogs(Forced: Boolean = False);
+function TBot.FindRoots(OurTile: TPoint; out B: TBox): Boolean;
 var
-  OurPos: TPoint;
   TileRect: TRectangle;
-  Walked: Boolean;
+  ATPA: T2DPointArray;
 begin
-  Script.WriteMsg('Going to logs...', True);
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
 
-  OurPos := Self.RSW.GetMyPos();
-  TileRect := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile, 0);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
 
-  // walk to the roots
-  if (OurPos.DistanceTo(Self.RootsTile) >= 30) or
-    not MainScreen.IsVisible(TileRect.Mean()) or
-    Forced then
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindRootsColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the roots, WasClicked true if clicked it
+}
+function TBot.ClickRoots(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  if not Self.FindRoots(OurTile, B) then
   begin
+    Script.WriteMsg('ClickRoots: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickRoots: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.ChopRootUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  if MainScreen.IsUpText(Self.ChopRootUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.ChopRootUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickRoots: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the roots
+}
+procedure WalkingToLogs(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+  B: TBox;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    if Position.DistanceTo(Destination) < 4 then
+    begin
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+
+      if Bot.ClickRoots(WasClicked, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the roots while moving, nice!');
+        Walker^.Enabled := False;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end
+    else if Bot.FindRoots(Position, B) and not MainScreen.Bounds().Contains(Mouse.Position()) then
+      Mouse.Move(B);
+  end else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+end;
+
+{
+  Walks to the roots, return true if we clicked it early
+}
+function TBot.GoToLogs(Force: Boolean = False; DoClick: Boolean = True): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to roots....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.RootsTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.RootsTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to roots...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    if DoClick then
+      Self.RSW.OnWalkingEvent := @WalkingToLogs;
     try
-      // SRL TODO until nodes exist for this area
-      // WebWalk
+      // WebWalk when nodes exist for this area, SRL TODO
       Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-3, 3, True), 0);
     except
     end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
-    begin         
-      Script.WriteMsg('Failed to walk to roots');
+    begin
+      Script.WriteMsg('Failed to go to roots!');
       exit();
     end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
   end;
 end;
 
@@ -1541,12 +1950,20 @@ end;
   Gathers logs
 }
 procedure TBot.GatherLogs();
+var
+  WasClicked: Boolean;
 begin
   Script.WriteMsg('Gathering logs....', True);
 
-  Self.GoToLogs();
-  if not Self.ChopLogs() then
-    Self.GoToLogs(True);
+  if {(Self.ClickRoots(WasClicked) and WasClicked) or
+    Self.GoToLogs() or
+    (Self.ClickRoots(WasClicked) and WasClicked) or} // its safer in this location
+    Self.GoToLogs(True) or
+    (Self.ClickRoots(WasClicked) and WasClicked) then
+  begin
+    Self.AfterActionAntiBan(True);
+    Self.WhileChopping();
+  end;
 end;
 
 ////////////////////////////
@@ -1603,9 +2020,6 @@ begin
         Inventory.FindItem(Self.KnifeItem) and
         ((TheirHpPerc - 5) >= Self.GetAmountToOffer(False)) then
       begin
-        if Random() > 0.5 then
-          Self.GoToBrazier();
-
         Self.FletchLogs();
         exit();
       end;
@@ -1621,7 +2035,7 @@ begin
       if TheirHpPerc > 5 then
         Self.GatherLogs()
       else
-        Self.GoToExit();
+        Self.GoOutsideBossArea(True);
     end
     else
     begin
@@ -1848,7 +2262,7 @@ begin
     RSObject.Colors += CTS2(3158056, 11, 0.14, 0.63);
     RSObject.ClusterDistance := 3;
     FilterSize := 50;
-    RadiusExpand := 1.5;
+    RadiusExpand := 0.1;
   end;
 
   with Self.InsideRootsColor do
@@ -1873,7 +2287,6 @@ begin
     RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
     RSObject.ClusterDistance := 10;
     FilterSize := 150;
-    RadiusExpand := 1;
   end;
 
   // do login init stuff

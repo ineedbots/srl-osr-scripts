@@ -1312,9 +1312,27 @@ begin
 end;
 
 {
+  Converts Walker velocity to MM velocity
+}
+function TScript.WalkerVelToMMVel(Vel: TDoubleArray): TPoint;
+begin
+  Result := Point(Round(Vel[0]), Round(Vel[1]));
+
+  // fix the abs
+  if Vel[0] > 0 then
+    Result.X := -Result.X;
+
+  if Vel[1] > 0 then
+    Result.Y := -Result.Y;
+
+  // rotate it according to compass
+  Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+end;
+
+{
   Returns a predicted offset vector from where the box will be when the mouse finally arrives to it
 }
-function TScript.GetOffsetForMSVel(TarBox: TBox; MSVelocity: TPoint): TPoint;
+function TScript.GetOffsetForVel(TarBox: TBox; Velocity: TPoint): TPoint;
 var
   Dist, TimeForMouse: Double;
 begin
@@ -1327,8 +1345,8 @@ begin
 
   // now apply the velocity and the time to the result
   Result := Point(
-    Round(MSVelocity.X * TimeForMouse),
-    Round(MSVelocity.Y * TimeForMouse)
+    Round(Velocity.X * TimeForMouse),
+    Round(Velocity.Y * TimeForMouse)
   );
 end;
 

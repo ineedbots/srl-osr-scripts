@@ -304,7 +304,7 @@ begin
   // now apply velocity and check uptext
   if Velocity <> Point(0, 0) then
   begin
-    B := B.Offset(Script.GetOffsetForMSVel(B, Velocity));
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
 
     if not MainScreen.IsVisible(B.Middle()) then
     begin
