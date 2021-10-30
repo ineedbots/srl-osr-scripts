@@ -1308,7 +1308,7 @@ begin
     Result.Y := -Result.Y;
 
   // rotate it according to compass
-  Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+  Result := Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
 end;
 
 {
@@ -1326,7 +1326,7 @@ begin
     Result.Y := -Result.Y;
 
   // rotate it according to compass
-  Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+  Result := Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
 end;
 
 {
