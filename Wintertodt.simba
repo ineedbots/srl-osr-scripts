@@ -48,10 +48,10 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ExitChatOption                                            : String;
-    ShouldBank, Specing, BrazIsLit                            : Boolean;
+    ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss        : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
-      RandomGoodHPPerc, Did                                   : Int32;
+      RandomGoodHPPerc, Did, UnlitWaitTime                    : Int32;
     FoodItems, AxeItems                                       : TRSItemArray;
     LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
       HerbItem, UnfPotionItem, PotionItem                     : TRSItem;
@@ -540,6 +540,9 @@ end;
   Waits for the boss to start
 }
 procedure TBot.WaitForBossStart();
+var
+  TimeLeftText: String;
+  DidClick, WasLit: Boolean;
 begin
   Script.WriteMsg('Waitting for boss start...', True);
 
@@ -549,16 +552,20 @@ begin
   begin
     while RSClient.IsLoggedIn() do
     begin
+      TimeLeftText := Self.GetWinterTodtRemainingTime();
       if (Self.GetWinterTodtEnergyPerc() > 0) or
-        Self.GetWinterTodtRemainingTime().EndsWith('0:00') then
+        TimeLeftText.EndsWith('0:00') then
         break;
 
-      Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
+      if TimeLeftText.EndsWith('0:01') or TimeLeftText.EndsWith('0:02') or
+        TimeLeftText.EndsWith('0:03') then
+        Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
 
       Self.DoMainLoopStuff('Waiting for boss to start', False);
     end;
 
-    Self.OfferStuffToBrazier();
+    if Self.ClickBrazier(DidClick, WasLit) and DidClick then
+      Self.WhileUnlitBrazier();
   end;
 end;
 
@@ -1309,7 +1316,7 @@ begin
   // if this is the last node in the path
   if Destination = Walker^.Path[High(Walker^.Path)] then
   begin
-    if Bot.GetWinterTodtEnergyPerc() = 0 then
+    if not Bot.WaitingForDeadBoss or (Bot.GetWinterTodtEnergyPerc() = 0) then
     begin
       // make the mouse fast, because we are moving, its harder to keep up with objs
       S := Mouse.Speed;
@@ -1386,10 +1393,16 @@ begin
 
   if WaitForDeadBoss then
   begin
-    // TODO
+    Self.WaitingForDeadBoss := True;
+    WasClicked := Self.GoToExit();
+    Self.WaitingForDeadBoss := False;
+
+    while RSClient.IsLoggedIn() and (Self.GetWinterTodtEnergyPerc() <> 0) do
+      Self.DoMainLoopStuff('Waiting for boss to die', True);
   end;
 
-  if (Self.ClickExitDoor(WasClicked) and WasClicked) or
+  if WasClicked or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) or
     Self.GoToExit() or
     (Self.ClickExitDoor(WasClicked) and WasClicked) or
     Self.GoToExit(True) or
@@ -1439,6 +1452,7 @@ begin
     exit();
 
   Result := True;
+  IsLit := False;
   B.LimitTo(MainScreen.Bounds());
 
   ATPA := Self.FindLitBrazierColor(B);
@@ -1468,8 +1482,11 @@ var
   _: TBox;
   IsLit: Boolean;
 begin
+  Script.WriteMsg('OfferLitBrazier: Walking to clicked braz', True);
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
     Self.DoMainLoopStuff('Going to clicked brazier', True);
+
+  Script.WriteMsg('OfferLitBrazier: Watching for item changes', True);
 
   OurHPPerc := Minimap.GetHPPercent();
   Inventory.FindItems([Self.LogItem, Self.KnifedLogItem], FireItemSlots);
@@ -1539,13 +1556,43 @@ end;
   Fixes/Lights the unlit brazier
 }
 procedure TBot.WhileUnlitBrazier();
+var
+  IsLit: Boolean;
+  _: TBox;
+  CountDown: TCountDown;
+  LastXP: Int32;
 begin
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
-    Self.DoMainLoopStuff('Going to clicked brazier', True);
+    Self.DoMainLoopStuff('Going to clicked brazier', False);
 
-  // TODO make better
   // TODO check pyro
-  Wait(2500, 3000);
+  LastXP := XPBar.ReadXPBar();
+  if LastXP = -1 then
+  begin
+    Wait(2500, 3000);
+    exit();
+  end;
+
+  CountDown.Init(Self.UnlitWaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if not Self.FindBrazier(Self.RSW.GetMyPos(), IsLit, _) then
+      break;
+
+    if IsLit then
+      break;
+
+    if LastXP <> XPBar.ReadXPBar() then
+    begin
+      Wait(0, 0);
+      break;
+    end;
+
+    if CountDown.IsFinished() then
+      break;
+
+    Self.DoMainLoopStuff('Wait for xp change', False);
+  end;
 end;
 
 {
@@ -2190,6 +2237,7 @@ begin
   Self.ChopWaitTime := 3000;
   Self.BurnWaitTime := 3000;
   Self.FletchWaitTime := 3000;
+  Self.UnlitWaitTime := 2000;
   Self.NumFood := _NUMFOOD;
 
   Self.BankTile := Point(1956, 683);
