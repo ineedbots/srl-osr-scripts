@@ -78,7 +78,7 @@ begin
   // check we we leveled up
   if Chat.LeveledUp() then
   begin
-    Wait(0, 2500);
+    Wait(0, 2500, wdLeft);
     while Chat.ClickContinue() do
       Wait(75, 500);
   end;
@@ -473,7 +473,7 @@ begin
   end;
 
   Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
-  Wait(0, 1500);
+  Wait(0, 1500, wdLeft);
   if Self.ClickFire(WasClicked, OurTile) then
     Result := WasClicked;
 end;
@@ -608,7 +608,7 @@ begin
     exit();
   end;
 
-  Wait(0, 1000);
+  Wait(0, 1000, wdLeft);
 
   Result := Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
 end;

@@ -139,7 +139,7 @@ begin
   // check we we leveled up
   if Chat.LeveledUp() then
   begin
-    Wait(0, 2500);
+    Wait(0, 2500, wdLeft);
     while Chat.ClickContinue() do
       Wait(75, 500);
   end;
@@ -1247,7 +1247,7 @@ begin
       begin
         // we need to select this slot then
         Inventory.SetSelectedSlot(CurHoveredItem);
-        Wait(0, 1000);
+        Wait(0, 1000, wdLeft);
         
         // start the fire now!
         Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
@@ -1263,7 +1263,7 @@ begin
       begin
         // we need to select this slot then...
         Inventory.SetSelectedSlot(TinderBoxSlot);
-        Wait(0, 1000);
+        Wait(0, 1000, wdLeft);
         
         // start the fire
         Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
@@ -1282,13 +1282,13 @@ begin
         if Random() > 0.5 then
         begin
           Inventory.SetSelectedSlot(i);
-          Wait(0, 1000);
+          Wait(0, 1000, wdLeft);
           Mouse.Click(Inventory.GetSlotBox(TinderBoxSlot), MOUSE_LEFT);
         end
         else
         begin
           Inventory.SetSelectedSlot(TinderBoxSlot);
-          Wait(0, 1000);
+          Wait(0, 1000, wdLeft);
           Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
         end;
       end;
@@ -1309,14 +1309,14 @@ begin
       begin
         // select tinder, hover next log
         Inventory.SetSelectedSlot(TinderBoxSlot);
-        Wait(0, 1000);
+        Wait(0, 1000, wdLeft);
         Mouse.Move(Inventory.GetSlotBox(NextLog));
       end
       else
       begin
         // select nextlog, hover tinder
         Inventory.SetSelectedSlot(NextLog);
-        Wait(0, 1000);
+        Wait(0, 1000, wdLeft);
         Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
       end;
     end;

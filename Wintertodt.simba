@@ -604,13 +604,13 @@ begin
   if Random() < 0.5 then
   begin
     Inventory.SetSelectedSlot(LogSlot);
-    Wait(0, 1000);
+    Wait(0, 1000, wdLeft);
     Inventory.ClickSlot(KnifeSlot);
   end
   else
   begin
     Inventory.SetSelectedSlot(KnifeSlot);
-    Wait(0, 1000);
+    Wait(0, 1000, wdLeft);
     Inventory.ClickSlot(LogSlot);
   end;
 
@@ -661,7 +661,7 @@ begin
       Script.WriteMsg('FletchLogs: Leveld', True);
       if Random() < 0.2 then
       begin
-        Wait(0, 1500);
+        Wait(0, 1500, wdLeft);
         Chat.ChatToOption('doesnt matter');
       end;
       break;
@@ -1545,7 +1545,7 @@ begin
       Script.WriteMsg('OfferLitBrazier: Leveld', True);
       if Random() < 0.2 then
       begin
-        Wait(0, 1500);
+        Wait(0, 1500, wdLeft);
         Chat.ChatToOption('doesnt matter');
       end;
       break;
@@ -1816,7 +1816,7 @@ begin
       Script.WriteMsg('ChopLogs: Leveld', True);
       if Random() < 0.2 then
       begin
-        Wait(0, 1500);
+        Wait(0, 1500, wdLeft);
         Chat.ChatToOption('doesnt matter');
       end
       else
