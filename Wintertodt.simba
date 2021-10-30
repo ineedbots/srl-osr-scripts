@@ -22,13 +22,13 @@ const
   TAKEBREAKS     = True;  // Take breaks?
 
   // use the eastside?
-  USEEASTSIDE    = False;
+  USEEASTSIDE    = True;
 
   // Use special attack?
   USESPEC        = False;
 
   // Food items to use
-  _FOODITEMS     = ['Salmon'];
+  _FOODITEMS     = ['Wine'];
   _EATHPPERC     = 55; // Percentage when to start eating food
   _NUMFOOD       = 5; // Number of foods to withdraw
 
@@ -558,10 +558,13 @@ begin
         break;
 
       if TimeLeftText.EndsWith('0:01') or TimeLeftText.EndsWith('0:02') or
-        TimeLeftText.EndsWith('0:03') then
+        TimeLeftText.EndsWith('0:03') or TimeLeftText.EndsWith('0:04') then
+      begin
         Mouse.Move(Self.RSW.GetTileMS(Self.BrazierTile).Bounds());
-
-      Self.DoMainLoopStuff('Waiting for boss to start', False);
+        Self.DoMainLoopStuff('Waiting for boss to start', False);
+      end
+      else
+        Self.DoMainLoopStuff('Waiting for boss to start', True);
     end;
 
     if Self.ClickBrazier(DidClick, WasLit) and DidClick then
@@ -2241,7 +2244,7 @@ begin
   Self.NumFood := _NUMFOOD;
 
   Self.BankTile := Point(1956, 683);
-  Self.BankTileWalkOffset := Point(-9, -5);
+  Self.BankTileWalkOffset := Point(-4, 0);
   Self.ExitTile := Point(1910, 592);
   Self.EnterTile := Point(1910, 600);
 
@@ -2275,7 +2278,7 @@ begin
     Self.PyromancerTile := Point(1864, 462);
     Self.RootsTile := Point(1873, 505);
     Self.CameraAngle := 90;
-    Self.BrazierTileWalkOffset := Point(0, 8);
+    Self.BrazierTileWalkOffset := Point(0, 10);
     Self.RootsTileWalkOffset := Point(5, 2);
   end;
 
