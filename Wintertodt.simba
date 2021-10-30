@@ -28,7 +28,7 @@ const
   USESPEC        = False;
 
   // Food items to use
-  _FOODITEMS     = ['Wine'];
+  _FOODITEMS     = ['Jug of wine'];
   _EATHPPERC     = 55; // Percentage when to start eating food
   _NUMFOOD       = 5; // Number of foods to withdraw
 
