@@ -1948,7 +1948,7 @@ begin
       Mouse.Speed := S;
     end
     else if Bot.FindRoots(Position, B) and not MainScreen.Bounds().Contains(Mouse.Position()) then
-      Mouse.Move(B);
+      Mouse.Move(MainScreen.GetPlayerBox());
   end else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
 end;
