@@ -35,13 +35,7 @@ const
   TAKEBREAKS     = True;  // Take breaks?
 
   // use bank?
-  BANKLOGS        = False;
-
-  // fletch the logs?
-  FLETCHLOGS      = False;
-
-  // fire make the logs?
-  FIRELOGS        = False;
+  BANKLOGS        = True;
   
   // Account details
   _USERNAME       = '';
@@ -56,22 +50,21 @@ const
   
 type
   TBot = record
-    WalkedTreeForward, Specing, ShiftDropping, Fletching,
-      Banking, Firemaking                                     : Boolean;
+    WalkedTreeForward, Specing, ShiftDropping, Banking        : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime               : Int32;
     RSW                                                       : TRSWalker;
     TinderItem, KnifeItem                                     : TRSItem;
     LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;
-    TreeOptions, NoLightText                                  : TStringArray;
+    TreeOptions, NoLightText, NestUpText, BirdNestText        : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
     TreeWalkTile, BankWalkTile, CurrentChoppingTreeTile       : TPoint;
     FireStartTiles: array of record
       Tile                                                    : TPoint;
       NumFires                                                : Int32;
     end;
-    BankColor, TreeColor, FireColor                           : TScriptColor;
+    BankColor, TreeColor, FireColor, BirdNestColor            : TScriptColor;
   end;
   
 var
@@ -84,6 +77,7 @@ procedure TBot.DoSkillHover();
 begin
   case Random() of
     0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, random(1700, 3200), True);
     else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
   end;
 end;
@@ -127,6 +121,8 @@ end;
   Does general checks and does antiban.
 }
 function TBot.DoAntiBan(): Boolean;
+var
+  B: TBox;
 begin
   Script.DoGeneralChecks();
     
@@ -153,8 +149,15 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
-  // TODO check birdnests
   // TODO check cluescroll
+  if Self.FoundBirdsNest(B) and Chat.FindMessage(Self.BirdNestText, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]) then
+  begin
+    if Inventory.IsFull() then
+      Self.DropAThing();
+    Script.WriteMsg('Picking up bird nest');
+    if Self.ClickBirdsNest(B) then
+      Minimap.WaitFlag();
+  end;
     
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -199,12 +202,22 @@ begin
 end;
 
 {
+  Returns all bird's nest
+}
+function TBot.FindBirdNestColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BirdNestColor.RSObject, Area);
+  Result.FilterSize(Self.BirdNestColor.FilterSize, __GT__);
+end;
+
+{
   Debug draws the stuff
 }
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  TreeTile, OurTile, BankTile, FireTile: TPoint;
+  TPA: TPointArray;
+  TreeTile, OurTile, BankTile, FireTile, TP: TPoint;
   TileRect: TRectangle;
   i: Int32;
   CompAng: Double;
@@ -256,6 +269,19 @@ begin
     RSClient.Image.DrawRect(TileRect, clGreen);
   end;
 
+  TPA := Minimap.GetDots(ERSMinimapDot.ITEM);
+  if SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0 then
+    TPA += Minimap.Center();
+  for TP in TPA do
+  begin
+    TileRect := Minimap.PointToMsRect(TP, CompAng);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BirdNestColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clRed);
+
+    ATPA := Self.FindBirdNestColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  end;
+
   Text := 'Pos: ' + ToStr(OurTile);
   RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
@@ -303,8 +329,8 @@ begin
     exit();
   
   WriteOut += 'Banking: ' + ToStr(Self.Banking) + NL;
-  WriteOut += 'Firemaking: ' + ToStr(Self.Firemaking) + NL;
-  WriteOut += 'Fletching: ' + ToStr(Self.Fletching) + NL;
+  WriteOut += 'Firemaking: ' + ToStr(Inventory.FindItem(Self.TinderItem)) + NL;
+  WriteOut += 'Fletching: ' + ToStr(Inventory.FindItem(Self.KnifeItem)) + NL;
   WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
   WriteOut += 'Status: ' + Script.Status + NL;
   WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
@@ -337,6 +363,77 @@ end;
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT LOGIC
+
+{
+  Drops an item
+}
+procedure TBot.DropAThing();
+var
+  Dropable: TIntegerArray;
+begin
+  Inventory.FindItems(Self.LogItems, Dropable);
+  Inventory.FindItems(Self.KnifedLogItems, Dropable);
+
+  Inventory.HoverSlot(Dropable[Random(0, High(Dropable))]);
+  ChooseOption.Select('Drop');
+end;
+
+{
+  Returns true if found a birdsnest on the screen
+}
+function TBot.FoundBirdsNest(out B: TBox): Boolean;
+var
+  ATPA: T2DPointArray;
+  TPA, Dots: TPointArray;
+  CompAng: Single;
+  TP: TPoint;
+  TileRect: TRectangle;
+begin
+  Dots := Minimap.GetDots(ERSMinimapDot.ITEM);
+  if SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0 then
+    Dots += Minimap.Center();
+  if Length(Dots) <= 0 then
+    exit();
+
+  CompAng := Minimap.GetCompassAngle(False);
+
+  for TP in Dots do
+  begin
+    TileRect := Minimap.PointToMsRect(TP, CompAng);
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BirdNestColor.RadiusExpand)).Bounds();
+
+    if not MainScreen.IsVisible(B.Middle()) then
+      continue;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    ATPA := Self.FindBirdNestColor(B);
+    TPA := ATPA.Biggest();
+
+    if TPA.Len() < Self.BirdNestColor.FilterSize then
+      continue;
+
+    B := TPA.Bounds();
+    Result := True;
+  end;
+end;
+
+{
+  Returns true if picked up the nest
+}
+function TBot.ClickBirdsNest(B: TBox): Boolean;
+begin
+  Mouse.Move(B);
+
+  if MainScreen.IsUpText(Self.NestUpText) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    Result := ChooseOption.Select(Self.NestUpText);
+end;
 
 ////////////////
 // CHOP FUNCS
@@ -952,7 +1049,7 @@ begin
     Script.SetStatus('Confirmed bank! Opening bank...');
 
     // banker can make us stuck
-    if ('Banker' in MainScreen.GetUpText()) and (Velocity <> Point(0, 0)) then
+    if (Velocity <> Point(0, 0)) and ('Banker' in MainScreen.GetUpText()) then
       exit(False);
 
     // open the bank
@@ -1532,9 +1629,103 @@ end;
 /////////////
 // FLETCH FUNCS
 
-procedure TBot.FletchItems();
+{
+  Fletches the logs
+}
+procedure TBot.FletchLogs();
+var
+  KnifeSlot, LogSlot, ICount, IC: Int32;
+  LogSlots: TIntegerArray;
+  CountDown: TCountDown;
 begin
-  // TODO complete
+  if not Inventory.FindItems(Self.LogItems, LogSlots) then
+  begin
+    Script.WriteMsg('No logs...', True);
+    exit();
+  end;
+
+  if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
+  begin
+    Script.WriteMsg('No knife...', True);
+    exit();
+  end;
+
+  Script.WriteMsg('Fletching logs...', True);
+  LogSlot := LogSlots[Random(0, High(LogSlots))];
+  ICount := Length(LogSlots);
+
+  // start fletching
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(LogSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(KnifeSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(KnifeSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(LogSlot);
+  end;
+
+  if not Make.IsOpen(2500 + Random(1000)) then
+  begin
+    Script.WriteMsg('Fletch: make didnt open', True);
+    exit();
+  end;
+
+  Wait(0, 1000, wdLeft);
+
+  // option '2' is willow longbow
+  if not Make.Select(2, MAKE_QUANTITY_ALL, BioRandomCoinFlip()) then
+  begin
+    Script.WriteMsg('Fletch: didnt select the option', True);
+    Exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.FletchWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check inv
+    LogSlots.Clear();
+    Inventory.FindItems(Self.LogItems, LogSlots);
+    IC := Length(LogSlots);
+
+    if IC <= 0 then
+    begin
+      Script.WriteMsg('FletchLogs: No more logs', True);
+      break;
+    end;
+
+    if IC <> ICount then
+    begin
+      Script.WriteMsg('FletchLogs: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    ICount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('FletchLogs: Countdown expired', True);
+      break;
+    end;
+
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('FletchLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500, wdLeft);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fletching logs...', True);
+  end;
 end;
 
 ///////////////////////////
@@ -1544,15 +1735,15 @@ end;
 }
 procedure TBot.DoFullInventory();
 begin
-  if Self.Firemaking then
+  if Inventory.FindItem(Self.TinderItem) then
   begin
     Self.FireItems();
     exit();
   end;
 
-  if Inventory.FindItems(Self.LogItems) and Self.Fletching then
+  if Inventory.FindItem(Self.KnifeItem) and Inventory.FindItems(Self.LogItems) then
   begin
-    Self.FletchItems();
+    Self.FletchLogs();
     exit();
   end;
 
@@ -1572,7 +1763,7 @@ begin
     Self.TryClickTree() then
   begin
     Self.AfterActionAntiBan(True);
-    Self.WhileChopping(Bot.CurrentChoppingTreeTile);
+    Self.WhileChopping(Self.CurrentChoppingTreeTile);
   end;
 end;
 
@@ -1699,8 +1890,6 @@ begin
   Self.Specing := USESPEC;
   Self.ShiftDropping := SHIFTDROP;
   Self.Banking := BANKLOGS;
-  Self.Firemaking := FIRELOGS;
-  Self.Fletching := FLETCHLOGS;
   
   // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
@@ -1709,7 +1898,9 @@ begin
   Self.KnifeItem := 'Knife';
   Self.KnifedLogItems := ['Willow longbow (u)'];
   Self.FletchWaitTime := 3000;
+  Self.NestUpText := ['Take'];
   Self.NoLightText := ['You can''t light a fire here.'];
+  Self.BirdNestText := ['A bird''s nest falls out of the tree.'];
   Self.ToolItems := [Self.TinderItem, Self.KnifeItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
     'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
     'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
@@ -1760,6 +1951,19 @@ begin
     FilterSize := 16;
 
     RadiusExpand := 0.5;
+  end;
+
+  with Self.BirdNestColor do
+  begin
+    RSObject.Colors += CTS2(4149849, 6, 0.11, 0.27);
+    RSObject.Colors += CTS2(2437686, 7, 0.25, 0.76);
+    RSObject.Colors += CTS2(5661544, 4, 0.13, 0.23);
+    RSObject.Erode := 3;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
   end;
   
   // do login init stuff

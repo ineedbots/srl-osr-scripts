@@ -268,7 +268,7 @@ begin
 
   if Length(TPA) < Self.BoneColor.FilterSize then
   begin
-    if (OurTile.DistanceTo(BoneTile) < 4) and (SRL.CountColor(CTS1(255, 75), Box(Minimap.Center(), 2, 2)) > 0) then
+    if (OurTile.DistanceTo(BoneTile) < 4) and (SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0) then
     begin
       Script.WriteMsg('On top of the tile, checking under us...', True);
 

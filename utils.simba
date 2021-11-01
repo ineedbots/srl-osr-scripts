@@ -529,6 +529,31 @@ end;
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
 
+(*
+Chat.FindMessage
+~~~~~~~~~~~~~~~~
+.. pascal:: function TRSChat.FindMessage(Message: String; Colors: TIntegerArray = CHAT_MESSAGE_COLORS): Boolean;
+
+Returns true if **Message** is found in any chat line.
+
+Example
+-------
+
+  WriteLn Chat.FindMessage('Buying gf');
+*)
+function TRSChat.FindMessage(Messages: TStringArray; Colors: TIntegerArray = CHAT_MESSAGE_COLORS): Boolean; overload;
+var
+  I: Int32;
+  Msg: String;
+begin
+  for I := 0 to CHAT_INPUT_LINE - 1 do
+  begin
+    Msg := Self.GetMessage(I, Colors);
+    if Msg.IsInString(Messages) then
+      Exit(True);
+  end;
+end;
+
 function TRSChat.WaitOption(Option: String; WaitTime: Int32; Interval: Int32 = -1; Colors: TIntegerArray = [CHAT_COLOR_BLACK, CHAT_COLOR_WHITE]): Boolean;
 var
   CountDown: TCountDown;
