@@ -2002,17 +2002,32 @@ end;
 procedure TBot.GatherLogs();
 var
   WasClicked: Boolean;
+  TheirHP: Int32;
 begin
   Script.WriteMsg('Gathering logs....', True);
 
-  if {(Self.ClickRoots(WasClicked) and WasClicked) or
-    Self.GoToLogs() or
-    (Self.ClickRoots(WasClicked) and WasClicked) or} // its safer in this location
-    Self.GoToLogs(True) or
-    (Self.ClickRoots(WasClicked) and WasClicked) then
+  while RSClient.IsLoggedIn() do
   begin
-    Self.AfterActionAntiBan(True);
-    Self.WhileChopping();
+    if {(Self.ClickRoots(WasClicked) and WasClicked) or
+      Self.GoToLogs() or
+      (Self.ClickRoots(WasClicked) and WasClicked) or} // its safer in this location
+      Self.GoToLogs(True) or
+      (Self.ClickRoots(WasClicked) and WasClicked) then
+    begin
+      Self.AfterActionAntiBan(True);
+      Self.WhileChopping();
+
+      TheirHP := Self.GetWinterTodtEnergyPerc();
+      if not Inventory.IsFull() and (TheirHP > 0) and (Self.GetAmountToOffer(True) < (TheirHP - 5)) then
+      begin
+        if Minimap.GetHPPercent() < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
+          Self.EatFood();
+
+        continue;
+      end;
+    end;
+
+    break;
   end;
 end;
 
