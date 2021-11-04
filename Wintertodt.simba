@@ -739,13 +739,21 @@ begin
   // ok, deposited, now make sure we top off on food
   if Length(FoodSlots) < Self.NumFood then
   begin
-    for Item in Self.FoodItems do
+    for i := 0 to 3 do
     begin
-      if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], False) then
+      for Item in Self.FoodItems do
       begin
-        HadFood := True;
-        break;
+        if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], False) then
+        begin
+          HadFood := True;
+          break;
+        end;
       end;
+
+      if HadFood then
+        break;
+
+      Wait(2500, 3500);
     end;
 
     if not HadFood then
