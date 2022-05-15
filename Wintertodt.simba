@@ -109,7 +109,7 @@ procedure TBot.SetCompass();
 var
   SetAngle: Double;
 begin
-  SetAngle := Self.CameraAngle + Random(-5, 5);
+  SetAngle := Self.CameraAngle + Random(-15, 15);
   if Abs(Minimap.GetCompassAngle(True) - SetAngle) > 4 then
     Minimap.SetCompassAngle(SetAngle);
 end;
