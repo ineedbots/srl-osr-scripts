@@ -48,20 +48,23 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ExitChatOption                                            : String;
-    ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss        : Boolean;
+    ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
+      InBossFight, SkipBankCheck                              : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
-      RandomGoodHPPerc, Did, UnlitWaitTime                    : Int32;
+      RandomGoodHPPerc, Did, UnlitWaitTime,
+      RootsTileWalkOffsetIndex, BrazierTileWalkOffsetIndex,
+      RandomAmountToOffer                                     : Int32;
     FoodItems, AxeItems                                       : TRSItemArray;
     LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
       HerbItem, UnfPotionItem, PotionItem                     : TRSItem;
     BankTile, BrazierTile, PyromancerTile, RootsTile,
-      EnterTile, ExitTile, RootsTileWalkOffset,
-      BrazierTileWalkOffset, BankTileWalkOffset               : TPoint;
+      EnterTile, ExitTile, BankTileWalkOffset                 : TPoint;
     FixBrazUpText, LightBrazUpText, FeedBrazUpText,
       ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
     BankColor, EntranceColor, ExitColor, RootsColor,
       LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
+    BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
   end;
 
 var
@@ -435,6 +438,8 @@ begin
     Result += Round(Length(LogSlots) * 2.4)
   else
     Result += Round(Length(LogSlots) * 1.2);
+
+  Result += Self.RandomAmountToOffer;
 end;
 
 {
@@ -475,7 +480,7 @@ begin
   end;
 
   // eat
-  for i in Pattern do
+  for i := Low(Pattern) to High(Pattern) do
   begin
     if (Num <> -1) and (NumEaten >= Num) then
       break;
@@ -487,7 +492,9 @@ begin
     begin
       Script.WriteMsg('HP is good', True);
       break;
-    end;
+    end
+    else if i > Low(Pattern) then
+      Wait(1250 + Random(500));
 
     // open the inventory
     if not Inventory.Open() then
@@ -497,7 +504,7 @@ begin
     end;
 
     // eat it
-    Inventory.HoverSlot(i);
+    Inventory.HoverSlot(Pattern[i]);
 
     HPPrec := Minimap.GetHPPercent();
     CountDown.Init(2500);
@@ -531,9 +538,9 @@ begin
       break;
 
     Result := True;
-
-    Wait(1250 + Random(500));
   end;
+
+  Wait(0, 1000, wdLeft);
 end;
 
 {
@@ -564,7 +571,12 @@ begin
         Self.DoMainLoopStuff('Waiting for boss to start', False);
       end
       else
+      begin
         Self.DoMainLoopStuff('Waiting for boss to start', True);
+
+        if Random() < 0.65 then
+          Self.EatFood(1);
+      end;
     end;
 
     if Self.ClickBrazier(DidClick, WasLit) and DidClick then
@@ -686,7 +698,7 @@ end;
 procedure TBot.DoBanking();
 var
   ToolSlots, Pattern, FoodSlots: TIntegerArray;
-  i: Int32;
+  i, NumFoodToUse: Int32;
   R: Extended;
   Item: TRSItem;
   HadFood: Boolean;
@@ -696,8 +708,6 @@ begin
 
   Script.AntiBan.AfterBankAntiBan(20);
 
-  if Self.ShouldBank then
-    Self.Did += 1;
   Self.ShouldBank := False;
   Script.WriteMsg('Banking... Completed wintertotd ' + IntToStr(Self.Did) + ' times');
 
@@ -736,14 +746,16 @@ begin
     end;
   end;
 
+  NumFoodToUse := Round(Self.NumFood * Random(0.75, 1.25));
+
   // ok, deposited, now make sure we top off on food
-  if Length(FoodSlots) < Self.NumFood then
+  if Length(FoodSlots) < NumFoodToUse then
   begin
     for i := 0 to 3 do
     begin
       for Item in Self.FoodItems do
       begin
-        if Bank.WithdrawItem([Item, Self.NumFood - Length(FoodSlots)], False) then
+        if Bank.WithdrawItem([Item, NumFoodToUse - Length(FoodSlots)], False) then
         begin
           HadFood := True;
           break;
@@ -772,6 +784,11 @@ begin
 
   Script.AntiBan.DoBreak();
   Script.AntiBan.DoSleep();
+
+  if USEEASTSIDE then
+    Self.SetSideVariables((Random() < 0.8))
+  else
+    Self.SetSideVariables((Random() > 0.8));
 end;
 
 {
@@ -947,7 +964,7 @@ begin
       FlagPT := Walker^.MSToWorldEx(Position, Minimap.PointToMs(FlagMMPT));
 
       // make sure that we dont stupidly misclick into the long path behind the bank
-      if ((FlagPT.X - 4) > Bot.BankTile.X) or ((FlagPT.Y - 4) > Bot.BankTile.Y) then
+      if ((FlagPT.X - 8) > Bot.BankTile.X) or ((FlagPT.Y - 8) > Bot.BankTile.Y) then
       begin
         MMVel := Script.WalkerVelToMMVel(Velocity);
         ClickPos := Walker^.WorldToMM(Position, Bot.BankTile.Offset(Bot.BankTileWalkOffset),
@@ -1701,6 +1718,14 @@ begin
 end;
 
 {
+  Gets an offset
+}
+function TBot.GetBrazierTileWalkOffset(): TPoint;
+begin
+  Result := Self.BrazierTileWalkOffsets[Self.BrazierTileWalkOffsetIndex];
+end;
+
+{
   Walks to the door, return true if we clicked it early
 }
 function TBot.GoToBrazier(Force: Boolean = False; DoClick: Boolean = True): Boolean;
@@ -1723,7 +1748,7 @@ begin
       Self.RSW.OnWalkingEvent := @WalkingToBrazier;
     try
       // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.BrazierTileWalkOffset).Random(-6, 6, True), 0);
+      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.GetBrazierTileWalkOffset()).Random(-6, 6, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -1941,7 +1966,7 @@ begin
   // if this is the last node in the path
   if Destination = Walker^.Path[High(Walker^.Path)] then
   begin
-    if Position.DistanceTo(Destination) < 4 then
+    if Position.DistanceTo(Destination) < 8 then
     begin
       // make the mouse fast, because we are moving, its harder to keep up with objs
       S := Mouse.Speed;
@@ -1962,6 +1987,14 @@ begin
       Mouse.Move(MainScreen.GetPlayerBox());
   end else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
+end;
+
+{
+  Gets an offset
+}
+function TBot.GetRootsTileWalkOffset(): TPoint;
+begin
+  Result := Self.RootsTileWalkOffsets[Self.RootsTileWalkOffsetIndex];
 end;
 
 {
@@ -1987,7 +2020,7 @@ begin
       Self.RSW.OnWalkingEvent := @WalkingToLogs;
     try
       // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.RootsTileWalkOffset).Random(-3, 3, True), 0);
+      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.GetRootsTileWalkOffset()).Random(-3, 3, True), 2);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -2042,17 +2075,53 @@ end;
 ////////////////////////////
 
 {
+  Ends the variables for boss fight
+}
+function TBot.EndBossFight(): Boolean;
+begin
+  if Self.InBossFight then
+  begin
+    Self.InBossFight := False;
+
+    Self.Did += 1;
+    Self.SkipBankCheck := False;
+    exit(True);
+  end;
+end;
+
+{
+  Starts the variables for boss fight
+}
+function TBot.BeginBossFight(): Boolean;
+begin
+  if not Self.InBossFight then
+  begin
+    Self.InBossFight := True;
+
+    Self.RandomAmountToOffer := Random(-10, 10);
+
+    // set the offset tiles now
+    Self.RootsTileWalkOffsetIndex := Random(0, High(Self.RootsTileWalkOffsets));
+    Self.BrazierTileWalkOffsetIndex := Random(0, High(Self.BrazierTileWalkOffsets));
+    exit(True);
+  end;
+end;
+
+{
   Executes when we are logged in
 }
 procedure TBot.DoLoggedInStuff();
 var
   OurHpPerc, TheirHpPerc: Int32;
+  FoodSlots: TIntegerArray;
 begin
   OurHpPerc := Minimap.GetHPPercent();
   TheirHpPerc := Self.GetWinterTodtEnergyPerc();
 
   if TheirHpPerc = -1 then
   begin
+    Self.EndBossFight();
+
     // Allow breaks while outside
     Script.AllowBreaks := True;
 
@@ -2070,9 +2139,22 @@ begin
     if TheirHpPerc > 0 then
     begin
       // boss isnt dead, we are inside
+      Self.BeginBossFight();
 
       // make sure to go bank at the end of the round
-      Self.ShouldBank := True;
+      if TheirHpPerc > 5 then
+        Self.ShouldBank := True
+      else if not Self.SkipBankCheck then
+      begin
+        Inventory.FindItems(Self.FoodItems, FoodSlots);
+
+        if (Length(FoodSlots) >= 3) and BioRandomCoinFlip() then
+          Self.ShouldBank := False
+        else
+          Self.ShouldBank := True;
+
+        Self.SkipBankCheck := True;
+      end;
 
       // check if we need to escape
       if not Inventory.FindItems(Self.FoodItems) and
@@ -2082,6 +2164,7 @@ begin
         exit();
       end;
 
+      // check if we need to eat
       if OurHpPerc < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
       begin
         Self.EatFood();
@@ -2107,12 +2190,13 @@ begin
       // just gather logs
       if TheirHpPerc > 5 then
         Self.GatherLogs()
-      else
+      else if Self.ShouldBank then
         Self.GoOutsideBossArea(True);
     end
     else
     begin
       // boss is dead, we are inside
+      Self.EndBossFight();
 
       if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
         Self.GoOutsideBossArea()
@@ -2174,6 +2258,35 @@ end;
 }
 procedure TBot.Free();
 begin
+end;
+
+{
+  Sets the side variables
+}
+procedure TBot.SetSideVariables(East: Boolean);
+var i : Int32;
+begin
+  if East then
+  begin
+    Self.BrazierTile := Point(1947, 464);
+    Self.PyromancerTile := Point(1955, 460);
+    Self.RootsTile := Point(1952, 505);
+    Self.CameraAngle := 270;
+    Self.BrazierTileWalkOffsets := [Point(0, 8)];
+    Self.RootsTileWalkOffsets := [Point(-5, 4), Point(6, -2)];
+  end
+  else
+  begin
+    Self.BrazierTile := Point(1875, 464);
+    Self.PyromancerTile := Point(1864, 462);
+    Self.RootsTile := Point(1873, 505);
+    Self.CameraAngle := 90;
+    Self.BrazierTileWalkOffsets := [Point(0, 10)];
+    Self.RootsTileWalkOffsets := [Point(5, 2), Point(-6, -2)];
+  end;
+
+  Self.RootsTileWalkOffsetIndex := Random(0, High(Self.RootsTileWalkOffsets));
+  Self.BrazierTileWalkOffsetIndex := Random(0, High(Self.BrazierTileWalkOffsets));
 end;
 
 {
@@ -2286,24 +2399,7 @@ begin
   Self.DoorUpText := ['Enter'];
   Self.ExitChatOption := 'Leave and lose all progress.';
 
-  if USEEASTSIDE then
-  begin
-    Self.BrazierTile := Point(1947, 464);
-    Self.PyromancerTile := Point(1955, 460);
-    Self.RootsTile := Point(1952, 505);
-    Self.CameraAngle := 270;
-    Self.BrazierTileWalkOffset := Point(0, 8);
-    Self.RootsTileWalkOffset := Point(-4, 3);
-  end
-  else
-  begin
-    Self.BrazierTile := Point(1875, 464);
-    Self.PyromancerTile := Point(1864, 462);
-    Self.RootsTile := Point(1873, 505);
-    Self.CameraAngle := 90;
-    Self.BrazierTileWalkOffset := Point(0, 10);
-    Self.RootsTileWalkOffset := Point(5, 2);
-  end;
+  Self.SetSideVariables(USEEASTSIDE);
 
   with Self.BankColor do
   begin
