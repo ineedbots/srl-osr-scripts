@@ -60,8 +60,8 @@ var
 procedure TBot.DoSkillHover();
 begin
   case Random() of
-    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.FISHING, random(1700, 3200), True);
-    else Script.Antiban.HoverSkill(ERSSKILL.COOKING, random(1700, 3200), True);
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.FISHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.COOKING, Random(1700, 3200), True);
   end;
 end;
 
@@ -472,7 +472,7 @@ begin
     exit();
   end;
 
-  Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+  Inventory.SetSelectedSlot(RawSlots[Random(Low(RawSlots), High(RawSlots))]);
   Wait(0, 1500, wdLeft);
   if Self.ClickFire(WasClicked, OurTile) then
     Result := WasClicked;
@@ -501,7 +501,7 @@ begin
       if not Inventory.FindItem(Bot.CurrentCookingItem, RawSlots) then
         exit();
 
-      Inventory.SetSelectedSlot(RawSlots[Random(0, High(RawSlots))]);
+      Inventory.SetSelectedSlot(RawSlots[Random(Low(RawSlots), High(RawSlots))]);
       exit(); // try again next go, we moved our mouse, velocity, position is out of date
     end;
 

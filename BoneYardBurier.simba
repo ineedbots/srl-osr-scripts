@@ -51,7 +51,7 @@ var
 }
 procedure TBot.DoSkillHover();
 begin
-  Script.Antiban.HoverSkill(ERSSKILL.PRAYER, random(1700, 3200), True);
+  Script.Antiban.HoverSkill(ERSSKILL.PRAYER, Random(1700, 3200), True);
 end;
 
 {
@@ -407,7 +407,7 @@ begin
 
     if WasRed then
     begin
-      Inventory.WaitChange(InvCount, 2500 + Random(1000), 250+Random(50));
+      Inventory.WaitChange(InvCount, 2500 + Random(1000), 250 + Random(50));
       Script.WriteMsg('Grabbed the bone.', True);
     end;
     Result := True;
@@ -507,7 +507,7 @@ begin
     Inventory.HoverSlot(i);
 
     if BuriedOne then
-      Wait(750 + Random(500));
+      Wait(850, 1250, wdLeft);
 
     BuriedOne := True;
 

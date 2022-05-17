@@ -76,9 +76,9 @@ var
 procedure TBot.DoSkillHover();
 begin
   case Random() of
-    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
-    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, random(1700, 3200), True);
-    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, Random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, Random(1700, 3200), True);
   end;
 end;
 
@@ -96,7 +96,7 @@ begin
     
     Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
     
-    Wait(1000 + Random(1000));
+    Wait(1000, 2000, wdLeft);
     Result := True;
   end;
 end;
@@ -374,7 +374,7 @@ begin
   Inventory.FindItems(Self.LogItems, Dropable);
   Inventory.FindItems(Self.KnifedLogItems, Dropable);
 
-  Inventory.HoverSlot(Dropable[Random(0, High(Dropable))]);
+  Inventory.HoverSlot(Dropable[Random(Low(Dropable), High(Dropable))]);
   ChooseOption.Select('Drop');
 end;
 
@@ -1182,7 +1182,7 @@ begin
       while Chat.ClickContinue() do
         Wait(75, 500);
         
-      Wait(2000 + Random(1000));
+      Wait(2000, 3000, wdLeft);
       exit(True);
     end;
       
@@ -1217,7 +1217,7 @@ var
   InvCountTimeout: TCountdown;
 begin
   Script.SetStatus('Waiting for the log to place...');
-  InvCountTimeout.Init(2000 + Random(500));
+  InvCountTimeout.Init(2500 + Random(500));
   while RSClient.IsLoggedIn() and not InvCountTimeout.IsFinished() do
   begin
     // do we have a smaller bag?
@@ -1651,7 +1651,7 @@ begin
   end;
 
   Script.WriteMsg('Fletching logs...', True);
-  LogSlot := LogSlots[Random(0, High(LogSlots))];
+  LogSlot := LogSlots[Random(Low(LogSlots), High(LogSlots))];
   ICount := Length(LogSlots);
 
   // start fletching

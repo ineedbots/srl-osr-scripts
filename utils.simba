@@ -197,7 +197,7 @@ begin
   RanTPA := Script.AntiBanEnergy.DailyPointsInBox(B);
 
   // choose a random point
-  RanTP := RanTPA[Random(0, High(RanTPA))];
+  RanTP := RanTPA[Random(Low(RanTPA), High(RanTPA))];
 
 
   // mouse our mouse to the point
