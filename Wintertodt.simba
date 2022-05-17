@@ -65,6 +65,8 @@ type
     BankColor, EntranceColor, ExitColor, RootsColor,
       LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
     BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
+    ToBankPaths, ToEntranceDoorPaths, ToBrazierPaths,
+      ToExitDoorPaths                                         : T2DPointArray;
   end;
 
 var
@@ -84,7 +86,7 @@ begin
 
     Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
 
-    Wait(1000 + Random(1000));
+    Wait(1000, 2000, wdLeft);
     Result := True;
   end;
 end;
@@ -95,10 +97,10 @@ end;
 procedure TBot.DoSkillHover();
 begin
   case Random() of
-    0..0.25: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, random(1700, 3200), True);
-    0.25..0.35: Script.Antiban.HoverSkill(ERSSKILL.CONSTRUCTION, random(1700, 3200), True);
-    0.35..0.5: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, random(1700, 3200), True);
-    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, random(1700, 3200), True);
+    0..0.25: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, Random(1700, 3200), True);
+    0.25..0.35: Script.Antiban.HoverSkill(ERSSKILL.CONSTRUCTION, Random(1700, 3200), True);
+    0.35..0.5: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, Random(1700, 3200), True);
   end;
 end;
 
@@ -109,7 +111,7 @@ procedure TBot.SetCompass();
 var
   SetAngle: Double;
 begin
-  SetAngle := Self.CameraAngle + Random(-15, 15);
+  SetAngle := Self.CameraAngle + SRL.NormalRange(-25.0, 25.0);
   if Abs(Minimap.GetCompassAngle(True) - SetAngle) > 4 then
     Minimap.SetCompassAngle(SetAngle);
 end;
@@ -494,7 +496,7 @@ begin
       break;
     end
     else if i > Low(Pattern) then
-      Wait(1250 + Random(500));
+      Wait(1250, 500, wdLeft);
 
     // open the inventory
     if not Inventory.Open() then
@@ -560,7 +562,7 @@ begin
     while RSClient.IsLoggedIn() do
     begin
       TimeLeftText := Self.GetWinterTodtRemainingTime();
-      if (Self.GetWinterTodtEnergyPerc() > 0) or
+      if (Self.GetWinterTodtEnergyPerc() <> 0) or
         TimeLeftText.EndsWith('0:00') then
         break;
 
@@ -609,7 +611,7 @@ begin
   Self.GoToLogs(True, False);
 
   Script.WriteMsg('Fletching logs...', True);
-  LogSlot := LogSlots[Random(0, High(LogSlots))];
+  LogSlot := LogSlots[Random(Low(LogSlots), High(LogSlots))];
   ICount := Length(LogSlots);
 
   // start fletching
@@ -779,16 +781,16 @@ begin
   Script.AntiBan.AfterBankAntiBan(30);
 
   // randomly close the bank
-  if Random() > 0.75 then
+  if (Random() > 0.75) or MSWALKING then
     Bank.Close();
 
   Script.AntiBan.DoBreak();
   Script.AntiBan.DoSleep();
 
   if USEEASTSIDE then
-    Self.SetSideVariables((Random() < 0.8))
+    Self.SetSideVariables(SRL.TruncatedGauss(0.0, 1.0) < 0.5)
   else
-    Self.SetSideVariables((Random() > 0.8));
+    Self.SetSideVariables(SRL.TruncatedGauss(0.0, 1.0) > 0.5);
 end;
 
 {
@@ -807,7 +809,10 @@ begin
     begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
       exit(True);
-    end;
+    end
+    // fix a bug where the uptext
+    else if MainScreen.GetUpText() <> '' then
+      Mouse.Move(Minimap.Bounds());
 
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
@@ -988,6 +993,7 @@ end;
 function TBot.GoToBank(Force: Boolean = False): Boolean;
 var
   Walked: Boolean;
+  PathIdx: Int32;
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
@@ -1003,8 +1009,19 @@ begin
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     Self.RSW.OnWalkingEvent := @WalkingToBank;
     try
-      // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToBankPaths), High(Self.ToBankPaths));
+
+      if OurPos.DistanceTo(Self.ToBankPaths[PathIdx][Low(Self.ToBankPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToBankPaths[PathIdx][High(Self.ToBankPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToBankPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -1036,8 +1053,6 @@ begin
     or Self.GoToBank(True)
     or (Self.ClickBank(ClickedBank) and ClickedBank) then
   begin
-    // SRL TODO  bank is open bugging when there is uptext, we do this to clear uptext
-    Mouse.Move(Minimap.Bounds());
     if Self.WaitBankOpen() then
       Self.DoBanking();
   end;
@@ -1173,6 +1188,7 @@ end;
 function TBot.GoToEntrance(Force: Boolean = False): Boolean;
 var
   Walked: Boolean;
+  PathIdx: Int32;
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
@@ -1188,8 +1204,19 @@ begin
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     Self.RSW.OnWalkingEvent := @WalkingToEnterDoor;
     try
-      // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToEntranceDoorPaths), High(Self.ToEntranceDoorPaths));
+
+      if OurPos.DistanceTo(Self.ToEntranceDoorPaths[PathIdx][Low(Self.ToEntranceDoorPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToEntranceDoorPaths[PathIdx][High(Self.ToEntranceDoorPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToEntranceDoorPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -1236,7 +1263,10 @@ begin
         break;
 
       if Self.GetWinterTodtEnergyPerc() <> -1 then
+      begin
+        Wait(1000, 2000, wdLeft);
         break;
+      end;
 
       Wait(Script.SleepRate);
     end;
@@ -1371,6 +1401,7 @@ end;
 function TBot.GoToExit(Force: Boolean = False): Boolean;
 var
   Walked: Boolean;
+  PathIdx: Int32;
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
@@ -1386,8 +1417,19 @@ begin
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     Self.RSW.OnWalkingEvent := @WalkingToExitDoor;
     try
-      // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToExitDoorPaths), High(Self.ToExitDoorPaths));
+
+      if OurPos.DistanceTo(Self.ToExitDoorPaths[PathIdx][Low(Self.ToExitDoorPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToExitDoorPaths[PathIdx][High(Self.ToExitDoorPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToExitDoorPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -1452,7 +1494,10 @@ begin
         break;
 
       if Self.RSW.GetMyPos().DistanceTo(OurPos) > 16 then
+      begin
+        Wait(1000, 2000, wdLeft);
         break;
+      end;
 
       Wait(Script.SleepRate);
     end;
@@ -1731,6 +1776,7 @@ end;
 function TBot.GoToBrazier(Force: Boolean = False; DoClick: Boolean = True): Boolean;
 var
   Walked: Boolean;
+  PathIdx: Int32;
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
@@ -1746,9 +1792,21 @@ begin
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     if DoClick then
       Self.RSW.OnWalkingEvent := @WalkingToBrazier;
+
     try
-      // WebWalk when nodes exist for this area, SRL TODO
-      Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.GetBrazierTileWalkOffset()).Random(-6, 6, True), 0);
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToBrazierPaths), High(Self.ToBrazierPaths));
+
+      if OurPos.DistanceTo(Self.ToBrazierPaths[PathIdx][Low(Self.ToBrazierPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToBrazierPaths[PathIdx][High(Self.ToBrazierPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToBrazierPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.BrazierTile.Offset(Self.GetBrazierTileWalkOffset()).Random(-6, 6, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -2101,8 +2159,8 @@ begin
     Self.RandomAmountToOffer := Random(-10, 10);
 
     // set the offset tiles now
-    Self.RootsTileWalkOffsetIndex := Random(0, High(Self.RootsTileWalkOffsets));
-    Self.BrazierTileWalkOffsetIndex := Random(0, High(Self.BrazierTileWalkOffsets));
+    Self.RootsTileWalkOffsetIndex := Random(Low(Self.RootsTileWalkOffsets), High(Self.RootsTileWalkOffsets));
+    Self.BrazierTileWalkOffsetIndex := Random(Low(Self.BrazierTileWalkOffsets), High(Self.BrazierTileWalkOffsets));
     exit(True);
   end;
 end;
@@ -2264,7 +2322,6 @@ end;
   Sets the side variables
 }
 procedure TBot.SetSideVariables(East: Boolean);
-var i : Int32;
 begin
   if East then
   begin
@@ -2274,6 +2331,20 @@ begin
     Self.CameraAngle := 270;
     Self.BrazierTileWalkOffsets := [Point(0, 8)];
     Self.RootsTileWalkOffsets := [Point(-5, 4), Point(6, -2)];
+
+    Self.ToBrazierPaths := [
+      [[1917, 586], [1917, 577], [1918, 569], [1921, 552], [1924, 541], [1928, 525], [1931, 511], [1932, 503], [1937, 494], [1945, 489], [1947, 476]],
+      [[1913, 586], [1913, 579], [1913, 565], [1913, 545], [1912, 533], [1911, 519], [1911, 507], [1911, 497], [1921, 494], [1932, 493], [1941, 488], [1948, 478]],
+      [[1913, 586], [1914, 577], [1916, 562], [1912, 552], [1910, 539], [1914, 516], [1920, 498], [1932, 497], [1951, 495], [1948, 475]],
+      [[1920, 584], [1914, 571], [1909, 543], [1915, 543], [1917, 532], [1918, 520], [1920, 506], [1934, 501], [1931, 491], [1954, 483], [1945, 476]]
+    ];
+
+    Self.ToExitDoorPaths := [
+      [[1947, 476], [1945, 489], [1937, 494], [1932, 503], [1931, 511], [1928, 525], [1924, 541], [1921, 552], [1918, 569], [1917, 577], [1917, 586]],
+      [[1948, 477], [1944, 489], [1927, 490], [1919, 491], [1918, 499], [1915, 515], [1915, 524], [1915, 548], [1912, 562], [1914, 579], [1913, 584]],
+      [[1948, 475], [1951, 495], [1932, 497], [1920, 498], [1914, 516], [1910, 539], [1912, 552], [1916, 562], [1914, 577], [1913, 586]],
+      [[1945, 476], [1954, 483], [1931, 491], [1934, 501], [1920, 506], [1918, 520], [1917, 532], [1915, 543], [1909, 543], [1914, 571], [1920, 584]]
+    ];
   end
   else
   begin
@@ -2282,11 +2353,25 @@ begin
     Self.RootsTile := Point(1873, 505);
     Self.CameraAngle := 90;
     Self.BrazierTileWalkOffsets := [Point(0, 10)];
-    Self.RootsTileWalkOffsets := [Point(5, 2), Point(-6, -2)];
+    Self.RootsTileWalkOffsets := [Point(5, 2), Point(-4, -1)];
+
+    Self.ToBrazierPaths := [
+      [[1909, 582], [1909, 570], [1908, 559], [1905, 543], [1903, 532], [1903, 521], [1900, 513], [1897, 505], [1890, 494], [1882, 485], [1878, 477]],
+      [[1913, 586], [1912, 576], [1910, 554], [1911, 543], [1910, 530], [1909, 508], [1907, 497], [1892, 492], [1879, 484], [1879, 479]],
+      [[1912, 585], [1911, 571], [1912, 563], [1914, 554], [1916, 539], [1907, 527], [1902, 515], [1902, 498], [1883, 495], [1876, 489], [1877, 477]],
+      [[1912, 583], [1907, 566], [1914, 556], [1910, 539], [1903, 531], [1910, 521], [1911, 504], [1900, 504], [1885, 505], [1879, 492], [1864, 488], [1876, 476]]
+    ];
+
+    Self.ToExitDoorPaths := [
+      [[1878, 477], [1882, 485], [1890, 494], [1897, 505], [1900, 513], [1903, 521], [1903, 532], [1905, 543], [1908, 559], [1909, 570], [1909, 582]],
+      [[1879, 479], [1879, 484], [1892, 492], [1907, 497], [1909, 508], [1910, 530], [1911, 543], [1910, 554], [1912, 576], [1913, 586]],
+      [[1877, 477], [1876, 489], [1883, 495], [1902, 498], [1902, 515], [1907, 527], [1916, 539], [1914, 554], [1912, 563], [1911, 571], [1912, 585]],
+      [[1876, 476], [1864, 488], [1879, 492], [1885, 505], [1900, 504], [1911, 504], [1910, 521], [1903, 531], [1910, 539], [1914, 556], [1907, 566], [1912, 583]]
+    ];
   end;
 
-  Self.RootsTileWalkOffsetIndex := Random(0, High(Self.RootsTileWalkOffsets));
-  Self.BrazierTileWalkOffsetIndex := Random(0, High(Self.BrazierTileWalkOffsets));
+  Self.RootsTileWalkOffsetIndex := Random(Low(Self.RootsTileWalkOffsets), High(Self.RootsTileWalkOffsets));
+  Self.BrazierTileWalkOffsetIndex := Random(Low(Self.BrazierTileWalkOffsets), High(Self.BrazierTileWalkOffsets));
 end;
 
 {
@@ -2398,6 +2483,20 @@ begin
   // Doors of Dinh
   Self.DoorUpText := ['Enter'];
   Self.ExitChatOption := 'Leave and lose all progress.';
+
+  Self.ToBankPaths := [
+    [[1914, 602], [1913, 618], [1914, 635], [1914, 651], [1915, 666], [1921, 674], [1930, 677], [1940, 681], [1949, 681]],
+    [[1920, 606], [1921, 626], [1921, 650], [1924, 665], [1936, 680], [1952, 682]],
+    [[1911, 603], [1909, 624], [1908, 650], [1907, 668], [1910, 679], [1927, 685], [1940, 685], [1951, 685]],
+    [[1914, 607], [1914, 634], [1925, 665], [1938, 683], [1953, 683]]
+  ];
+
+  Self.ToEntranceDoorPaths := [
+    [[1948, 683], [1932, 684], [1920, 681], [1916, 664], [1913, 653], [1912, 640], [1915, 626], [1914, 611], [1914, 604]],
+    [[1951, 681], [1937, 683], [1921, 681], [1913, 681], [1910, 661], [1910, 648], [1909, 633], [1912, 620], [1910, 606]],
+    [[1948, 683], [1939, 681], [1929, 670], [1925, 656], [1920, 645], [1918, 629], [1917, 617], [1915, 606]],
+    [[1951, 683], [1936, 684], [1925, 681], [1912, 677], [1909, 669], [1909, 660], [1908, 651], [1908, 637], [1908, 622], [1910, 610], [1910, 600]]
+  ];
 
   Self.SetSideVariables(USEEASTSIDE);
 
