@@ -159,7 +159,7 @@ begin
   Self.ReportConsole();
   Self.Draw();
 
-  Wait(Script.SleepRate);
+  Wait(Script.MainLoopWaitAmount(True));
 end;
 
 {
@@ -218,6 +218,9 @@ begin
 
     // CHECK THE UPTEXT
     Mouse.Move(TPA.Bounds());
+
+    Script.RareSmallWait();
+
     if not MainScreen.IsUpText(MonsterObj.UpText) then
       continue;
 

@@ -421,7 +421,7 @@ begin
   Self.ReportConsole();
   Self.Draw();
 
-  Wait(Script.SleepRate);
+  Wait(Script.MainLoopWaitAmount(True));
 end;
 
 {
@@ -496,7 +496,7 @@ begin
       break;
     end
     else if i > Low(Pattern) then
-      Wait(1250, 500, wdLeft);
+      Wait(1250, 1750, wdLeft);
 
     // open the inventory
     if not Inventory.Open() then
@@ -810,7 +810,7 @@ begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
       exit(True);
     end
-    // fix a bug where the uptext
+    // fix a bug where the uptext makes bank.isopen fail SRL TODO FIX
     else if MainScreen.GetUpText() <> '' then
       Mouse.Move(Minimap.Bounds());
 
@@ -914,6 +914,8 @@ begin
     Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
 
   if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
   begin
@@ -1133,6 +1135,8 @@ begin
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
 
+  Script.RareSmallWait();
+
   if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
@@ -1342,6 +1346,8 @@ begin
     Script.MouseLooksForUpText := Self.DoorUpText;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
 
   if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
   begin
@@ -1712,6 +1718,8 @@ begin
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
 
+  Script.RareSmallWait();
+
   if MainScreen.IsUpText(UpTexts, Random(100, 250)) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
@@ -1991,6 +1999,8 @@ begin
     Script.MouseLooksForUpText := Self.ChopRootUpText;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
 
   if MainScreen.IsUpText(Self.ChopRootUpText, Random(100, 250)) and (Random() < 0.9) then
   begin

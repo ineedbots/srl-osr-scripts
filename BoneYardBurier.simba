@@ -325,6 +325,8 @@ begin
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
 
+  Script.RareSmallWait();
+
   if MainScreen.IsUpText(Self.BoneUpText, Random(100, 250)) and (Random() < 10) then
   begin
     Mouse.Click(MOUSE_LEFT);
@@ -511,7 +513,7 @@ begin
 
     BuriedOne := True;
 
-    if MainScreen.IsUpText('Bury') then
+    if MainScreen.IsUpText('Bury') and (Random() < 0.95) then
       Mouse.Click(MOUSE_LEFT)
     else
       ChooseOption.Select('Bury');

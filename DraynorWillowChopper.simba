@@ -357,7 +357,7 @@ begin
   Self.ReportConsole();
   Self.Draw();
     
-  Wait(Script.SleepRate);
+  Wait(Script.MainLoopWaitAmount(True));
 end;
 
 // -----------------------------------------------------------------------------
@@ -425,6 +425,8 @@ end;
 function TBot.ClickBirdsNest(B: TBox): Boolean;
 begin
   Mouse.Move(B);
+
+  Script.RareSmallWait();
 
   if MainScreen.IsUpText(Self.NestUpText) and (Random() < 0.9) then
   begin
@@ -610,6 +612,8 @@ begin
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
 
+    Script.RareSmallWait();
+
     if not MainScreen.IsUpText(Self.TreeOptions, Random(100, 250)) then
     begin
       if Velocity = Point(0, 0) then
@@ -783,6 +787,8 @@ begin
         Mouse.Click(MOUSE_LEFT)
       else
         ChooseOption.Select('Drop');
+
+      Wait(0, 1000, wdLeft);
     end;
   end;
   Mouse.Speed := S;
@@ -1035,6 +1041,8 @@ begin
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
 
+    Script.RareSmallWait();
+
     if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
     begin
       Script.SetStatus('Bad uptext for bank');
@@ -1237,6 +1245,7 @@ begin
       // Push the GAME chat so it doesnt false positive next time
       Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
       Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
+      Script.RareSmallWait();
       ChooseOption.Select('Examine');
       exit(False);
     end;
@@ -1537,6 +1546,8 @@ begin
           continue;
         
         Mouse.Move(TileRect.Bounds());
+
+        Script.RareSmallWait();
         
         // check if a fire exists here
         if MainScreen.IsUpText('options') and ChooseOption.HasOption(['Fire']) then

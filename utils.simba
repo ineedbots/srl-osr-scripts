@@ -409,6 +409,51 @@ begin
 end;
 
 {
+  Randomize the last tile in the path,
+  Seems that SRL walker, for the last dest in the path
+  the click is NOT randomized, possibly triggering patterns
+}
+function TRSWalker.WalkPath(Path: TPointArray; WaitUntilDistance: Int32 = 0): Boolean; override;
+begin
+  Path[High(Path)].X += Random(-Self.ClickRandomness, Self.ClickRandomness);
+  Path[High(Path)].Y += Random(-Self.ClickRandomness, Self.ClickRandomness);
+
+  inherited(Path, WaitUntilDistance);
+end;
+
+{
+  Use to throw off timings!
+}
+procedure TScript.RareSmallWait();
+var
+  RanTiming: Int32;
+begin
+  RanTiming := SRL.SkewedRand(-250, -1000, 1500);
+  if RanTiming > 0 then
+    Wait(RanTiming);
+end;
+
+function TScript.MainLoopWaitAmount(UseHP: Boolean): Int32;
+var
+  Large: Int32;
+begin
+  Large := 5000;
+
+  if UseHP then
+  begin
+    case Minimap.GetHPPercent() of
+      0.0..0.4: Large := Self.SleepRate + 1;
+      0.4..0.6: Large := 500;
+      0.6..0.75: Large := 1250;
+      0.75..0.9: Large := 2500;
+      else Large := 5000;
+    end;  
+  end;
+
+  Result := SRL.SkewedRand(Self.SleepRate, 50, Large);
+end;
+
+{
   Checks to see failsafe xp gain
   
   Comes from olly/srl-development

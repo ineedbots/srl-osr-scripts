@@ -349,7 +349,7 @@ begin
   Self.ReportConsole();
   Self.Draw();
 
-  Wait(Script.SleepRate);
+  Wait(Script.MainLoopWaitAmount(False));
 end;
 
 ////////////////////////////////
@@ -430,6 +430,8 @@ begin
     Script.MouseLooksForUpText := Self.FireUpText;
   Mouse.Move(B);
   Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
 
   if MainScreen.IsUpText(Self.FireUpText, Random(100, 250)) and (Random() < 10) then
   begin
@@ -690,6 +692,8 @@ begin
         Mouse.Click(MOUSE_LEFT)
       else
         ChooseOption.Select('Drop');
+
+      Wait(0, 1000, wdLeft);
     end;
   end;
   Mouse.Speed := S;
@@ -948,6 +952,8 @@ begin
       Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
 
     if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
     begin
@@ -1212,6 +1218,8 @@ begin
       Script.MouseLooksForUpText := Self.FishSpotUpText;
     Mouse.Move(B);
     Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
 
     // check uptext
     if not MainScreen.IsUpText(Self.FishSpotUpText, Random(100, 250)) then
