@@ -418,7 +418,7 @@ begin
   Path[High(Path)].X += Random(-Self.ClickRandomness, Self.ClickRandomness);
   Path[High(Path)].Y += Random(-Self.ClickRandomness, Self.ClickRandomness);
 
-  inherited(Path, WaitUntilDistance);
+  Result := inherited(Path, WaitUntilDistance);
 end;
 
 {
