@@ -811,7 +811,7 @@ begin
       exit(True);
     end
     // fix a bug where the uptext makes bank.isopen fail SRL TODO FIX
-    else if MainScreen.GetUpText() <> '' then
+    else if not Minimap.HasFlag() and (MainScreen.GetUpText() <> '') then
       Mouse.Move(Minimap.Bounds());
 
     // only countdown if we are not moving

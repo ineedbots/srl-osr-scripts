@@ -437,6 +437,9 @@ function TScript.MainLoopWaitAmount(UseHP: Boolean): Int32;
 var
   Large: Int32;
 begin
+  if Random() < 0.6 then
+    exit(Self.SleepRate);
+
   Large := 5000;
 
   if UseHP then
