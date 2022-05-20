@@ -1154,6 +1154,85 @@ begin
   end;
 end;
 
+{
+  thanks wasplib for the colors and values to test against
+}
+function TRSMainScreen.AnyInterfaceOpen(): Boolean;
+begin
+  if SRL.CountColor(CTS2(8693433, 5, 0.10, 1.17), InterfaceArea.Bounds()) > 35000 then
+    exit(True);
+
+  if SRL.CountColor(CTS0(3358536, 2), InterfaceArea.Bounds()) > 10000 then
+    exit(True);
+end;
+
+{
+  Closes any interface that might be open on the mainscreen
+}
+function TRSMainScreen.CloseInterface(PressEscape: Boolean = False): Boolean;
+var
+  Buttons: TRSButtonArray;
+begin
+  if not Self.AnyInterfaceOpen() then
+    exit();
+
+  Buttons := FindButtons([[21,21], [24,23]]);
+  if Buttons <> [] then
+  begin
+    if PressEscape then
+      Keyboard.PressKey(VK_ESCAPE)
+    else
+      Buttons[High(Buttons)].Click();
+
+    WaitUntil(not Self.AnyInterfaceOpen(), 100, 2000);
+
+    Result := True;
+  end;
+
+  // make sure that press esc to close interface is enabled
+  if Self.AnyInterfaceOpen() then
+    Keyboard.PressKey(VK_ESCAPE);
+end;
+
+(*
+Bank.IsOpen
+~~~~~~~~~~~
+.. pascal:: function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean;
+
+Returns true if the Bank is visible.
+
+**WaitForItems** determines if the method waits up to one second for item to appears.
+There can be a small delay before items are visible.
+*)
+function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
+var
+  B: TBox;
+  Fix: Boolean;
+  RearrangeText: String;
+begin
+  // fixes the issue where uptext can cover the button, making isopen fail
+  if (MainScreen.GetUpText <> '') then
+  begin
+    B := Self.Bounds();
+    RearrangeText := OCR.RecognizeStatic([B.X1 + 7, B.Y2 - 41, B.X1 + 102, B.Y2 - 24], TOCRColorRule.Create([2070783, 5]), RS_FONT_PLAIN_12);
+
+    if RearrangeText.IsInString(['Rearrange mode:']) then
+      Fix := True;
+  end;
+
+  if Fix or Self.GetButton(ERSBankButton.WORN).Visible() then
+  begin
+    Result := True;
+
+    if WaitForItems then
+    begin
+      B := Self.GetSlotBoxes().Merge();
+
+      WaitUntil(SRL.CountColor(RS_ITEM_BORDER, B) > 0, 50, 1000);
+    end;
+  end;
+end;
+
 function TScript.WaitAttacking(Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;
 var
   T: TCountDown;

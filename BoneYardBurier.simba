@@ -108,7 +108,9 @@ begin
   Self.CheckUnderAttack();
   Self.CheckOtherPlayers();
 
-  // TODO check for interfaces if opened... close em
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+    
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 

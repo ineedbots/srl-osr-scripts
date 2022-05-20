@@ -86,7 +86,9 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
-  // TODO check for interfaces if opened... close em
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+    
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
@@ -819,7 +821,7 @@ begin
   Script.AntiBan.AfterBankAntiBan(30);
 
   // randomly close the bank
-  if Random() > 0.75 then
+  if (Random() > 0.75) or Self.RSW.ScreenWalk then
   begin
     if IsBank then
       Bank.Close()
@@ -844,7 +846,10 @@ begin
     begin
       Script.WriteMsg('WaitBankOpen: Bank opened!', True);
       exit(True);
-    end;
+    end
+    // fix a bug where the uptext makes bank.isopen fail SRL TODO FIX
+    else if not Minimap.HasFlag() and not Minimap.IsPlayerMoving() and (MainScreen.GetUpText() <> '') then
+      Mouse.Move(Minimap.Bounds());
 
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
@@ -1012,6 +1017,9 @@ begin
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  if Bank.IsOpen() then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -1278,6 +1286,10 @@ begin
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and Bank.IsOpen() then
+    Bank.Close();
 end;
 
 {
@@ -1313,6 +1325,9 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fish spot');
+
+      Bank.Close();
+
       exit();
     end;
 

@@ -79,7 +79,8 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
-  // TODO check for interfaces if opened... close em
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban();

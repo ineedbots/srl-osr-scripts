@@ -171,7 +171,9 @@ begin
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
-  // TODO check for interfaces if opened... close em
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
@@ -781,7 +783,7 @@ begin
   Script.AntiBan.AfterBankAntiBan(30);
 
   // randomly close the bank
-  if (Random() > 0.75) or MSWALKING then
+  if (Random() > 0.75) or Self.RSW.ScreenWalk then
     Bank.Close();
 
   Script.AntiBan.DoBreak();
@@ -811,7 +813,7 @@ begin
       exit(True);
     end
     // fix a bug where the uptext makes bank.isopen fail SRL TODO FIX
-    else if not Minimap.HasFlag() and (MainScreen.GetUpText() <> '') then
+    else if not Minimap.HasFlag() and not Minimap.IsPlayerMoving() and (MainScreen.GetUpText() <> '') then
       Mouse.Move(Minimap.Bounds());
 
     // only countdown if we are not moving
@@ -985,8 +987,13 @@ begin
 
     // reset the mosue speed back
     Mouse.Speed := S;
-  end else if Random() < 0.65 then
+  end
+  else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking to bank
+
+  // make sure outside the arena
+  if (Bot.GetWinterTodtEnergyPerc() <> -1) or Bank.IsOpen() then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -1182,8 +1189,17 @@ begin
 
     // reset the mosue speed back
     Mouse.Speed := S;
-  end else if Random() < 0.65 then
+  end
+  else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
+
+  // make sure outside the arena
+  if Bot.GetWinterTodtEnergyPerc() <> -1 then
+    Walker^.Enabled := False;
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and Bank.IsOpen() then
+    Bank.Close();
 end;
 
 {
@@ -1228,6 +1244,9 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to enter door!');
+
+      Bank.Close();
+
       exit();
     end;
 
@@ -1397,8 +1416,13 @@ begin
       // reset the mosue speed back
       Mouse.Speed := S;
     end;
-  end else if Random() < 0.65 then
+  end
+  else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
+
+  // make sure outside inside arena
+  if Bot.GetWinterTodtEnergyPerc() = -1 then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -1766,8 +1790,13 @@ begin
 
     // reset the mosue speed back
     Mouse.Speed := S;
-  end else if Random() < 0.65 then
+  end
+  else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
+
+  // make sure outside inside arena
+  if Bot.GetWinterTodtEnergyPerc() = -1 then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -2053,8 +2082,13 @@ begin
     end
     else if Bot.FindRoots(Position, B) and not MainScreen.Bounds().Contains(Mouse.Position()) then
       Mouse.Move(MainScreen.GetPlayerBox());
-  end else if Random() < 0.65 then
+  end
+  else if Random() < 0.65 then
     Bot.EatFood(1); // eat food while walking
+
+  // make sure outside inside arena
+  if Bot.GetWinterTodtEnergyPerc() = -1 then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -2166,7 +2200,7 @@ begin
   begin
     Self.InBossFight := True;
 
-    Self.RandomAmountToOffer := Random(-10, 10);
+    Self.RandomAmountToOffer := SRL.NormalRange(-10, 10);
 
     // set the offset tiles now
     Self.RootsTileWalkOffsetIndex := Random(Low(Self.RootsTileWalkOffsets), High(Self.RootsTileWalkOffsets));
