@@ -1442,7 +1442,7 @@ begin
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.ExitTile).Mean()) or
     Force then
   begin
-    Script.SetStatus('Going to enter door...');
+    Script.SetStatus('Going to exit door...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     Self.RSW.OnWalkingEvent := @WalkingToExitDoor;
@@ -1497,7 +1497,7 @@ begin
     WasClicked := Self.GoToExit();
     Self.WaitingForDeadBoss := False;
 
-    while RSClient.IsLoggedIn() and (Self.GetWinterTodtEnergyPerc() <> 0) do
+    while RSClient.IsLoggedIn() and (Self.GetWinterTodtEnergyPerc() > 0) do
       Self.DoMainLoopStuff('Waiting for boss to die', True);
   end;
 
