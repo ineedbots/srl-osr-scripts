@@ -1,0 +1,863 @@
+{
+  Barbarian Fisher
+  Author: ineedbot
+  Date: 5/22/2022
+
+  Version: 1.1.0
+
+  Barb fishes for 99 fishing.
+
+  Has mouse prediction while moving (will click objects as it approaches it)
+}
+
+program BarbarianFisher;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$i utils.simba}
+
+const
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = True;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  SHIFTDROP      = True;  // Shift drop?
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+
+  // Configuration complete!
+  // Below is script stuff
+
+type
+  TBot = record
+    WalkedFishForward, ShiftDropping                          : Boolean;
+    FishSpotColorWait, FishWaitTime, WalkedFish,
+    LastWalkedFish, FishDone                                  : Int32;
+    FishSpotUpText                                            : TStringArray;
+    RSW                                                       : TRSWalker;
+    RawFish, BurntFish, CookedFish                            : TRSItemArray;
+    BaitItem, RodItem                                         : TRSItem;
+    FishSpotColor, RodColor                                   : TScriptColor;
+    FishWalkTile                                              : TPoint;
+    FishTiles                                                 : TPointArray;
+  end;
+
+var
+  Bot: TBot;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.FISHING, Random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.STRENGTH, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.AGILITY, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+    
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  if not Inventory.FindItem(Self.BaitItem) then
+  begin
+    Script.Stop('Ran out of bait.');
+  end;
+
+  // TODO detect clues
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Finds the color
+}
+function TBot.FindRodColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.RodColor.RSObject, Area);
+  Result.FilterSize(Self.RodColor.FilterSize, __GT__);
+end;
+
+{
+  Finds the color
+}
+function TBot.FindFishSpotColor(Area: TBox; SearchTime: Int32=0; Interval: Int32=-1): T2DPointArray;
+var
+  T: TCountDown;
+  TPA: TPointArray;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  T.Init(SearchTime);
+  while not T.IsFinished() or (SearchTime = 0) do
+  begin
+    Result += MainScreen.FindObject(Self.FishSpotColor.RSObject, Area);
+
+    if SearchTime = 0 then
+      break;
+
+    Wait(Interval);
+  end;
+
+  TPA := Result.Merge();
+  Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
+  Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
+end;
+
+{
+  Is fishing?
+}
+function TBot.IsFishing(WaitTime: Int32 = 0): Boolean;
+var
+  ATPA: T2DPointArray;
+  ARect: array of TRectangle;
+  Rect: TRectangle;
+  B: TBox;
+  FishInAdjTile: Boolean;
+  TPA: TPointArray;
+  Mean: TPoint;
+begin
+  // get adjecent tiles and all colors with the fish spot
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
+  ARect := Script.GetAdjTiles();
+
+  // look for at each fish spot
+  for TPA in ATPA do
+  begin
+    Mean := TPA.Mean();
+
+    // look through each adj tile
+    for Rect in ARect do
+    begin
+      // check if this tile contains a fish tile
+      if Rect.Contains(Mean) then
+      begin
+        FishInAdjTile := True;
+        break;
+      end;
+    end;
+
+    if FishInAdjTile then
+      break;
+  end;
+
+  if not FishInAdjTile then
+    exit(False);
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawRect(Rect, clOrange);
+
+  // check if there is a rod over the fish tile
+  B := Rect.Expand(MainScreen.ConvertDistance(5)).Bounds();
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawBox(B, clGreen);
+
+  ATPA := Self.FindRodColor(B);
+
+  if Length(ATPA) <= 0 then
+    exit(False);
+
+  if Script.Debug and Script.Drawing then
+    RSClient.Image.DrawATPA(ATPA);
+
+  Result := True;
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  OurTile, TP: TPoint;
+  CompAng: Double;
+  TileRect: TRectangle;
+  B: TBox;
+  Text: String;
+  RF, CF, BF, F, R: TIntegerArray;
+  i: Int32;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  ATPA := Self.FindFishSpotColor(MainScreen.Bounds());
+  RSClient.Image.DrawATPA(ATPA);
+
+  for TP in Self.FishTiles do
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+
+  Text := 'Pos: ' + ToStr(OurTile) + NL
+    + 'Fishing: ' + ToStr(Self.IsFishing());
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.RawFish, RF);
+    Inventory.FindItems(Self.CookedFish, CF);
+    Inventory.FindItems(Self.BurntFish, BF);
+    Inventory.FindItem(Self.BaitItem, F);
+    Inventory.FindItem(Self.RodItem, R);
+
+    for i := 0 to 27 do
+    begin
+      if RF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if CF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if BF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+      else if F.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if R.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Fished: ' + IntToStr(Self.FishDone) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(False));
+end;
+
+///////////////////////////
+// BANKING FUNCS
+
+{
+  Drops all the logs in our inventory
+
+  Part of this is from Flight's AIOFisher
+}
+procedure TBot.DropItems();
+var
+  R: Extended;
+  Pattern, FishSlots: TIntegerArray;
+  CurFish, i, S: Int32;
+begin
+  Script.SetStatus('Dropping fish...');
+
+  // query the fish
+  Inventory.FindItems(Self.RawFish, FishSlots);
+  Inventory.FindItems(Self.CookedFish, FishSlots);
+  Inventory.FindItems(Self.BurntFish, FishSlots);
+  CurFish := FishSlots.Len();
+  Script.WriteMsg('DropItems: Fish slots (before drop): ' + ToStr(FishSlots), True);
+
+  // choose a random drop pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // possibly not drop all logs, for antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  for i := High(Pattern) downto Low(Pattern) do
+    if FishSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+  // drop
+  if Self.ShiftDropping then
+    Inventory.ShiftDrop(Pattern)
+  else
+  begin
+    for i in Pattern do
+    begin
+      Inventory.HoverSlot(i);
+
+      if MainScreen.IsUpText('Drop') then
+        Mouse.Click(MOUSE_LEFT)
+      else
+        ChooseOption.Select('Drop');
+
+      Wait(0, 1000, wdLeft);
+    end;
+  end;
+  Mouse.Speed := S;
+
+  // see how many logs we actually dropped, and log it
+  FishSlots.Clear();
+  Inventory.FindItems(Self.RawFish, FishSlots);
+  Inventory.FindItems(Self.CookedFish, FishSlots);
+  Inventory.FindItems(Self.BurntFish, FishSlots);
+  Self.FishDone += CurFish - FishSlots.Len();
+  Script.WriteMsg('DropItems: Fish slots (after drop): ' + ToStr(FishSlots), True);
+
+  Script.SetStatus('Fish dropped!');
+  Script.WriteMsg('Dropped fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
+
+  Self.DoAntiBan();
+end;
+
+////////////////////////////////////
+
+/////////////////////////////////////
+// FISHING FUNCS
+
+{
+  Updates which fish tile we are at
+}
+procedure TBot.UpdateWalkedFish(Here: Boolean = True);
+var
+  CFishTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CFishTiles := Copy(Self.FishTiles);
+    CFishTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedFish := Self.WalkedFish;
+    Self.WalkedFish := Self.FishTiles.Find(CFishTiles[0]);
+    if Self.LastWalkedFish <> Self.WalkedFish then
+      Self.WalkedFishForward := Self.LastWalkedFish < Self.WalkedFish;
+  end
+  else
+  begin
+    if (Self.FishTiles.Len() > 1) then
+    begin
+      if Self.WalkedFishForward then
+      begin
+        Self.WalkedFish += 1;
+        if Self.WalkedFish > High(Self.FishTiles) then
+        begin
+          Self.WalkedFish -= 2;
+          Self.WalkedFishForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedFish -= 1;
+        if Self.WalkedFish < Low(Self.FishTiles) then
+        begin
+          Self.WalkedFish += 2;
+          Self.WalkedFishForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
+
+{
+  Waits while fishing
+}
+procedure TBot.WhileFishing();
+var
+  CountDown: TCountDown;
+  InvCount, IC: Int32;
+begin
+  while RSClient.IsLoggedIn() and Minimap.HasFlag(1000) and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
+
+  // update WalkedFish
+  Self.UpdateWalkedFish(True);
+
+  Wait(1000, 2000);
+
+  Script.WriteMsg('We are fishing...', True);
+  InvCount := Inventory.Count();
+  CountDown.Init(Self.FishWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    if not Self.IsFishing(Self.FishSpotColorWait) then
+    begin
+      Script.WriteMsg('We are not fishing anymore...', True);
+      break;
+    end;
+
+    IC := Inventory.Count();
+    if IC >= 28 then
+    begin
+      Script.WriteMsg('Inv is full, we stopped fishing', True);
+      break;
+    end;
+
+    if IC <> InvCount then
+    begin
+      Script.WriteMsg('Our inventory changed, restart the timeout timer', True);
+      CountDown.Restart();
+    end;
+    InvCount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('No fish caught in time, we are not fishing anymore', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fishing...', True);
+  end;
+end;
+
+{
+  Returns true if clicked on a fishing spot
+}
+function TBot.ClickFish(out WasClicked: Boolean; SortByPnt: TPoint; WaitTime: Int32; Velocity: TPoint = Point(0, 0)): Boolean;
+var
+  FishSpots: T2DPointArray;
+  TPA: TPointArray;
+  B: TBox;
+begin
+  Script.WriteMsg('Going to click a fish spot...', True);
+
+  FishSpots := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
+
+  if Length(FishSpots) <= 0 then
+  begin
+    Script.WriteMsg('No fish spots found', True);
+    exit(False);
+  end;
+
+  Script.WriteMsg('Fish spot color found, checking uptext', True);
+  FishSpots.SortByMiddle(SortByPnt);
+
+  // check each of the spots for the uptext, then click
+  for TPA in FishSpots do
+  begin
+    B := TPA.Bounds();
+
+    // check if we need apply velocity
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Self.FishSpotUpText;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
+
+    // check uptext
+    if not MainScreen.IsUpText(Self.FishSpotUpText, Random(100, 250)) then
+    begin
+      Script.WriteMsg('Bad uptext for fish spot', True);
+      if Velocity = Point(0, 0) then
+        continue // things are moving, we took up time by moving mouse, colors are innaccurate
+      else
+        break;
+    end;
+
+    Script.WriteMsg('Good uptext for fish spot! Clicking!', True);
+    Result := True;
+
+    // uptext found, click it!
+    if Random() < 0.1 then
+      WasClicked := ChooseOption.Select(Self.FishSpotUpText)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    break;
+  end;
+end;
+
+{
+  While we walk to the fishes
+}
+procedure WalkingToFish(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickFish(WasClicked, Mouse.Position(), 0, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the fishing spot while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+end;
+
+{
+  Walks to the fish,
+  Returns true if we clicked the fishing spot while walking
+}
+function TBot.GoToFish(Force: Boolean = False): Boolean;
+var
+  Where, OurPos: TPoint;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to fish spot...', True);
+  OurPos := Self.RSW.GetMyPos();
+  Where := Self.FishTiles[Self.WalkedFish];
+  if Force then
+    Where := Self.FishWalkTile;
+
+  if (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to fish spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToFish;
+    try
+      Walked := Self.RSW.WebWalk(Where.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to fish spot');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+
+  // set the 'next' fish spot...
+  if not Force then
+    Self.UpdateWalkedFish(False);
+end;
+
+{
+  Returns true if clicked the fish
+}
+function TBot.TryClickFish(): Boolean;
+var
+  WasClicked: Boolean;
+  i: Int32;
+begin
+  for i := 1 to 3 do
+  begin
+    Minimap.WaitPlayerMoving();
+
+    if Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked then
+      exit(True);
+  end;
+end;
+
+////////////////////////////////////////
+
+{
+  Executes when we need to gather items to fill our inventory
+}
+procedure TBot.DoGathering();
+begin
+  if Self.TryClickFish() or
+    Self.GoToFish() or
+    Self.TryClickFish() then
+  begin
+    Self.AfterActionAntiBan(True);
+    Self.WhileFishing();
+  end
+  else
+    Self.DoAntiBan();
+end;
+
+{
+  Executes when we should do something about our full inventory
+}
+procedure TBot.DoFullInventory();
+begin
+  Self.DropItems();
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      // TODO randomize
+      if Inventory.IsFull() then
+        Self.DoFullInventory()
+      else
+        Self.DoGathering();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff('', False);
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;                                 
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.ShiftDropping := SHIFTDROP;
+
+  Self.RSW.Setup('world');
+  Self.RSW.ScreenWalk     := MSWALKING;
+  Self.FishSpotColorWait := 100;
+  Self.FishWaitTime := 15000;
+  Self.FishSpotUpText := ['Use-rod Fishing spot', 'Use-rod'];
+
+  Self.FishTiles := [[1829, 2476], [1820, 2460], [1806,2408], [1824,2381], [1889,2372]];
+  Self.FishWalkTile := [1824,2381];
+
+  Self.CookedFish := [];
+  Self.RawFish := ['Leaping trout', 'Leaping salmon', 'Leaping sturgeon'];
+  Self.BurntFish := [];
+  Self.BaitItem := 'Feather';
+  Self.RodItem := 'Barbarian rod';
+
+  with Self.FishSpotColor do
+  begin
+    RSObject.Colors += CTS2(14793370, 10, 0.22, 1.46);
+    RSObject.Grow := 3;
+    RSObject.ClusterDistance := 7;
+    FilterSize := 50;
+  end;
+
+  with Self.RodColor do
+  begin
+    RSObject.Colors += CTS2(8163222, 4, 0.14, 0.45);
+    RSObject.Colors += CTS2(8287585, 14, 0.05, 0.27);
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 5;
+    FilterSize := 50;
+  end;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
