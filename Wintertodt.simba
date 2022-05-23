@@ -177,6 +177,9 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
@@ -557,6 +560,8 @@ var
 begin
   Script.WriteMsg('Waitting for boss start...', True);
 
+  Self.DoAntiBan();
+
   Self.GoToBrazier(True, False);
 
   if Self.GetWinterTodtEnergyPerc() = 0 then
@@ -608,6 +613,8 @@ begin
     Script.WriteMsg('No knife...', True);
     exit();
   end;
+
+  Self.DoAntiBan();
 
   // its safe here
   Self.GoToLogs(True, False);
@@ -1064,7 +1071,9 @@ begin
   begin
     if Self.WaitBankOpen() then
       Self.DoBanking();
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 ////////////////////////
@@ -1293,7 +1302,9 @@ begin
 
       Wait(Script.SleepRate);
     end;
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 // EXIT
@@ -1531,7 +1542,9 @@ begin
 
       Wait(Script.SleepRate);
     end;
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 /////////////////////////
@@ -1885,7 +1898,9 @@ begin
     end
     else
       Self.WhileUnlitBrazier();
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 //////////////////////////
@@ -2168,7 +2183,9 @@ begin
 
         continue;
       end;
-    end;
+    end
+    else
+      Self.DoAntiBan();
 
     break;
   end;

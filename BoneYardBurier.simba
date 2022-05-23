@@ -114,6 +114,9 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
 end;
@@ -459,7 +462,9 @@ begin
       Self.DoFullInventory()
     else
       Self.GoToABone();
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 {
@@ -542,7 +547,10 @@ begin
     begin
       // TODO randomize
       if Inventory.IsFull() then
-        Self.DoFullInventory()
+      begin
+        Self.DoFullInventory();
+        Self.DoAntiBan();
+      end
       else
         Self.DoGathering();
     end

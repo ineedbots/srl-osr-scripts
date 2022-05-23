@@ -390,8 +390,6 @@ begin
 
   Script.SetStatus('Fish dropped!');
   Script.WriteMsg('Dropped fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
-
-  Self.DoAntiBan();
 end;
 
 ////////////////////////////////////
@@ -701,7 +699,10 @@ begin
     begin
       // TODO randomize
       if Inventory.IsFull() then
-        Self.DoFullInventory()
+      begin
+        Self.DoFullInventory();
+        Self.DoAntiBan();
+      end
       else
         Self.DoGathering();
     end

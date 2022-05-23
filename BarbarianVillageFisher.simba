@@ -92,6 +92,9 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
   if not Inventory.FindItem(Self.BaitItem) then
   begin
     Script.Stop('Ran out of bait.');
@@ -1371,7 +1374,9 @@ begin
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileFishing();
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 {
@@ -1410,7 +1415,10 @@ begin
     begin
       // TODO randomize
       if Inventory.IsFull() then
-        Self.DoFullInventory()
+      begin
+        Self.DoFullInventory();
+        Self.DoAntiBan();
+      end
       else
         Self.DoGathering();
     end

@@ -151,6 +151,9 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
   // TODO check cluescroll
   if Self.FoundBirdsNest(B) and Chat.FindMessage(Self.BirdNestText, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]) then
   begin
@@ -1790,7 +1793,9 @@ begin
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileChopping(Self.CurrentChoppingTreeTile);
-  end;
+  end
+  else
+    Self.DoAntiBan();
 end;
 
 {
@@ -1804,7 +1809,10 @@ begin
     begin
       // TODO randomize
       if Inventory.IsFull() then
-        Self.DoFullInventory()
+      begin
+        Self.DoFullInventory();
+        Self.DoAntiBan();
+      end
       else
         Self.DoGathering();
     end
