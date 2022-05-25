@@ -4,13 +4,14 @@ program ArdyThievHelper;
 
 var
   uptxt: String;
-  ClickTimer, InvOpenTimer, InvCloseTimer, MouseInvMoveTimer: TCountDown;
+  ClickTimer, InvOpenTimer, InvCloseTimer, MouseInvMoveTimer, FullBtnTimer: TCountDown;
 
 begin
   ClickTimer.Init(1);
   InvCloseTimer.Init(1);
   InvOpenTimer.Init(1);
   MouseInvMoveTimer.Init(1);
+  FullBtnTimer.Init(1);
 
   while RSClient.IsLoggedIn() do
   begin
@@ -70,9 +71,12 @@ begin
           InvCloseTimer.Restart(SRL.SkewedRand(2000, 1000, 4000))
         else
           InvCloseTimer.Restart(SRL.SkewedRand(1500, 50, 10000));
+      end
+      else if ('You need to empty' in Chat.GetMessage(7, [CHAT_COLOR_BLACK])) and FullBtnTimer.IsFinished() then
+      begin
+        Keyboard.PressKey(VK_ESCAPE);
+        FullBtnTimer.Restart(SRL.SkewedRand(30000, 50, 40000));
       end;
-      //else if ('You need to empty' in Chat.GetMessage(7, [CHAT_COLOR_BLACK])) and (Random() < 0.1) then
-      //  Keyboard.PressKey(VK_ESCAPE);
     end;
   end;
 end.
