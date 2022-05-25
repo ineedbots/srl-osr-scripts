@@ -31,9 +31,11 @@ Here is an up to date guide for installing the dependencies; https://villavu.com
 
 ## Dependencies
 - Simba 1400 - https://github.com/ollydev/Simba/releases/tag/autobuild-simba1400
-- SRL-Development Release 7 - https://github.com/ollydev/SRL-Development/releases/tag/7
+- SRL-Development Release 13 - https://github.com/ollydev/SRL-Development/releases/tag/13
 
 ## Credits
+- Torwent - https://github.com/Torwent/WaspLib
+- Simba Team - https://github.com/ollydev/Simba
 - Flight - https://villavu.com/forum/showthread.php?t=177731
 - SRL-Development Team - https://github.com/ollydev/SRL-Development
 - SRL Team - https://github.com/SRL/SRL
