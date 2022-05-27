@@ -43,15 +43,18 @@ begin
     uptxt := MainScreen.GetUpText().Strip();
     tab := GameTabs.GetCurrentTab();
 
-    if Inventory.FindItem(coinpouch, slots) then
+    if tab = ERSGameTab.INVENTORY then
     begin
-      if slots[0] <> 0 then
+      if Inventory.FindItem(coinpouch, slots) then
       begin
+        if slots[0] <> 0 then
+        begin
+          continue;
+        end;
+      end
+      else if Inventory.IsSlotUsed(0) then
         continue;
-      end;
-    end
-    else if Inventory.IsSlotUsed(0) then
-      continue;
+    end;
 
     if not Mouse.Position().InBox(Inventory.GetSlotBox(0)) then
     begin
