@@ -19,6 +19,8 @@ var
   uptxt: String;
   tab: ERSGametab;
   ClickTimer, InvOpenTimer, InvCloseTimer, MouseInvMoveTimer, FullBtnTimer, MouseMoveTimer: TCountDown;
+  coinpouch: TRSItem;
+  slots: TIntegerArray;
 
 begin
   ClickTimer.Init(1);
@@ -27,6 +29,7 @@ begin
   MouseInvMoveTimer.Init(1);
   FullBtnTimer.Init(1);
   MouseMoveTimer.Init(1);
+  coinpouch := 'Coin pouch';
 
   Mouse.Move(Inventory.GetSlotBox(0), True);
 
@@ -39,6 +42,16 @@ begin
 
     uptxt := MainScreen.GetUpText().Strip();
     tab := GameTabs.GetCurrentTab();
+
+    if Inventory.FindItem(coinpouch, slots) then
+    begin
+      if slots[0] <> 0 then
+      begin
+        continue;
+      end;
+    end
+    else if Inventory.IsSlotUsed(0) then
+      continue;
 
     if not Mouse.Position().InBox(Inventory.GetSlotBox(0)) then
     begin
