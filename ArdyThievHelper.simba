@@ -1,6 +1,19 @@
+{
+  ArdyThievHelper
+  Author: ineedbot
+  Date: 5/25/2022
+
+  Version: 1.1.0
+
+  Pickpockets ardy knights until 200m exp.
+
+  Use resizable modern layout, and use the mouse over top right of inventory. Uses ESC button to toggle inventory.
+}
+
 program ArdyThievHelper;
 // {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
+{$i utils.simba}
 
 var
   uptxt: String;
@@ -37,7 +50,7 @@ begin
     else
       MouseInvMoveTimer.Restart(30000);
 
-    if not (uptxt = '') and not ('Pick' in uptxt) and not ('Open-' in uptxt) then
+    if not (uptxt = '') and not ('Pickpocket Knight' in uptxt) and not ('Open-' in uptxt) then
       continue;
 
     if (uptxt = '') and (tab <> ERSGameTab.INVENTORY) then
