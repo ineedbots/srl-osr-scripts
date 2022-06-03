@@ -95,7 +95,7 @@ begin
   if MainScreen.IsUpText('->') then
     Mouse.Click(MOUSE_LEFT);
 
-  if not Inventory.FindItem(Self.BaitItem) then
+  if (Gametabs.GetCurrentTab() = ERSGametab.INVENTORY) and not Inventory.FindItem(Self.BaitItem) then
   begin
     Script.Stop('Ran out of bait.');
   end;

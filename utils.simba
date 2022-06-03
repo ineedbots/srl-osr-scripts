@@ -660,6 +660,14 @@ begin
   end;
 end;
 
+function TBox.Intersection(B: TBox): TBox;
+begin
+  Result.X1 = Max(Self.X1, B.X1);
+  Result.Y1 = Max(Self.Y1, B.Y1);
+  Result.X2 = Min(Self.X2, B.X2);
+  Result.Y2 = Min(Self.Y2, B.Y2);
+end;
+
 {
   Adds tinted colors
 }
