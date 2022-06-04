@@ -13,6 +13,7 @@ program AlcherHelper;
 
 var
   ClickTimer, MouseInvMoveTimer, MouseMoveTimer, MagicTabOpenTimer: TCountDown;
+  uptxt: String;
   nats: TRSItem;
   B: TBox;
 
@@ -67,6 +68,11 @@ begin
     end
     else
       MagicTabOpenTimer.Restart(10000);
+
+    uptxt := MainScreen.GetUpText().Strip();
+
+    if not ('Use' in uptxt) and not ('Cast' in uptxt) then
+      continue;
 
     if MouseMoveTimer.IsFinished() then
     begin
