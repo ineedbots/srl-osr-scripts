@@ -1,0 +1,1001 @@
+{
+  BankStander
+  Author: ineedbot
+  Date: 6/8/2022
+
+  Bank stands
+}
+
+program BankStander;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$i utils.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+type
+  ERSCreationType = (
+    TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
+    SINGLETRANSFORM, // transforming materials into products without a tool, like cleaning herbs
+    COMBINE,         // combining items together, like creating finished potions
+    SUPERCOMBAT      // super combat potions (a special case)
+  );
+
+const
+  MAP = 'zeah'; // 'zeah' or 'world'
+  BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
+
+type
+  ERSBankColorType = (
+    FARMING_GUILD_CHEST,
+    GRAND_EXCHANGE_BANKER,
+    DRAYNOR_BANK_BOOTH,
+    WINTERTODT_CHEST,
+    VARROCK_WEST_BANK_BOOTH,
+    BLAST_FURNACE_CHEST
+  );
+
+const
+  BANK_COLOR_TYPE = ERSBankColorType.BLAST_FURNACE_CHEST;
+
+  CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 1;
+
+  TOOLS = ['Chisel'];
+  MATERIALS = ['Amethyst'];
+  PRODUCTS = ['Amethyst arrowtips'];
+  {CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 5;
+
+  TOOLS = ['Glassblowing pipe'];
+  MATERIALS = ['Molten glass'];
+  PRODUCTS = ['Unpowered orb'];}
+
+  {CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 2;
+
+  TOOLS = ['Knife'];
+  MATERIALS = ['Maple logs'];
+  PRODUCTS = ['Maple longbow (u)'];}
+
+
+  // Configuration complete!
+  // Below is script stuff
+
+type
+  TBot = record
+    ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
+    CreationType                                              : ERSCreationType;
+    MakeNum, Did, TransformWaitTime                           : Int32;
+    StoppedShort                                              : Boolean;
+    SelfBoxRadiusExpand                                       : Double;
+    BankLocations                                             : TPointArray;
+    RSW                                                       : TRSWalker;
+    BankColor                                                 : TScriptColor;
+  end;
+
+var
+  Bot: TBot;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.CRAFTING, Random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.HERBLORE, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Returns all the found banks
+}
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var   
+  ATPA: T2DPointArray;
+  OurTile, TP: TPoint;
+  CompAng: Double;
+  TileRect: TRectangle;
+  B: TBox;
+  Text: String;
+  T, M, P: TIntegerArray;
+  i: Int32;
+  Item: TRSItem;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  if Self.BankLocations[0].X = -1 then
+  begin
+    B := MainScreen.GetPlayerBox();
+    B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
+
+    B := ATPA.Biggest().Bounds();
+    RSClient.Image.DrawBox(B, clYellow);
+  end
+  else
+  begin
+    for TP in Self.BankLocations do
+    begin
+      TileRect := Self.RSW.GetTileMSEx(OurTile, TP, 4);
+
+      B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+      RSClient.Image.DrawBox(B, clGreen);
+      ATPA := Self.FindBankColor(B);
+      RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
+
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+      RSClient.Image.DrawRect(TileRect, clBlue);
+
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+
+      B := ATPA.Biggest().Bounds();
+      RSClient.Image.DrawBox(B, clYellow);
+    end;
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile) + NL;
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.MaterialItems, M);
+    Inventory.FindItems(Self.ProductItems, P);
+
+    for i := 0 to 27 do
+    begin
+      if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if M.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if P.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+    end;
+  end;
+
+  if Bank.IsOpen() then
+  begin
+    for Item in Self.MaterialItems do
+    begin
+      if Bank.FindItem(Item, B) then
+        RSClient.Image.DrawBox(B, clWhite);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(False));
+end;
+
+// BANK
+
+{
+  Banks
+}
+procedure TBot.DoBanking();
+var
+  ToolSlots, Pattern: TIntegerArray;
+  R: Double;
+  i: Int32;
+begin
+  if not Bank.IsOpen(True) then
+  begin
+    if BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('DoBanking: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      Wait(0, 5000, wdLeft);
+      exit();
+    end;
+
+    Bank.FixUpText();
+    exit();
+  end;
+
+  Self.StoppedShort := False;
+
+  Inventory.FindItems(Self.ToolItems, ToolSlots);
+  Script.WriteMsg('DoBanking: ToolSlots: ' + ToStr(ToolSlots), True);
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  Script.WriteMsg('DoBanking: Pattern: ' + ToStr(Pattern), True);
+
+  Script.SetStatus('Banking...');
+  Script.AntiBan.AfterBankAntiBan(20);
+
+  case Self.CreationType of
+    ERSCreationType.TRANSFORM: Self.DoTransformBanking(Pattern);
+    //ERSCreationType.COMBINE: Self.DoCombineBanking();
+    //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransformBanking();
+    //ERSCreationType.SUPERCOMBAT: Self.DoSupercombatBanking();
+  end;
+
+  Script.AntiBan.AfterBankAntiBan(30);
+
+  Bank.Close(Script.ShouldPressKeyboard());
+  Script.WriteMsg('Finished banking...', True);
+end;
+
+// TRANSFORM
+
+{
+  Banks for transform type
+}
+procedure TBot.DoTransformBanking(DepositPattern: TIntegerArray);
+var
+  ProductSlots: TIntegerArray;
+  CurProducts, i, IC, QuantityAmount: Int32;
+  Withdrew, Depod, UsingButton: Boolean;
+  R: Double;
+  Item: TRSItem;
+  B: TBox;
+begin
+  // search for materials
+  for i := 0 to 5 do
+  begin
+    for Item in Self.MaterialItems do
+    begin
+      if Bank.FindItem(Item, B) then
+      begin
+        Withdrew := True;
+        break;
+      end;
+
+      Bank.FixUpText();
+
+      if Bank.FindItem(Item, B) then
+      begin
+        Withdrew := True;
+        break;
+      end;
+    end;
+
+    if Withdrew then
+      break;
+  end;
+
+  if not Withdrew then
+  begin
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
+  // remember how many produce we have, so we can count
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
+  CurProducts := Length(ProductSlots);
+  Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
+
+  // deposit our stuff
+  Script.WriteMsg('Depositting our produce.', True);
+  IC := Inventory.Count();
+  for i in DepositPattern do
+  begin
+    if Inventory.IsSlotUsed(Inventory.GetSlotBox(i)) then
+    begin
+      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+      R := SRL.TruncatedGauss(0.0, 1.0);
+      case R of
+        0.0..0.5: QuantityAmount := BANK_DEPOSIT_ALL;
+        0.5..0.6: QuantityAmount := CurProducts;
+        0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+        0.7..0.8: QuantityAmount := 10;
+        0.8..0.9: QuantityAmount := 5;
+        else QuantityAmount := 1;
+      end;
+
+      if Bank.DepositSlot([i, QuantityAmount], UsingButton) then
+      begin
+        Depod := True;
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+      end
+      else
+      begin
+        Bank.FixUpText();
+        Bank.DepositSlot([i, QuantityAmount], UsingButton);
+      end;
+    end;
+  end;
+
+  if Depod then
+    Inventory.WaitChange(IC, 2500);
+
+  Wait(0, 2500, wdLeft);
+
+  if Inventory.IsFull() and Depod then
+  begin
+    Script.Stop('Inv is full after depositting');
+    exit();
+  end;
+
+  Script.AntiBan.AfterBankAntiBan(15);
+
+  // withdraw our crap
+  Script.WriteMsg('Withdrawing our materials.', True);
+  IC := Inventory.Count();
+  for i := 0 to 5 do
+  begin
+    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+                                       
+    R := SRL.TruncatedGauss(0.0, 1.0);
+    if not UsingButton and inRange(R, 0.4, 0.6) then
+      QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
+    else
+    begin
+      case R of
+        0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
+        0.6..0.8: QuantityAmount := 27;
+        else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+      end;
+    end;
+
+    if Bank.WithdrawHelper(B, QuantityAmount, False, UsingButton) then
+    begin
+      Withdrew := True;
+      Wait(SRL.SkewedRand(1000, 500, 2500));
+      break;
+    end
+    else
+      Bank.FixUpText();
+  end;
+
+  if not Withdrew then
+  begin
+    Script.Stop('Failed to withdraw materials!');
+    exit();
+  end;
+
+  Inventory.WaitChange(IC, 2500);
+  Wait(0, 3000, wdLeft);
+
+  ProductSlots.Clear();
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
+  Self.Did += CurProducts - Length(ProductSlots);
+
+  Script.SetStatus('Depositted!');
+  Script.WriteMsg('Banked... Currently did ' + IntToStr(Self.Did) + '!');
+end;
+
+{
+  Transforms the item with a tool
+}
+procedure TBot.Transform(Item: TRSItem; MaterialSlots, ToolSlots: TIntegerArray);
+var
+  ToolSlot, MaterialSlot, MCount, MC, StopShort, OGMCount: Int32;
+  Made: Boolean;   
+  CountDown: TCountDown;
+begin
+  ToolSlot := ToolSlots[Random(High(ToolSlots))];
+  MaterialSlot := MaterialSlots[Random(High(MaterialSlots))];
+  MCount := Length(MaterialSlots);
+  OGMCount := MCount;
+
+  StopShort := MCount;
+  if Random() < 0.05 then
+    StopShort := SRL.SkewedRand(MCount, MCount, 0);
+
+  Script.WriteMsg('Starting the transformation', True);
+
+  // start transforming
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(ToolSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(MaterialSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(MaterialSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(ToolSlot);
+  end;
+
+  if Self.MakeNum = -1 then
+    Made := True;
+
+  if not Made and Make.IsOpen(SRL.SkewedRand(1500, 500, 2500)) then
+  begin
+    Wait(0, 3333, wdLeft);
+    if Length(Make.GetItemButtons()) > Self.MakeNum then
+      Made := Make.Select(Self.MakeNum, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard());
+  end;
+
+  if not Made then
+  begin
+    Script.WriteMsg('Failed to open make', True);
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.TransformWaitTime);
+
+  Script.WriteMsg('Making...', True);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check inv
+    MaterialSlots.Clear();
+    Inventory.FindItem(Item, MaterialSlots);
+    MC := Length(MaterialSlots);
+
+    if MC <= 0 then
+    begin
+      Script.WriteMsg('Transform: No more material', True);
+      break;
+    end;
+
+    if MC <> MCount then
+    begin
+      Script.WriteMsg('Transform: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    if (StopShort - (OGMCount - MC)) <= 0 then
+    begin
+      if Random() < 0.65 then
+        Self.StoppedShort := True;
+
+      Script.WriteMsg('Stopping short for antiban', True);
+      break;
+    end;
+
+    MCount := MC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('Transform: Countdown expired', True);
+      break;
+    end;
+
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('Transform: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500, wdLeft);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Transforming items...', True);
+  end;
+
+  Wait(0, 5555, wdLeft);
+end;
+
+{
+  Does transform type
+}
+procedure TBot.DoTransform();
+var
+  MaterialSlots, ToolSlots: TIntegerArray;
+  Item: TRSItem;
+begin
+  if not Inventory.FindItems(Self.ToolItems, ToolSlots) then
+  begin
+    Script.WriteMsg('No tools', True);
+    exit();
+  end;
+
+  Script.WriteMsg('DoTransform: ToolSlots: ' + ToStr(ToolSlots), True);
+
+  Self.DoAntiBan();
+
+  Script.WriteMsg('Transforming items...', True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoTransform: MaterialSlots: ' + ToStr(MaterialSlots), True);
+      Self.Transform(Item, MaterialSlots, ToolSlots);
+      break;
+    end;
+  end;
+
+  Script.WriteMsg('No materials', True);
+end;
+
+// OPEN BANK
+
+{
+  Returns true if it opened the bank
+}
+function TBot.OpenBank(): Boolean;
+var
+  B: TBox;
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  TP: TPoint;
+begin
+  if Bank.IsOpen() or BankPin.IsOpen() then
+  begin
+    Script.WriteMsg('Bank is opened', True);
+    exit(True);
+  end;
+
+  Script.WriteMsg('Searching for bank', True);
+  if Self.BankLocations[0].X = -1 then
+  begin
+    B := MainScreen.GetPlayerBox();
+    B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+  end
+  else
+  begin
+    TP := Self.BankLocations[Random(High(Self.BankLocations))];
+    TileRect := Self.RSW.GetTileMSEx(Self.RSW.GetMyPos(), TP, 4);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+  end;
+
+  ATPA := Self.FindBankColor(B);
+  TPA := ATPA.Biggest();
+
+  if Length(TPA) <= 0 then
+  begin
+    if Self.BankLocations[0].X = -1 then
+      exit(False);
+  end
+  else
+    B := TPA.Bounds();
+
+  Script.WriteMsg('Testing uptext for bank', True);
+
+  Mouse.Move(B);
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    exit(False);
+
+  Script.SetStatus('Confirmed bank! Opening bank...');
+
+  // open the bank
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    Result := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end;
+
+  if Result then
+    Result := Bank.IsOpen(SRL.SkewedRand(2500, 50, 5000));
+
+  if not Result then
+    Result := BankPin.IsOpen();
+
+  if Result then
+    Script.WriteMsg('Bank opened', True);
+end;
+
+{
+  Trys to open the bank
+}
+procedure TBot.DoOpenBank();
+var
+  i: Int32;
+begin
+  Script.WriteMsg('Opening bank..', True);
+  // attempt to open the bank 5 times
+  for i := 0 to 5 do
+  begin
+    if Self.OpenBank() then
+      exit();
+
+    Script.WriteMsg('Failed to open bank');
+    Minimap.SetCompassAngle(Random() * 360.0);
+    Wait(2500, 10000, wdLeft);
+  end;
+
+  Script.Stop('Failed to open bank..');
+end;
+
+{
+  Does logged in stuff
+}
+procedure TBot.DoLoggedInStuff();
+begin
+  if Bank.IsOpen() or BankPin.IsOpen() then
+  begin
+    // do banking
+    Self.DoBanking();
+  end
+  else
+  begin
+    if Inventory.FindItems(Self.MaterialItems) and not Self.StoppedShort then
+    begin
+      // do production
+      case Self.CreationType of
+        ERSCreationType.TRANSFORM: Self.DoTransform();
+        //ERSCreationType.COMBINE: Self.DoCombine();
+        //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransform();
+        //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
+      end;
+    end
+    else
+    begin
+      // open bank
+      Self.DoOpenBank();
+    end;
+  end;
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      Self.DoLoggedInStuff();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff('', False);
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+  i: Int32;
+  Item: TRSItem;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_MINUTE*3, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*5,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup(MAP);
+  Self.SelfBoxRadiusExpand := 1.3;
+
+  SetLength(Self.BankLocations, Length(BANK_LOCATIONS));
+  for i := 0 to High(BANK_LOCATIONS) do
+  begin
+    Self.BankLocations[i].X := BANK_LOCATIONS[i][0];
+    Self.BankLocations[i].Y := BANK_LOCATIONS[i][1];
+  end;
+
+  case BANK_COLOR_TYPE of
+    ERSBankColorType.FARMING_GUILD_CHEST:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(1789017, 5, 0.11, 0.83);
+        RSObject.Colors += CTS2(2968663, 2, 0.41, 0.78);
+        RSObject.Colors += CTS2(5206654, 6, 0.07, 0.12);
+        RSObject.ClusterDistance := 8;
+        FilterSize := 30;
+        RadiusExpand := 0.25;
+      end;
+    end;
+    ERSBankColorType.GRAND_EXCHANGE_BANKER:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(7829633, 11, 0.17, 0.12);
+        RSObject.Grow := 2;
+        RSObject.Erode := 3;
+        RSObject.ClusterDistance := 3;
+        FilterSize := 10;
+        RadiusExpand := 0.25;
+      end;
+    end;
+    ERSBankColorType.DRAYNOR_BANK_BOOTH:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+        RSObject.ColorClusters += [
+          CTS2(6120041, 4, 1.11, 1.12), // Grey
+          CTS2(1069929, 2, 0.15, 1.05), // Brown
+          3];
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+        FilterSize := 10;
+        RadiusExpand := 0.25;
+      end;
+    end;
+    ERSBankColorType.WINTERTODT_CHEST:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(2631713, 3, 0, 1.25);
+        RSObject.Colors += CTS2(3881520, 4, 0.39, 0.23);
+        RSObject.ClusterDistance := 8;
+        FilterSize := 30;
+        RadiusExpand := 0.25;
+      end;
+    end;
+    ERSBankColorType.VARROCK_WEST_BANK_BOOTH:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(3432558, 3, 0.14, 2.26);
+        RSObject.Colors += CTS2(7309971, 6, 0.12, 0.82);
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+        FilterSize := 10;
+        RadiusExpand := 0.25;
+      end;
+    end;
+    ERSBankColorType.BLAST_FURNACE_CHEST:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(2832199, 14, 0.06, 0.10);
+        RSObject.Erode := 2;
+        RSObject.Grow := 2;
+        RSObject.ClusterDistance := 1;
+
+        FilterSize := 5;
+        RadiusExpand := 1;
+      end;
+    end;
+  end;
+
+  Self.TransformWaitTime := 3000;
+  Self.CreationType := CREATION_TYPE;
+  Self.MakeNum := MAKE_NUM;
+
+  for Item in TOOLS do
+    Self.ToolItems += Item;
+
+  for Item in MATERIALS do
+    Self.MaterialItems += Item;
+
+  for Item in PRODUCTS do
+    Self.ProductItems += Item;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.

@@ -30,7 +30,8 @@ type
   TScript = record
     Status, StopReason                                        : String;
     MouseLooksForUpText                                       : TStringArray;
-    Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks : Boolean;
+    Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks,
+      KeyboardMenuButtons                                     : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
       MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
     Activity: record
@@ -577,6 +578,14 @@ end;
 // -----------------------------------------------------------------------------
 // GENERAL SCRIPT METHODS
 
+function TScript.ShouldPressKeyboard(): Boolean;
+begin
+  if Self.KeyboardMenuButtons then
+    Result := (SRL.TruncatedGauss(0.0, 1.0) < 0.5)
+  else
+    Result := False;
+end;
+
 (*
 Chat.FindMessage
 ~~~~~~~~~~~~~~~~
@@ -663,6 +672,44 @@ end;
 function TBox.Intersection(B: TBox): TBox;
 begin
   Result := [Max(Self.X1, B.X1), Max(Self.Y1, B.Y1), Min(Self.X2, B.X2), Min(Self.Y2, B.Y2)];
+end;
+
+function T2DPointArray.FurthestFrom(From: TPoint): TPointArray; constref;
+var
+  TPA: TPointArray;
+  Found: Boolean;
+  Dist, BestDist: Double;
+begin
+  for TPA in Self do
+  begin
+    Dist := TPA.Mean().DistanceTo(From);
+
+    if not Found or (Dist > BestDist) then
+    begin
+      Found := True;
+      BestDist := Dist;
+      Result := TPA;
+    end;
+  end;
+end;
+
+function T2DPointArray.NearestTo(From: TPoint): TPointArray; constref;
+var
+  TPA: TPointArray;
+  Found: Boolean;
+  Dist, BestDist: Double;
+begin
+  for TPA in Self do
+  begin
+    Dist := TPA.Mean().DistanceTo(From);
+
+    if not Found or (Dist < BestDist) then
+    begin
+      Found := True;
+      BestDist := Dist;
+      Result := TPA;
+    end;
+  end;
 end;
 
 {
@@ -1233,9 +1280,37 @@ begin
     begin
       B := Self.GetSlotBoxes().Merge();
 
-      WaitUntil(SRL.CountColor(RS_ITEM_BORDER, B) > 0, 50, 1000);
+      Result := WaitUntil(SRL.CountColor(RS_ITEM_BORDER, B) > 0, 50, 1000);
     end;
   end;
+end;
+
+procedure WatchForClearUptext(Sender: PMouse; var X, Y: Double; var Done: Boolean);
+begin
+  Sender := Sender;
+  X := X;
+  Y := Y;
+
+  if MainScreen.GetUpText() = '' then
+    Done := True;
+end;
+
+function TRSBank.FixUpText(): Boolean;
+var
+  BeforeCallback: TMouseMovingEvent;
+begin
+  if ChooseOption.IsOpen() then
+    ChooseOption.Close();
+
+  if MainScreen.GetUpText() = '' then
+    exit(True);
+
+  BeforeCallback := @Mouse.OnMoving;
+  Mouse.OnMoving := @WatchForClearUptext;
+  Mouse.Move(Minimap.Bounds());
+  Mouse.OnMoving := @BeforeCallback;
+
+  Result := (MainScreen.GetUpText() = '');
 end;
 
 function TScript.WaitAttacking(Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;

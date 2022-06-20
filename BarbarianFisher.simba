@@ -220,7 +220,6 @@ var
   ATPA: T2DPointArray;
   OurTile, TP: TPoint;
   CompAng: Double;
-  TileRect: TRectangle;
   B: TBox;
   Text: String;
   RF, CF, BF, F, R: TIntegerArray;
