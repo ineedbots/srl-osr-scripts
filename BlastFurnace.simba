@@ -1417,11 +1417,14 @@ begin
   CountDown.Init(5000);
   while RSClient.IsLoggedIn() do
   begin
-    // check if our inv changed
-    if Inventory.Count() <> IC then
+    // is the bankpin open?
+    if BankPin.IsOpen() then
     begin
-      Script.WriteMsg('WaitPlaceConveyor: Inv changed, must of placed!', True);
-      exit(True);
+      Wait(1000, 1750);
+      Script.WriteMsg('WaitPlaceConveyor: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      Wait(500, 1000);
+      CountDown.Restart();
     end;
 
     // check for failure messages
@@ -1451,14 +1454,11 @@ begin
       end;
     end;
 
-    // is the bankpin open?
-    if BankPin.IsOpen() then
+    // check if our inv changed
+    if Inventory.Count() <> IC then
     begin
-      Wait(1000, 1750);
-      Script.WriteMsg('WaitPlaceConveyor: Entering pin...', True);
-      BankPin.Enter(Login.GetPlayer().Pin);
-      Wait(500, 1000);
-      CountDown.Restart();
+      Script.WriteMsg('WaitPlaceConveyor: Inv changed, must of placed!', True);
+      exit(True);
     end;
 
     // only countdown if we are not moving
@@ -1495,7 +1495,6 @@ begin
   HasCoalBag := (Inventory.FindItem(Self.CoalBagItem, CoalBagSlot) and (Self.InCoalBag > 0));
   Inventory.FindItem(Self.CoalItem, CoalSlots);
   Inventory.FindItem(Self.OreItem, OreSlots);
-  Self.NeedToDoBelt := False;
 
   // remember numbers
   IC := Inventory.Count();
@@ -2206,15 +2205,6 @@ begin
       exit(True);
     end;
 
-    // only countdown if we are not moving
-    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
-    begin
-      Script.WriteMsg('WaitBankOpen: Still moving...', True);
-      BankOpenCountDown.Restart();
-    end
-    else
-      Bank.FixUpText();
-
     // enter pin if needed
     if BankPin.IsOpen() then
     begin
@@ -2224,6 +2214,15 @@ begin
       Wait(500, 1000);
       BankOpenCountDown.Restart();
     end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end
+    else if BankOpenCountDown.TimeRemaining() < 3500 then
+      Bank.FixUpText();
 
     // timed out?
     if BankOpenCountDown.IsFinished() then
@@ -3801,7 +3800,8 @@ begin
   if Self.RBars <= 0 then
     exit();
 
-  if Self.NeedToCollect then
+  // check if we just placed our ores on the belt
+  if not Self.NeedToCollect then
   begin
     // no ores? then collect
     if Self.ROres <= 0 then
@@ -3830,7 +3830,6 @@ var
 begin
   // count the numbers
   Script.WriteMsg('Collecting bars', True);
-  Self.NeedToCollect := False;
 
   IC := Inventory.Count();
   Inventory.FindItem(Self.BarItem, BarSlots);
@@ -3969,12 +3968,13 @@ begin
   end;
   Wait(0, 1500, wdLeft);
 
-  if Make.IsOpen(500) then
+  if Make.IsOpen() then
   begin
-    Wait(250, 750);
-
     if Length(Make.GetItemButtons()) > 0 then
-      Make.Select(0, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard())
+    begin
+      if not Make.Select(0, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard()) then
+        Script.WriteMsg('Failed to select make option');
+    end
     else
       Script.WriteMsg('No make options!');
   end
@@ -4086,6 +4086,7 @@ begin
     // collect
     Script.WriteMsg('Need to collect!', True);
     Self.GoCollectBars();
+    Self.NeedToCollect := False;
     exit();
   end;
 
@@ -4117,6 +4118,7 @@ begin
       begin
         Script.WriteMsg('Need to put stuff on belt!', True);
         Self.GoDoConveyor();
+        Self.NeedToDoBelt := False;
         exit();
       end;
     end;
@@ -4243,9 +4245,9 @@ begin
 
   if TAKEBREAKS then
   begin
-    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
-    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
-    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
 
@@ -4290,7 +4292,7 @@ begin
 
   with Self.MeltingPotMMColor do
   begin
-    RSObject.Colors += CTS2(876504, 8, 0.16, 1.61);
+    RSObject.Colors += CTS2(876245, 8, 0.15, 1.55);
     RSObject.ClusterDistance := 1;
   end;
 

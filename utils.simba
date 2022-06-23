@@ -837,6 +837,16 @@ begin
   end;
 end;
 
+function TRSMake.Select(Index: Int32; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;
+var
+  Buttons: TRSButtonArray;
+begin
+  Buttons := Self.GetItemButtons();
+
+  if Index < Length(Buttons) then
+    Result := Self.SelectHelper(Buttons[Index], Quantity, UseKeyboard);
+end;
+
 {
   tries to read the xp bar, makes sure interfaces are not covering it
 }
