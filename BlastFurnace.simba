@@ -1482,17 +1482,64 @@ begin
 end;
 
 {
-  Does conveyorbelt things
+  Empties coalbag
 }
-procedure TBot.GoDoConveyor();
+function TBot.EmptyCoalBag(): Boolean;
 var
-  OreSlots, CoalSlots: TIntegerArray;
-  ClickedBelt, HasCoalBag, RLP: Boolean;
-  CoalBagSlot, IC, NumCoal, NumOres, FailReason, x, y: Int32;
+  CoalBagSlot, NumCoal, IC: Int32;
+  CoalSlots: TIntegerArray;
 begin
   // gather info
-  Script.WriteMsg('Doing belt...', True);
-  HasCoalBag := (Inventory.FindItem(Self.CoalBagItem, CoalBagSlot) and (Self.InCoalBag > 0));
+  Inventory.FindItem(Self.CoalBagItem, CoalBagSlot);
+  Inventory.FindItem(Self.CoalItem, CoalSlots);
+
+  // count the numbers
+  NumCoal := Length(CoalSlots);
+  IC := Inventory.Count();
+
+  Script.WriteMsg('Emptying coalBag: ' + ToStr(Self.InCoalBag), True);
+
+  // empty it
+  if not Inventory.ClickSlot(CoalBagSlot, 'Empty') then // no lagarino pls
+  begin
+    Script.WriteMsg('Couldn''t empty the coalbag??????');
+    exit();
+  end;
+
+  // wait for inv to change!
+  if not Inventory.WaitChange(IC, 3000) then
+  begin
+    Script.WriteMsg('Coal bag didn''t change inv count');
+    exit();
+  end;
+  Wait(0, 750, wdLeft);
+
+  // count the number!
+  CoalSlots.Clear();
+  if not Inventory.FindItem(Self.CoalItem, CoalSlots) then
+  begin
+    Script.WriteMsg('No coal from coalbag');
+    exit();
+  end;
+
+  Self.InCoalBag -= (Length(CoalSlots) - NumCoal);
+  NumCoal := Length(CoalSlots);
+
+  Script.WriteMsg('CoalBag: ' + ToStr(Self.InCoalBag), True);
+  Result := True;
+end;
+
+{
+  Clicks the belt, waits for an output
+}
+function TBot.PlaceOnTheBelt(out Fatal: Boolean; CoalBag: Boolean): Boolean;
+var
+  CoalBagSlot, IC, NumCoal, NumOres, FailReason, x, y: Int32;
+  OreSlots, CoalSlots: TIntegerArray;
+  ClickedBelt, RLP: Boolean;
+begin
+  // gather info
+  Inventory.FindItem(Self.CoalBagItem, CoalBagSlot);
   Inventory.FindItem(Self.CoalItem, CoalSlots);
   Inventory.FindItem(Self.OreItem, OreSlots);
 
@@ -1511,13 +1558,12 @@ begin
     or (Self.ClickConveyor(ClickedBelt) and ClickedBelt)) then
   begin
     Script.WriteMsg('Failed to click the belt');
-    Self.DoAntiBan();
     exit();
   end;
 
   // get ready to use the coalbag
   Wait(0, 1500, wdLeft);
-  if HasCoalBag and (Random() < 0.8) then
+  if CoalBag and (Random() < 0.8) then
     Mouse.Move(Inventory.GetSlotBox(CoalBagSlot));
 
   // wait for an outcome
@@ -1528,6 +1574,8 @@ begin
     begin
       Script.WriteMsg('Need to pay foreman');
       Self.NeedToPayForeman := True;
+
+      Fatal := True;
     end;
 
     // need to check the values
@@ -1541,11 +1589,14 @@ begin
         Self.CheckTheDispenser();
         Self.CheckThePot();
       end;
+
+      Fatal := True;
     end;
 
     Script.WriteMsg('Couldn''t wait to place items on belt');
     exit();
   end;
+
   Wait(0, 1500, wdLeft);
 
   // need to do an option?
@@ -1557,6 +1608,7 @@ begin
       Script.WriteMsg('Couldn''t select option for belt!');
       exit();
     end;
+
     Wait(1500, 2500);
   end;
 
@@ -1579,72 +1631,60 @@ begin
   end;
 
   Script.WriteMsg('Placed the stuff, Coal ' + ToStr(Self.RCoal) + '  Ore: ' + ToStr(Self.ROres), True);
+  Result := True;
+end;
+
+{
+  Does conveyorbelt things
+}
+procedure TBot.GoDoConveyor();
+var
+  HasCoalBag, Fatal: Boolean;
+  CoalBagSlot, i: Int32;
+begin
+  // gather info
+  Script.WriteMsg('Doing belt...', True);
+  HasCoalBag := (Inventory.FindItem(Self.CoalBagItem, CoalBagSlot) and (Self.InCoalBag > 0));
+
+  if not Self.PlaceOnTheBelt(Fatal, HasCoalBag) then
+  begin
+    Script.WriteMsg('Failed to place stuff on the belt');
+    exit();
+  end;
 
   // do coalbag
   if HasCoalBag then
   begin
-    // count the numbers
-    NumCoal := Length(CoalSlots);
-    IC := Inventory.Count();
-
-    Script.WriteMsg('Emptying coalBag: ' + ToStr(Self.InCoalBag), True);
-
-    // empty it
-    if not Inventory.ClickSlot(CoalBagSlot, 'Empty') then // no lagarino pls
+    // empty the bag
+    for i := 0 to 3 do
     begin
-      Script.WriteMsg('Couldn''t empty the coalbag??????');
-      exit();
+      if Self.EmptyCoalBag() then
+        break;
+
+      Wait(1000, 2000);
+      Mouse.Move(Inventory.GetSlotBox(CoalBagSlot), True);
+
+      if i = 3 then
+      begin
+        Script.WriteMsg('Failed to empty the coalbag');
+        exit();
+      end;
     end;
 
-    // wait for inv to change!
-    if not Inventory.WaitChange(IC, 3000) then
+    // emptied, place
+    for i := 0 to 3 do
     begin
-      Script.WriteMsg('Coal bag didn''t change inv count');
-      exit();
+      if Self.PlaceOnTheBelt(Fatal, False) then
+        break;
+
+      Wait(1000, 2000);
+
+      if (i = 3) or Fatal then
+      begin
+        Script.WriteMsg('Failed to empty the coalbag');
+        exit();
+      end;
     end;
-    Wait(0, 750, wdLeft);
-
-    // count the number!
-    CoalSlots.Clear();
-    if not Inventory.FindItem(Self.CoalItem, CoalSlots) then
-    begin
-      Script.WriteMsg('No coal from coalbag');
-      exit();
-    end;
-
-    Self.InCoalBag -= (Length(CoalSlots) - NumCoal);
-    NumCoal := Length(CoalSlots);
-    IC := Inventory.Count();
-
-    Script.WriteMsg('CoalBag: ' + ToStr(Self.InCoalBag), True);
-
-    // click it again!
-    if not ((Self.ClickConveyor(ClickedBelt) and ClickedBelt)
-      or Self.GoToConveyor()
-      or (Self.ClickConveyor(ClickedBelt) and ClickedBelt)
-      or Self.GoToConveyor(True)
-      or (Self.ClickConveyor(ClickedBelt) and ClickedBelt)) then
-    begin
-      Script.WriteMsg('Couldn''t click the belt!', True);
-      exit();
-    end;
-
-    // wait to place the ores!
-    if not Self.WaitPlaceConveyor(IC, FailReason) then
-    begin
-      Script.WriteMsg('Couldn''t wait to place items on belt');
-      exit();
-    end;
-    Wait(0, 1500, wdLeft);
-
-    // count again!
-    CoalSlots.Clear();
-    if Inventory.FindItem(Self.CoalItem, CoalSlots) then
-      Script.WriteMsg('Still have coal??');
-
-    Self.RCoal += (NumCoal - Length(CoalSlots));
-
-    Script.WriteMsg('Coal: ' + ToStr(Self.RCoal), True);
   end;
 end;
 
@@ -3827,6 +3867,8 @@ var
   OurPos: TPoint;
   B: TBox;
   CountDown: TCountDown;
+label
+  go_exit;
 begin
   // count the numbers
   Script.WriteMsg('Collecting bars', True);
@@ -3944,8 +3986,7 @@ begin
         Self.CheckThePot();
       end;
 
-      Self.DoAntiBan();
-      exit();
+      goto go_exit;
     end;
 
     Wait(0, 2000, wdLeft);
@@ -3955,8 +3996,7 @@ begin
     if not Self.ClickDispenser(ClickedDispenser) or not ClickedDispenser then
     begin
       Script.WriteMsg('Failed to click the dispenser!!');
-      Self.DoAntiBan();
-      exit();
+      goto go_exit;
     end;
   end;
 
@@ -3964,7 +4004,7 @@ begin
   if not Self.WaitGoCollectBars(IC) then
   begin
     Script.WriteMsg('Failed to collect bars');
-    exit();
+    goto go_exit;
   end;
   Wait(0, 1500, wdLeft);
 
@@ -3984,8 +4024,7 @@ begin
   if not Inventory.WaitChange(IC, 2500) then
   begin
     Script.WriteMsg('Inv count didnt change when taking bars');
-    Self.DoAntiBan();
-    exit();
+    goto go_exit;
   end;
 
   Wait(0, 1500, wdLeft);
@@ -3998,6 +4037,9 @@ begin
   // assume the value got bigger
   Self.RBars -= (Length(BarSlots) - BarCount);
   Script.WriteMsg('Num bars: ' + ToStr(Self.RBars));
+
+go_exit:
+  Self.DoAntiBan();
 
   // make sure gold gloves are back on
   if Inventory.FindItem(Self.GoldGlovesItem, GoldGlovesSlot) then
