@@ -14,12 +14,14 @@ program BlastFurnace;
 {$i utils.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
+  DEBUGMODE      = False; // For debugging purposes
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
   MSWALKING      = True; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
   ICEGLOVES      = True;  // Using ice gloves?
 
@@ -1500,10 +1502,22 @@ begin
   Script.WriteMsg('Emptying coalBag: ' + ToStr(Self.InCoalBag), True);
 
   // empty it
-  if not Inventory.ClickSlot(CoalBagSlot, 'Empty') then // no lagarino pls
+  // no lagarino pls
+  if Script.ShiftClicking and (Random() < 0.9) then
   begin
-    Script.WriteMsg('Couldn''t empty the coalbag??????');
-    exit();
+    if not Inventory.ShiftClick(CoalBagSlot) then
+    begin
+      Script.WriteMsg('Couldn''t empty the coalbag with shift click??????');
+      exit();
+    end;
+  end
+  else
+  begin
+    if not Inventory.ClickSlot(CoalBagSlot, 'Empty') then
+    begin
+      Script.WriteMsg('Couldn''t empty the coalbag??????');
+      exit();
+    end;
   end;
 
   // wait for inv to change!
@@ -4251,6 +4265,8 @@ begin
   Script.Debug := DEBUGMODE;
   Script.Drawing := DRAWING;
   Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
   Script.Running := True;
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
@@ -4334,7 +4350,7 @@ begin
 
   with Self.MeltingPotMMColor do
   begin
-    RSObject.Colors += CTS2(876245, 8, 0.15, 1.55);
+    RSObject.Colors += CTS2(875989, 8, 0.16, 1.55);
     RSObject.ClusterDistance := 1;
   end;
 

@@ -31,7 +31,7 @@ type
     Status, StopReason                                        : String;
     MouseLooksForUpText                                       : TStringArray;
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks,
-      KeyboardMenuButtons                                     : Boolean;
+      KeyboardMenuButtons, ShiftClicking, MiddleClicking      : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
       MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
     Activity: record
@@ -835,6 +835,47 @@ begin
     if not Frozen then
       UnFreeze();
   end;
+end;
+
+function TRSInventory.ShiftClick(Slot: Int32): Boolean;
+var
+  Circle: TCircle;
+begin
+  IsKeyDown(VK_SHIFT); // Clear cache
+
+  try
+    if Self.IsSlotUsed(Slot) then
+    begin
+      if not IsKeyDown(VK_SHIFT) then
+        KeyDown(VK_SHIFT);
+
+      Wait(100, 250);
+
+      Mouse.Click(Self.GetSlotBox(Slot), MOUSE_LEFT);
+
+      // Spam click a little
+      for 1 to SRL.TruncatedGauss(0, 3) do
+      begin
+        Circle.X := Mouse.Position().X;
+        Circle.Y := Mouse.Position().Y;
+        Circle.Radius := 5;
+
+        Mouse.Click(Circle, MOUSE_LEFT, True);
+      end;
+
+      Wait(0, 250, wdLeft);
+
+      Result := True;
+    end;
+  finally
+    if IsKeyDown(VK_SHIFT) then
+      KeyUp(VK_SHIFT);
+  end;
+end;
+
+function TRSMinimap.IsRunEnabled: Boolean; override;
+begin
+  Result := SRL.CountColor(CTS2(4606022, 8, 2.24, 0.11), Self.GetRunCircle().Bounds) <= 50;
 end;
 
 function TRSMake.Select(Index: Int32; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;
