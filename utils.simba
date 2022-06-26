@@ -1149,6 +1149,47 @@ begin
   end;
 end;
 
+procedure TRSMinimap.SetCompassAngle(Degrees: Double; Accuracy: Double = 5); override;
+var
+  Left, LastLeft: Boolean;
+  CountDown: TCountDown;
+
+  function __MakeCompass_MinCheck(Angle, DirectionDeg: Extended): Extended;
+  begin
+    // TODO: Check if FixD could be used to remove some cases..
+    Result := Min(Abs(Angle - (DirectionDeg + 360)), Abs((Angle + 360) - DirectionDeg));
+    Result := Min(Abs(Angle - DirectionDeg), Result);
+  end;
+begin
+  if Script.MiddleClicking and (Random() < 0.9) then
+    inherited(Degrees, Accuracy)
+  else
+  begin
+    CountDown.Init(10000);
+
+    while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
+    begin
+      if __MakeCompass_MinCheck(Self.GetCompassAngle(True), Degrees) <= Accuracy then
+        break;
+
+      Left := (Round((360 - Self.GetCompassAngle(True)) + Degrees) mod 360 <= Round((Self.GetCompassAngle(True) + 360) - Degrees) mod 360);
+      if Left <> LastLeft then
+      begin
+        KeyUp(VK_Left);
+        KeyUp(VK_Right);
+      end;
+
+      LastLeft := Left;
+
+      KeyDown((Ord(Left) * 2) + 37);
+      Wait(10);
+    end;
+
+    KeyUp(VK_Left);
+    KeyUp(VK_Right);
+  end;
+end;
+
 function TRSMinimap.ClickCompass(): Boolean;
 begin
   Result := True;
