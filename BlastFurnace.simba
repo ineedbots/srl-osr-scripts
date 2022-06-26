@@ -4020,8 +4020,9 @@ begin
     Script.WriteMsg('Failed to collect bars');
     goto go_exit;
   end;
-  Wait(0, 1500, wdLeft);
+  Wait(150, 1500, wdLeft);
 
+  // do make
   if Make.IsOpen() then
   begin
     if Length(Make.GetItemButtons()) > 0 then
@@ -4271,10 +4272,10 @@ begin
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
-  Script.Activity.Countdown.Init(180000); 
+  Script.Activity.Countdown.Init(ONE_MINUTE*5);
   Script.KeyboardMenuButtons := MENUKEYBOARD;
 
-  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+  Script.ShutdownTime := (TOTALRUNTIME * ONE_MINUTE) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
   Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;

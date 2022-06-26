@@ -95,10 +95,16 @@ begin
 end;
 
 procedure Wait(min, max:Double; weight:EWaitDir=wdMean); override;
-var t: Double;
+var
+  t: Double;
 begin
   t := PerformanceTimer();
-  inherited(min, max, weight);
+
+  if min >= 0 then
+    inherited(min, max, weight)
+  else if SRL.SkewedRand(min, min, max) >= 0 then
+    inherited(0, max, weight);
+
   WaitFatigue(PerformanceTimer()-t);
 end;
 
@@ -429,7 +435,7 @@ procedure TScript.RareSmallWait();
 var
   RanTiming: Int32;
 begin
-  RanTiming := SRL.SkewedRand(-250, -1000, 1500);
+  RanTiming := SRL.SkewedRand(-500, -1000, 1500);
   if RanTiming > 0 then
     Wait(RanTiming);
 end;
@@ -478,7 +484,7 @@ begin
     Result := True;
   end
   else if Self.Activity.Countdown.IsFinished() then
-    Self.Stop('No XP gain in 3 minutes');
+    Self.Stop('No XP gained in a while!');
 end;
 
 {
