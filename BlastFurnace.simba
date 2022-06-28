@@ -93,7 +93,7 @@ begin
 end;
 
 {
-  Gets the coal item name
+  Gets the ore item name
 }
 function TBot.GetOreItemName(): String;
 begin
@@ -101,7 +101,7 @@ begin
 end;
 
 {
-  Gets the coal item name
+  Gets the bar item name
 }
 function TBot.GetBarItemName(): String;
 begin
@@ -171,6 +171,7 @@ var
 begin
   BarName := Self.GetBarItemName().Before(' ').Lower();
 
+  // not going to be an issue when the rounding difference is > a whole bar's xp???
   case BarName of
     'bronze': Result := 6; // 6.2
     'iron': Result := 12; // 12.5
@@ -861,6 +862,7 @@ begin
   WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
   WriteOut += 'Status: ' + Script.Status + LineEnding;
   WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Did: ' + ToStr(Self.Did) + LineEnding;
   WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
   WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
   WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
@@ -905,7 +907,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindMeltingPotColor(Area: TBox): T2DPointArray;
 begin
@@ -914,7 +916,7 @@ begin
 end;
 
 {
-  Returns true if the pot is visible, B is the bounds of the bank on the screen
+  Returns true if the pot is visible, B is the bounds of the pot on the screen
 }
 function TBot.FindMeltingPot(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
 var
@@ -1014,7 +1016,7 @@ begin
 end;
 
 {
-  While we walk to the belt
+  While we walk to the pot
 }
 procedure WalkingToMeltingPot(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 var
@@ -1052,7 +1054,7 @@ begin
 end;
 
 {
-  Walks to the belt, return true if we clicked it early
+  Walks to the pot, return true if we clicked it early
 }
 function TBot.GoToMeltingPot(Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
@@ -1100,7 +1102,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // look for the text of the pot
@@ -1195,7 +1197,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindConveyorColor(Area: TBox): T2DPointArray;
 begin
@@ -1204,7 +1206,7 @@ begin
 end;
 
 {
-  Returns true if the cbelt is visible, B is the bounds of the bank on the screen
+  Returns true if the cbelt is visible, B is the bounds of the belt on the screen
 }
 function TBot.FindConveyor(OurTile: TPoint; Height: Int32; out B: TBox; HasMeltingPotPT: Boolean = False; MeltingPotPT: TPoint = Point(0, 0)): Boolean;
 var
@@ -1408,7 +1410,7 @@ begin
 end;
 
 {
-  Wait for to place
+  Wait for ores to be placed
 }
 function TBot.WaitPlaceConveyor(IC: Int32; out FailReason: Int32): Boolean;
 var
@@ -1416,7 +1418,7 @@ var
   S: String;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // is the bankpin open?
@@ -1521,7 +1523,7 @@ begin
   end;
 
   // wait for inv to change!
-  if not Inventory.WaitChange(IC, 3000) then
+  if not Inventory.WaitChange(IC, SRL.SkewedRand(3000, 2500, 4000)) then
   begin
     Script.WriteMsg('Coal bag didn''t change inv count');
     exit();
@@ -1721,7 +1723,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
@@ -1833,7 +1835,7 @@ begin
   end;
 
   if Depod then
-    Inventory.WaitChange(IC, 2500);
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
 
   if Inventory.IsFull() and Depod then
     exit();
@@ -1885,12 +1887,12 @@ begin
   if not Withdrew then
     exit();
 
-  Inventory.WaitChange(IC, 2500);
+  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
   Result := True;
 end;
 
 {
-  Does th ename
+  Does the name of this function
 }
 procedure TBot.DepositAnItemAndWithdrawCoins(Pattern: TIntegerArray; B: TBox; Amount: Int32; out Item: TRSItem);
 var
@@ -1921,6 +1923,8 @@ begin
     end;
 
     Wait(0, 1000, wdLeft);
+
+    Script.AntiBan.AfterBankAntiBan(3);
   end
   else
     Item := 'wasn''t full';
@@ -1934,7 +1938,7 @@ begin
 end;
 
 {
-  Does th ename
+  Does the name of this function
 }
 procedure TBot.DepositCoinsAndWithdrawAnItem(CoalB: TBox; OreB: TBox; out Item: TRSItem);
 var
@@ -1962,6 +1966,8 @@ begin
     end;
 
     Wait(0, 1000, wdLeft);
+
+    Script.AntiBan.AfterBankAntiBan(3);
   end;
 
   // withdraw our item
@@ -2060,7 +2066,7 @@ begin
     + ToStr(FoundStam), True);
 
   Script.SetStatus('Banking...');
-  Script.AntiBan.AfterBankAntiBan(20);
+  Script.AntiBan.AfterBankAntiBan(7);
 
   // check if we doing the coin withdrawal
   if DoingCoinWithdrawal then
@@ -2120,7 +2126,7 @@ begin
       goto do_exit;
     end;
 
-    Script.AntiBan.AfterBankAntiBan(10);
+    Script.AntiBan.AfterBankAntiBan(3);
 
     // check if we need a sip of stam
     if (Minimap.GetRunEnergy() <= 20) and FoundStam then
@@ -2129,6 +2135,7 @@ begin
       if Self.WithdrawItemFromBank(StamB, 1) then
       begin
         Wait(0, 1000, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
 
         // find it
         if Inventory.FindItems(Self.StaminaPotItems, Pattern) then
@@ -2138,6 +2145,8 @@ begin
           Wait(0, 750, wdLeft);
           ChooseOption.Select('Drink');
           Wait(0, 500, wdLeft);
+
+          Script.AntiBan.AfterBankAntiBan(2);
         end
         else
           Script.WriteMsg('Couldn''t find stam pot in inv');
@@ -2147,6 +2156,7 @@ begin
           Script.WriteMsg('Failed to deposit the vial!');
 
         Wait(0, 1000, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
       end;
     end;
 
@@ -2155,6 +2165,7 @@ begin
     if HasCoalBag and ((CoalToWithdraw + OresToWithdraw) > Self.WorkingInvCount) then
     begin
       // hope it doesnt lag, we assume this always succeeds!
+      // or else we'll need to count the item count of coal on the bank??
       Mouse.Move(Inventory.GetSlotBox(CoalBagSlot));
       Wait(0, 750, wdLeft);
       ChooseOption.Open();
@@ -2181,7 +2192,9 @@ begin
       ChooseOption.Select(Self.FillCoalBagOptionsStr);
       Self.InCoalBag := Self.WorkingInvCount;
       CoalToWithdraw -= Self.WorkingInvCount;
+
       Wait(0, 1000, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(3);
     end;
 
     // withdraw it
@@ -2212,6 +2225,7 @@ begin
         goto do_exit;
       end;
     end;
+
     Wait(0, 1000, wdLeft);
   end;
 
@@ -2226,7 +2240,7 @@ do_exit:
 
   // exit
   Script.WriteMsg('Finished banking...', True);
-  Script.AntiBan.AfterBankAntiBan(30);
+  Script.AntiBan.AfterBankAntiBan(7);
   Bank.Close(Script.ShouldPressKeyboard());
 
   // allow breaks here only
@@ -2246,7 +2260,7 @@ var
   x, y: Int32;
 begin
   // we only wait a finite amount of time...
-  BankOpenCountDown.Init(5000);
+  BankOpenCountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
@@ -2511,7 +2525,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindCofferColor(Area: TBox): T2DPointArray;
 begin
@@ -2520,7 +2534,7 @@ begin
 end;
 
 {
-  Returns true if the coffer is visible, B is the bounds of the bank on the screen
+  Returns true if the coffer is visible, B is the bounds of the coffer on the screen
 }
 function TBot.FindCoffer(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
 var
@@ -2659,7 +2673,7 @@ begin
 end;
 
 {
-  Walks to the belt, return true if we clicked it early
+  Walks to the coffer, return true if we clicked it early
 }
 function TBot.GoToCoffer(Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
@@ -2707,7 +2721,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // look for the text
@@ -2736,7 +2750,7 @@ begin
 end;
 
 {
-  Does conveyorbelt things
+  Does coffer things
 }
 procedure TBot.GoRefillCoffer();
 var
@@ -2826,7 +2840,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindSinkColor(Area: TBox): T2DPointArray;
 begin
@@ -2835,7 +2849,7 @@ begin
 end;
 
 {
-  Returns true if the sink is visible, B is the bounds of the bank on the screen
+  Returns true if the sink is visible, B is the bounds of the sink on the screen
 }
 function TBot.FindSink(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
 var
@@ -2974,7 +2988,7 @@ begin
 end;
 
 {
-  Walks to the belt, return true if we clicked it early
+  Walks to the sink, return true if we clicked it early
 }
 function TBot.GoToSink(Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
@@ -3022,7 +3036,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // watch for the bucket to fill
@@ -3051,14 +3065,14 @@ begin
 end;
 
 {
-  waits for the bucket to fill
+  waits for the bucket to be emptied
 }
 function TBot.WaitUseBucket(): Boolean;
 var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // watch for the bucket to be used
@@ -3087,7 +3101,7 @@ begin
 end;
 
 {
-  Throws water
+  Throws water on the dispenser
 }
 function TBot.ThrowWaterOnDispenser(): Boolean;
 var
@@ -3173,7 +3187,7 @@ end;
 // foreman
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindForemanColor(Area: TBox): T2DPointArray;
 begin
@@ -3182,7 +3196,7 @@ begin
 end;
 
 {
-  Returns true if the cbelt is visible, B is the bounds of the bank on the screen
+  Returns true if the foreman is visible, B is the bounds of him on the screen
 }
 function TBot.FindForeman(out B: TBox; HasSinkPT: Boolean = False; SinkPT: TPoint = Point(0, 0)): Boolean;
 var
@@ -3290,7 +3304,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // does the chat options there?
@@ -3319,7 +3333,7 @@ begin
 end;
 
 {
-  Does conveyorbelt things
+  Does pay foreman things
 }
 procedure TBot.GoPayForeman();
 var
@@ -3424,7 +3438,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindDispenserColor(Area: TBox): T2DPointArray;
 begin
@@ -3433,7 +3447,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindHotDispenserColor(Area: TBox): T2DPointArray;
 begin
@@ -3442,7 +3456,7 @@ begin
 end;
 
 {
-  Returns all
+  Returns all object colors within the box
 }
 function TBot.FindCoolDispenserColor(Area: TBox): T2DPointArray;
 begin
@@ -3451,7 +3465,7 @@ begin
 end;
 
 {
-  Returns true if the dispenser is visible, B is the bounds of the bank on the screen
+  Returns true if the dispenser is visible, B is the bounds of the dispenser on the screen
 }
 function TBot.FindDispenser(OurTile: TPoint; Height: Int32; out B: TBox; out DType: Int32): Boolean;
 var
@@ -3491,7 +3505,7 @@ begin
 end;
 
 {
-  Should?
+  Should we click the dispenser??
 }
 function TBot.ShouldClickDispenser(Pos: TPoint): Boolean;
 var
@@ -3627,7 +3641,7 @@ begin
 end;
 
 {
-  While we walk to the sink
+  While we walk to the dispenser
 }
 procedure WalkingToDispenser(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 var
@@ -3667,7 +3681,7 @@ begin
 end;
 
 {
-  Walks to the belt, return true if we clicked it early
+  Walks to the dispenser, return true if we clicked it early
 }
 function TBot.GoToDispenser(Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
@@ -3727,7 +3741,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // check if the check stuff is there
@@ -3810,7 +3824,7 @@ var
   CountDown: TCountdown;
 begin
   // we only wait a finite amount of time...
-  CountDown.Init(5000);
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
   while RSClient.IsLoggedIn() do
   begin
     // did our inv change? sometimes the make doesnt open when its for 1 bar
@@ -3846,7 +3860,7 @@ begin
 end;
 
 {
-  Should we collect?
+  Should we collect the bars?
 }
 function TBot.ShouldCollectBars(): Boolean;
 begin
@@ -3871,7 +3885,7 @@ begin
 end;
 
 {
-  Does conveyorbelt things
+  Does collection of the bars things
 }
 procedure TBot.GoCollectBars();
 var
@@ -3924,7 +3938,7 @@ begin
     Script.WriteMsg('Waiting for the bars to cook.', True);
 
     ClickTheDispenser := False;
-    CountDown.Init(10000 + Random(2500));
+    CountDown.Init(SRL.SkewedRand(10000, 6000, 15000));
 
     // wait for it to be good to click!
     while RSClient.IsLoggedIn() do
@@ -4020,7 +4034,7 @@ begin
     Script.WriteMsg('Failed to collect bars');
     goto go_exit;
   end;
-  Wait(150, 1500, wdLeft);
+  Wait(250, 1500, wdLeft);
 
   // do make
   if Make.IsOpen() then
@@ -4036,7 +4050,7 @@ begin
   else
     Script.WriteMsg('Make not open!');
 
-  if not Inventory.WaitChange(IC, 2500) then
+  if not Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000)) then
   begin
     Script.WriteMsg('Inv count didnt change when taking bars');
     goto go_exit;
@@ -4105,7 +4119,7 @@ begin
 end;
 
 {
-  Logged in
+  Core logic of the script
 }
 procedure TBot.DoLoggedInStuff();
 var
@@ -4131,6 +4145,7 @@ begin
   Script.WriteMsg('Pos: ' + ToStr(Self.RSW.GetMyPos()) + '  Coffer: ' + ToStr(Self.RCoffer) + '  Coal: ' + ToStr(Self.RCoal) +
     '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount), True);
 
+  // recover from bad amounts
   Self.RecoverFromOddAmounts(RLP);
 
   // do we need to collect bars?
@@ -4232,7 +4247,7 @@ begin
 
     Inventory.Open();
     if not Self.GetWorkingInvCount(Self.WorkingInvCount) then
-      Self.WorkingInvCount := 28;
+      Self.WorkingInvCount := Inventory.HIGH_SLOT + 1;
   end;
 
   Script.HPAmount             := Minimap.GetHPLevel();

@@ -435,7 +435,7 @@ procedure TScript.RareSmallWait();
 var
   RanTiming: Int32;
 begin
-  RanTiming := SRL.SkewedRand(-500, -1000, 1500);
+  RanTiming := SRL.SkewedRand(-750, -1000, 1500);
   if RanTiming > 0 then
     Wait(RanTiming);
 end;
@@ -444,7 +444,7 @@ function TScript.MainLoopWaitAmount(UseHP: Boolean): Int32;
 var
   Large: Int32;
 begin
-  if Random() < 0.6 then
+  if Random() < 0.85 then
     exit(Self.SleepRate);
 
   Large := 5000;
@@ -1159,26 +1159,22 @@ procedure TRSMinimap.SetCompassAngle(Degrees: Double; Accuracy: Double = 5); ove
 var
   Left, LastLeft: Boolean;
   CountDown: TCountDown;
-
-  function __MakeCompass_MinCheck(Angle, DirectionDeg: Extended): Extended;
-  begin
-    // TODO: Check if FixD could be used to remove some cases..
-    Result := Min(Abs(Angle - (DirectionDeg + 360)), Abs((Angle + 360) - DirectionDeg));
-    Result := Min(Abs(Angle - DirectionDeg), Result);
-  end;
+  Angle: Double;
 begin
   if Script.MiddleClicking and (Random() < 0.9) then
     inherited(Degrees, Accuracy)
   else
   begin
-    CountDown.Init(10000);
+    Degrees := FixD(Degrees);
+    CountDown.Init(5000);
 
     while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
     begin
-      if __MakeCompass_MinCheck(Self.GetCompassAngle(True), Degrees) <= Accuracy then
+      Angle := Self.GetCompassAngle(True);
+      if Abs(SRL.DeltaAngle(Angle, Degrees)) <= Max(Accuracy, 5) then
         break;
 
-      Left := (Round((360 - Self.GetCompassAngle(True)) + Degrees) mod 360 <= Round((Self.GetCompassAngle(True) + 360) - Degrees) mod 360);
+      Left := (Round((360 - Angle) + Degrees) mod 360 <= Round((Angle + 360) - Degrees) mod 360);
       if Left <> LastLeft then
       begin
         KeyUp(VK_Left);
