@@ -5,6 +5,6 @@ directory=Scripts
 // flat extraction into directory
 flat=false
 // files not to install
-ignore=.git,.gitignore,.simbapackage,.gitattributes,README.md,assets
+ignore=.git,.gitignore,.simbapackage,.gitattributes,README.md,assets,colors
 // path to script templates in this repo.
 templates=

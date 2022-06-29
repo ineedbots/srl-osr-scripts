@@ -1429,6 +1429,12 @@ begin
       BankPin.Enter(Login.GetPlayer().Pin);
       Wait(500, 1000);
       CountDown.Restart();
+    end
+    // check if our inv changed
+    else if Inventory.Count() <> IC then
+    begin
+      Script.WriteMsg('WaitPlaceConveyor: Inv changed, must of placed!', True);
+      exit(True);
     end;
 
     // check for failure messages
@@ -1456,13 +1462,6 @@ begin
         FailReason := 3;
         exit(False);
       end;
-    end;
-
-    // check if our inv changed
-    if Inventory.Count() <> IC then
-    begin
-      Script.WriteMsg('WaitPlaceConveyor: Inv changed, must of placed!', True);
-      exit(True);
     end;
 
     // only countdown if we are not moving
@@ -2003,10 +2002,11 @@ procedure TBot.DoBanking(DoWithdrawal: Boolean; DoingCoinWithdrawal: Boolean; ou
 var
   ToolSlots, Pattern, ProductSlots: TIntegerArray;
   R: Double;
-  i, CurProducts, CoalToWithdraw, OresToWithdraw, CoalBagSlot: Int32;
+  i, CurProducts, CoalToWithdraw, OresToWithdraw, CoalBagSlot, CoalBankAmount: Int32;
   FoundCoal, FoundOre, FoundCoins, FoundStam, HasCoalBag: Boolean;
   CoalB, OreB, CoinsB, StamB: TBox;
   Item: TRSItem;
+  CountDown: TCountDown;
 label
   do_exit;
 begin
@@ -2059,6 +2059,12 @@ begin
 
     if FoundStam then
       break;
+  end;
+
+  if FoundCoal then
+  begin
+    CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+    Script.WriteMsg('DoBanking: Coal amount in bank: ' + ToStr(CoalBankAmount), True);
   end;
 
   Script.WriteMsg('DoBanking: Found coal: ' + ToStr(FoundCoal)
@@ -2161,11 +2167,12 @@ begin
     end;
 
     // withdraw our crap
+
     // first do the coalbag
+    // TODO randomize? or use open coalbag???
     if HasCoalBag and ((CoalToWithdraw + OresToWithdraw) > Self.WorkingInvCount) then
     begin
-      // hope it doesnt lag, we assume this always succeeds!
-      // or else we'll need to count the item count of coal on the bank??
+      // hopefully this doesn't fail due to lag
       Mouse.Move(Inventory.GetSlotBox(CoalBagSlot));
       Wait(0, 750, wdLeft);
       ChooseOption.Open();
@@ -2176,7 +2183,7 @@ begin
       begin
         Script.WriteMsg('Coal bag isnt empty...');
         ChooseOption.Select(Self.EmptyCoalBagOptionStr);
-        Wait(1500, 2500);
+        Wait(1500, 2500); // assume it doesn't lag right here
         Mouse.Click(Inventory.GetSlotBox(CoalBagSlot), MOUSE_RIGHT);
         Wait(50, 500);
       end;
@@ -2188,11 +2195,45 @@ begin
         goto do_exit;
       end;
 
+      CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+
       // fill it
       ChooseOption.Select(Self.FillCoalBagOptionsStr);
-      Self.InCoalBag := Self.WorkingInvCount;
-      CoalToWithdraw -= Self.WorkingInvCount;
 
+      // if over 100k, just assume it worked... really hope it dont lag
+      if CoalBankAmount >= 100000 then
+      begin
+        Self.InCoalBag := Self.WorkingInvCount;
+        CoalToWithdraw -= Self.WorkingInvCount;
+      end
+      else
+      begin
+        CountDown.Init(SRL.SkewedRand(2500, 2000, 3000));
+
+        // watch for the change
+        while RSClient.IsLoggedIn() do
+        begin
+          if SRL.GetItemAmount(CoalB.Expand(2)) <> CoalBankAmount then
+            break;
+
+          if CountDown.IsFinished() then
+            break;
+
+          Self.DoMainLoopStuff('Waiting for the coal to change...', False);
+        end;
+
+        i := SRL.GetItemAmount(CoalB.Expand(2));
+        if i = CoalBankAmount then
+        begin
+          Script.WriteMsg('Coal amount didnt change!');
+          goto do_exit;
+        end;
+
+        Self.InCoalBag := CoalBankAmount - i;
+        CoalToWithdraw -= CoalBankAmount - i;
+      end;
+
+      Script.WriteMsg('InCoalBag: ' + ToStr(Self.InCoalBag), True);
       Wait(0, 1000, wdLeft);
       Script.AntiBan.AfterBankAntiBan(3);
     end;
