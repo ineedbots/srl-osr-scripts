@@ -106,6 +106,9 @@ end;
 function TBot.GetBarItemName(): String;
 begin
   Result := BAR_ITEM;
+
+  if Result.Count(' ') <= 0 then
+    Script.WriteMsg('No space found in bar item');
 end;
 
 {
@@ -169,6 +172,7 @@ function TBot.GetXPPerBar(): Int32;
 var
   BarName: String;
 begin
+  // should be okay, we check to make sure it contains a space in the func
   BarName := Self.GetBarItemName().Before(' ').Lower();
 
   // not going to be an issue when the rounding difference is > a whole bar's xp???
@@ -392,18 +396,20 @@ begin
 
     // find it
     S := OCR.Recognize(B, FColor, RS_FONT_PLAIN_12);
-    S := S.Strip().Before(' ').Replace(',', '');
+
+    // 1,254 gp
+    // 69.1K gp
+    // 33.5M gp
+
+    // strip the ' gp' part
+    if S.Count(' ') >= 1 then
+      S := S.Strip().Before(' ');
+
+    // remove the commas (is this system localized??)
+    S := S.Replace(',', '');
 
     // convert it to a num
-    if not S.EndsWith('K') then
-    begin
-      try
-        Amount := StrToInt(S);
-        Result := True;
-      except
-      end;
-    end
-    else
+    if S.EndsWith('K') then
     begin
       S := S.Before('K');
 
@@ -412,8 +418,25 @@ begin
         Result := True;
       except
       end;
-    end;
+    end
+    else if S.EndsWith('M') then
+    begin
+      S := S.Before('M');
 
+      try
+        Amount := Round(StrToFloat(S) * 1000000);
+        Result := True;
+      except
+      end;
+    end
+    else
+    begin
+      try
+        Amount := StrToInt(S);
+        Result := True;
+      except
+      end;
+    end;
     exit();
   end;
              
@@ -495,6 +518,10 @@ begin
         S2 := Self.GetCoalItemName();
         for S3 in SA do
         begin
+          // bad line
+          if S3.Count(':') <= 0 then
+            continue;
+
           if S3.Before(':').Lower() = S2.Lower() then
           begin
             try
@@ -510,6 +537,10 @@ begin
         S2 := Self.GetOreItemName();
         for S3 in SA do
         begin
+          // bad line
+          if S3.Count(':') <= 0 then
+            continue;
+
           if S3.Before(':').Lower() = S2.Lower() then
           begin
             try
@@ -546,6 +577,10 @@ begin
         S2 := Self.GetBarItemName();
         for S3 in SA do
         begin
+          // bad line
+          if (S3.Count(':') <= 0) or (S3.Count(' ') <= 0) then
+            continue;
+
           if S3.Before(':').Before(' ').Lower() = S2.Before(' ').Lower() then
           begin
             try
@@ -937,7 +972,7 @@ begin
   ATPA := Self.FindMeltingPotColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.MeltingPotColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -1227,7 +1262,7 @@ begin
   ATPA := Self.FindConveyorColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.ConveyorBeltColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
   begin
     if HasMeltingPotPT then
@@ -1752,7 +1787,7 @@ begin
   ATPA := Self.FindBankColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.ChestColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -2596,7 +2631,7 @@ begin
   ATPA := Self.FindCofferColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.CofferColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -2911,7 +2946,7 @@ begin
   ATPA := Self.FindSinkColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.SinkColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -3529,7 +3564,7 @@ begin
   ATPA3 := Self.FindHotDispenserColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5)) // couldnt find color... use the fixd tile
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.DispenserColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 
@@ -4420,6 +4455,7 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
 
@@ -4452,6 +4488,7 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
 
@@ -4473,6 +4510,7 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
 
@@ -4495,6 +4533,7 @@ begin
 
     FilterSize := 2;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
 
@@ -4512,6 +4551,7 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
 
@@ -4557,6 +4597,7 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+    NoColorTileExpand := 5;
   end;
 
   with Self.HotDispenserColor do

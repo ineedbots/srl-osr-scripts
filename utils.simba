@@ -19,7 +19,7 @@ const
 type
   TScriptColor = record
     RSObject                                                  : TRSObjectFinder;
-    FilterSize                                                : Int32;
+    FilterSize, NoColorTileExpand                             : Int32;
     RadiusExpand                                              : Double;
   end;
 
