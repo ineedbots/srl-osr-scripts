@@ -40,7 +40,7 @@ const
   _USERNAME       = '';
   _PASSWORD       = '';
   _PIN            = '';
-  _WORLDS         = [307, 309];
+  _WORLDS         = [307, 309, 311, 389];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?
 
 {$ENDIF} // INEEDBOT_WINTERTODT_CONFIG
