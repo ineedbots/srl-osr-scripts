@@ -1,0 +1,471 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Utils
+}
+
+{$IFNDEF INEEDBOT_WINTERTODT_UTILS}
+{$DEFINE INEEDBOT_WINTERTODT_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once Bank.simba}
+{$include_once BossDoor.simba}
+{$include_once Roots.simba}
+{$include_once Brazier.simba}
+
+{
+  Gets how much time remains
+}
+function TBot.GetWinterTodtRemainingTime(): String;
+var
+  B: TBox;
+begin
+  B := IntToBox(MainScreen.Bounds().X1 + 1,
+    MainScreen.Bounds().Y1 + 43,
+    MainScreen.Bounds().X1 + 156,
+    MainScreen.Bounds().Y1 + 53);
+
+  Result := OCR.RecognizeStatic(B, TOCRColorRule.Create([2071039, 10]), RS_FONT_PLAIN_11);
+end;
+
+{
+  Gets how much energy
+}
+function TBot.GetWinterTodtEnergyPerc(): Int32;
+var
+  B: TBox;
+  R, G, BL: Int32;
+begin
+  B := IntToBox(MainScreen.Bounds().X1 + 3,
+    MainScreen.Bounds().Y1 + 26,
+    MainScreen.Bounds().X1 + 200,
+    MainScreen.Bounds().Y1 + 38);
+
+  R := SRL.CountColor($0000CC, B);
+  G := SRL.CountColor($00CC00, B);
+  BL := SRL.CountColor($000000, B);
+
+  if (R + G) < 600 then
+    exit(-1);
+
+  Result := Round((G / (R + G)) * 100);
+
+  // sometimes no green can be found, but 1% still remains
+  if (Result = 0) and (BL = 230) then
+    exit(1);
+end;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0..0.25: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, Random(1700, 3200), True);
+    0.25..0.35: Script.Antiban.HoverSkill(ERSSKILL.CONSTRUCTION, Random(1700, 3200), True);
+    0.35..0.5: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Sets the compass
+}
+procedure TBot.SetCompass();
+var
+  SetAngle: Double;
+begin
+  SetAngle := Self.CameraAngle + SRL.NormalRange(-25.0, 25.0);
+  if Abs(Minimap.GetCompassAngle(True) - SetAngle) > 4 then
+    Minimap.SetCompassAngle(SetAngle);
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  OurTile: TPoint;
+  TileRect: TRectangle;
+  CompAng: Double;
+  B: TBox;
+  Text: String;
+  L, A, HE, F, K, P, H, T, U, KL: TIntegerArray;
+  i: Int32;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  // roots
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindRootsColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // braz
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindLitBrazierColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindUnlitBrazierColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // bank
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindBankColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // exit
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindExitColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  // entrance
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clRed);
+  ATPA := Self.FindEntraceColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  Text := 'Pos: ' + ToStr(OurTile) + NL;
+  Text += 'Boss HP: ' + ToStr(Self.GetWinterTodtEnergyPerc());
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItem(Self.LogItem, L);
+    Inventory.FindItems(Self.AxeItems, A);
+    //Inventory.FindItem(Self.HerbItem, HE);
+    Inventory.FindItems(Self.FoodItems, F);
+    Inventory.FindItem(Self.KnifeItem, K);
+    //Inventory.FindItem(Self.PotionItem, P);
+    Inventory.FindItem(Self.HammerItem, H);
+    Inventory.FindItem(Self.TinderItem, T);
+    //Inventory.FindItem(Self.UnfPotionItem, U);
+    Inventory.FindItem(Self.KnifedLogItem, KL);
+
+    for i := 0 to 27 do
+    begin
+      if L.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if A.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if HE.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+      else if F.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if K.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray)
+      else if P.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGreen)
+      else if H.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clNavy)
+      else if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOlive)
+      else if U.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPink)
+      else if KL.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clCream);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{
+  Gets amount of things to braz
+}
+function TBot.GetAmountToOffer(Chopping: Boolean): Int32;
+var
+  LogSlots, KnifedLogSlots: TIntegerArray;
+begin
+  LogSlots.Clear();
+  Inventory.FindItem(Self.LogItem, LogSlots);
+  KnifedLogSlots.Clear();
+  Inventory.FindItem(Self.KnifedLogItem, KnifedLogSlots);
+  Result += Round(Length(KnifedLogSlots) * 1.2);
+  if Inventory.FindItem(Self.KnifeItem) and Chopping then
+    Result += Round(Length(LogSlots) * 2.4)
+  else
+    Result += Round(Length(LogSlots) * 1.2);
+
+  Result += Self.RandomAmountToOffer;
+end;
+
+{
+  Eats food until good
+}
+function TBot.EatFood(Num: Int32 = -1): Boolean;
+var
+  HPPrec, i, NumEaten: Int32;
+  FoodSlots, Pattern: TIntegerArray;
+  R: Extended;
+  CountDown: TCountDown;
+  Eaten: Boolean;
+begin
+  if Bank.IsOpen() then
+    exit();
+
+  if not Inventory.FindItems(Self.FoodItems, FoodSlots) then
+  begin
+    Script.WriteMsg('No food!', True);
+    exit();
+  end;
+
+  Script.WriteMsg('Eating food...', True);
+
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // remove all slots that isnt food
+  for i := High(Pattern) downto Low(Pattern) do
+  begin
+    if FoodSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+  end;
+
+  // eat
+  for i := Low(Pattern) to High(Pattern) do
+  begin
+    if (Num <> -1) and (NumEaten >= Num) then
+      break;
+    NumEaten += 1;
+
+    // check if hp is good now
+    if Minimap.GetHPPercent() >
+      (Self.GoodHPPerc + Random(-Self.RandomGoodHPPerc, Self.RandomGoodHPPerc)) then
+    begin
+      Script.WriteMsg('HP is good', True);
+      break;
+    end
+    else if i > Low(Pattern) then
+      Wait(1250, 1750, wdLeft);
+
+    // open the inventory
+    if not Inventory.Open() then
+    begin
+      Script.WriteMsg('Couldn''t open inventory', True);
+      break;
+    end;
+
+    // eat it
+    Inventory.HoverSlot(Pattern[i]);
+
+    HPPrec := Minimap.GetHPPercent();
+    CountDown.Init(2500);
+
+    if MainScreen.IsUpText(['Eat', 'Drink']) then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      Eaten := True;
+    end
+    else
+      Eaten := ChooseOption.Select(['Drink', 'Eat']);
+
+    while Eaten do
+    begin
+      if not RSClient.IsLoggedIn() or CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('Eat timed out.', True);
+        break;
+      end;
+
+      if Minimap.GetHPPercent() <> HPPrec then
+      begin
+        Script.WriteMsg('Healed', True);
+        break;
+      end;
+
+      Wait(Script.SleepRate);
+    end;
+
+    if not Eaten then
+      break;
+
+    Result := True;
+  end;
+
+  Wait(0, 1000, wdLeft);
+end;
+
+{
+  Sets the side variables
+}
+procedure TBot.SetSideVariables(East: Boolean);
+begin
+  if East then
+  begin
+    Self.BrazierTile := Point(1947, 464);
+    Self.PyromancerTile := Point(1955, 460);
+    Self.RootsTile := Point(1952, 505);
+    Self.CameraAngle := 270;
+    Self.BrazierTileWalkOffsets := [Point(0, 8)];
+    Self.RootsTileWalkOffsets := [Point(-5, 4), Point(6, -2)];
+
+    Self.ToBrazierPaths := [
+      [[1917, 586], [1917, 577], [1918, 569], [1921, 552], [1924, 541], [1928, 525], [1931, 511], [1932, 503], [1937, 494], [1945, 489], [1947, 476]],
+      [[1913, 586], [1913, 579], [1913, 565], [1913, 545], [1912, 533], [1911, 519], [1911, 507], [1911, 497], [1921, 494], [1932, 493], [1941, 488], [1948, 478]],
+      [[1913, 586], [1914, 577], [1916, 562], [1912, 552], [1910, 539], [1914, 516], [1920, 498], [1932, 497], [1951, 495], [1948, 475]],
+      [[1920, 584], [1914, 571], [1909, 543], [1915, 543], [1917, 532], [1918, 520], [1920, 506], [1934, 501], [1931, 491], [1954, 483], [1945, 476]]
+    ];
+
+    Self.ToExitDoorPaths := [
+      [[1947, 476], [1945, 489], [1937, 494], [1932, 503], [1931, 511], [1928, 525], [1924, 541], [1921, 552], [1918, 569], [1917, 577], [1917, 586]],
+      [[1948, 477], [1944, 489], [1927, 490], [1919, 491], [1918, 499], [1915, 515], [1915, 524], [1915, 548], [1912, 562], [1914, 579], [1913, 584]],
+      [[1948, 475], [1951, 495], [1932, 497], [1920, 498], [1914, 516], [1910, 539], [1912, 552], [1916, 562], [1914, 577], [1913, 586]],
+      [[1945, 476], [1954, 483], [1931, 491], [1934, 501], [1920, 506], [1918, 520], [1917, 532], [1915, 543], [1909, 543], [1914, 571], [1920, 584]]
+    ];
+  end
+  else
+  begin
+    Self.BrazierTile := Point(1875, 464);
+    Self.PyromancerTile := Point(1864, 462);
+    Self.RootsTile := Point(1873, 505);
+    Self.CameraAngle := 90;
+    Self.BrazierTileWalkOffsets := [Point(0, 10)];
+    Self.RootsTileWalkOffsets := [Point(5, 2), Point(-4, -1)];
+
+    Self.ToBrazierPaths := [
+      [[1909, 582], [1909, 570], [1908, 559], [1905, 543], [1903, 532], [1903, 521], [1900, 513], [1897, 505], [1890, 494], [1882, 485], [1878, 477]],
+      [[1913, 586], [1912, 576], [1910, 554], [1911, 543], [1910, 530], [1909, 508], [1907, 497], [1892, 492], [1879, 484], [1879, 479]],
+      [[1912, 585], [1911, 571], [1912, 563], [1914, 554], [1916, 539], [1907, 527], [1902, 515], [1902, 498], [1883, 495], [1876, 489], [1877, 477]],
+      [[1912, 583], [1907, 566], [1914, 556], [1910, 539], [1903, 531], [1910, 521], [1911, 504], [1900, 504], [1885, 505], [1879, 492], [1864, 488], [1876, 476]]
+    ];
+
+    Self.ToExitDoorPaths := [
+      [[1878, 477], [1882, 485], [1890, 494], [1897, 505], [1900, 513], [1903, 521], [1903, 532], [1905, 543], [1908, 559], [1909, 570], [1909, 582]],
+      [[1879, 479], [1879, 484], [1892, 492], [1907, 497], [1909, 508], [1910, 530], [1911, 543], [1910, 554], [1912, 576], [1913, 586]],
+      [[1877, 477], [1876, 489], [1883, 495], [1902, 498], [1902, 515], [1907, 527], [1916, 539], [1914, 554], [1912, 563], [1911, 571], [1912, 585]],
+      [[1876, 476], [1864, 488], [1879, 492], [1885, 505], [1900, 504], [1911, 504], [1910, 521], [1903, 531], [1910, 539], [1914, 556], [1907, 566], [1912, 583]]
+    ];
+  end;
+
+  Self.RootsTileWalkOffsetIndex := Random(Low(Self.RootsTileWalkOffsets), High(Self.RootsTileWalkOffsets));
+  Self.BrazierTileWalkOffsetIndex := Random(Low(Self.BrazierTileWalkOffsets), High(Self.BrazierTileWalkOffsets));
+end;
+
+{$ENDIF} // INEEDBOT_WINTERTODT_UTILS
+

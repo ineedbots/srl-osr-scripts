@@ -1,0 +1,438 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 7/1/2022
+
+  Root funcs
+}
+
+{$IFNDEF INEEDBOT_WINTERTODT_ROOTS}
+{$DEFINE INEEDBOT_WINTERTODT_ROOTS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds color
+}
+function TBot.FindRootsColor(Area: TBox): T2DPointArray;
+var
+  ATPA: T2DPointArray;
+  TPA, _: TPointArray;
+  i: Int32;
+begin
+  ATPA := MainScreen.FindObject(Self.RootsColor.RSObject, Area);
+  ATPA.FilterSize(Self.RootsColor.FilterSize, __GT__);
+
+  for TPA in ATPA do
+  begin
+    for i := Low(Self.InsideRootsColor.RSObject.Colors) to
+      High(Self.InsideRootsColor.RSObject.Colors) do
+    begin
+      if SRL.FindColors(_, Self.InsideRootsColor.RSObject.Colors[i], TPA.Bounds())
+        > Self.InsideRootsColor.FilterSize then begin
+        Result += TPA;
+        break;
+      end;
+    end;
+  end;
+end;
+
+{
+  While we chop
+}
+procedure TBot.WhileChopping();
+var
+  InvCount, IC: Int32;
+  CountDown: TCountDown;
+begin
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked tree', True);
+
+  InvCount := Inventory.Count();
+  CountDown.Init(Self.ChopWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check if we should end early and offer it now cause boss is gunna die!
+    if Self.GetAmountToOffer(True) > Self.GetWinterTodtEnergyPerc() then
+    begin
+      Script.WriteMsg('ChopLogs: Low boss hp!!', True);
+      break;
+    end;
+
+    IC := Inventory.Count();
+    // inv is full!
+    if IC >= 28 then
+    begin
+      Script.WriteMsg('ChopLogs: InvFull!', True);
+      break;
+    end;
+
+    if IC <> InvCount then
+    begin
+      Script.WriteMsg('ChopLogs: InvCount changed, restarting CountDown', True);
+      CountDown.Restart();
+    end;
+
+    InvCount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('ChopLogs: CountDown expired...', True);
+      break;
+    end;
+
+    // check levelup
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('ChopLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500, wdLeft);
+        Chat.ChatToOption('doesnt matter');
+      end
+      else
+        break;
+    end;
+
+    if Minimap.GetHPPercent() < (Self.EatHpPerc - Self.RandomEatHpPerc) then
+    begin
+      Script.WriteMsg('ChopLogs: Low hp!', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Chopping logs...', True);
+  end;
+end;
+
+{
+  Returns true if the roots is visible, B is the bounds of the door on the screen
+}
+function TBot.FindRoots(OurTile: TPoint; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindRootsColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the roots, WasClicked true if clicked it
+}
+function TBot.ClickRoots(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  if not Self.FindRoots(OurTile, B) then
+  begin
+    Script.WriteMsg('ClickRoots: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickRoots: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.ChopRootUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if MainScreen.IsUpText(Self.ChopRootUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.ChopRootUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickRoots: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the roots
+}
+procedure WalkingToLogs(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+  B: TBox;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    if Position.DistanceTo(Destination) < 8 then
+    begin
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+
+      if Bot.ClickRoots(WasClicked, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the roots while moving, nice!');
+        Walker^.Enabled := False;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end
+    else if Bot.FindRoots(Position, B) and not MainScreen.Bounds().Contains(Mouse.Position()) then
+      Mouse.Move(MainScreen.GetPlayerBox());
+  end
+  else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+
+  // make sure outside inside arena
+  if Bot.GetWinterTodtEnergyPerc() = -1 then
+    Walker^.Enabled := False;
+end;
+
+{
+  Gets an offset
+}
+function TBot.GetRootsTileWalkOffset(): TPoint;
+begin
+  Result := Self.RootsTileWalkOffsets[Self.RootsTileWalkOffsetIndex];
+end;
+
+{
+  Walks to the roots, return true if we clicked it early
+}
+function TBot.GoToLogs(Force: Boolean = False; DoClick: Boolean = True): Boolean;
+var
+  Walked: Boolean;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to roots....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.RootsTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.RootsTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to roots...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    if DoClick then
+      Self.RSW.OnWalkingEvent := @WalkingToLogs;
+    try
+      // WebWalk when nodes exist for this area, SRL TODO
+      Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.GetRootsTileWalkOffset()).Random(-3, 3, True), 2);
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to roots!');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Gathers logs
+}
+procedure TBot.GatherLogs();
+var
+  WasClicked: Boolean;
+  TheirHP: Int32;
+begin
+  Script.WriteMsg('Gathering logs....', True);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    if {(Self.ClickRoots(WasClicked) and WasClicked) or
+      Self.GoToLogs() or
+      (Self.ClickRoots(WasClicked) and WasClicked) or} // its safer in this location
+      Self.GoToLogs(True) or
+      (Self.ClickRoots(WasClicked) and WasClicked) then
+    begin
+      Self.AfterActionAntiBan(True);
+      Self.WhileChopping();
+
+      TheirHP := Self.GetWinterTodtEnergyPerc();
+      if not Inventory.IsFull() and (TheirHP > 0) and (Self.GetAmountToOffer(True) < (TheirHP - 5)) then
+      begin
+        if Minimap.GetHPPercent() < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
+          Self.EatFood();
+
+        continue;
+      end;
+    end
+    else
+      Self.DoAntiBan();
+
+    break;
+  end;
+end;
+
+{
+  Fletches the logs
+}
+procedure TBot.FletchLogs();
+var
+  KnifeSlot, LogSlot, HPP, OurHPPerc, ICount, IC: Int32;
+  LogSlots: TIntegerArray;
+  CountDown: TCountDown;
+begin
+  if not Inventory.FindItem(Self.LogItem, LogSlots) then
+  begin
+    Script.WriteMsg('No logs...', True);
+    exit();
+  end;
+
+  if not Inventory.FindItem(Self.KnifeItem, KnifeSlot) then
+  begin
+    Script.WriteMsg('No knife...', True);
+    exit();
+  end;
+
+  Self.DoAntiBan();
+
+  // its safe here
+  Self.GoToLogs(True, False);
+
+  Script.WriteMsg('Fletching logs...', True);
+  LogSlot := LogSlots[Random(Low(LogSlots), High(LogSlots))];
+  ICount := Length(LogSlots);
+
+  // start fletching
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(LogSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(KnifeSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(KnifeSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(LogSlot);
+  end;
+
+  // wait while fletching
+  OurHPPerc := Minimap.GetHPPercent();
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.FletchWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check hp
+    HPP := Minimap.GetHPPercent();
+    if HPP < OurHPPerc then
+    begin
+      Script.WriteMsg('FletchLogs: HP lowered...', True);
+      break;
+    end;
+    OurHPPerc := HPP;
+
+    // check inv
+    LogSlots.Clear();
+    Inventory.FindItem(Self.LogItem, LogSlots);
+    IC := Length(LogSlots);
+
+    if IC <= 0 then
+    begin
+      Script.WriteMsg('FletchLogs: No more logs', True);
+      break;
+    end;
+
+    if IC <> ICount then
+    begin
+      Script.WriteMsg('FletchLogs: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    ICount := IC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('FletchLogs: Countdown expired', True);
+      break;
+    end;
+
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('FletchLogs: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500, wdLeft);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
+    if Self.GetAmountToOffer(False) > Self.GetWinterTodtEnergyPerc() then
+    begin
+      Script.WriteMsg('FletchLogs: Low HP BOSS!', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Fletching logs...', True);
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_WINTERTODT_ROOTS
+

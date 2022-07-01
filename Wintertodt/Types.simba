@@ -1,0 +1,48 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Declares all the types
+}
+
+{$IFNDEF INEEDBOT_WINTERTODT_TYPES}
+{$DEFINE INEEDBOT_WINTERTODT_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  TBot = record
+    RSW                                                       : TRSWalker;
+    CameraAngle                                               : Double;
+    ExitChatOption                                            : String;
+    ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
+      InBossFight, SkipBankCheck                              : Boolean;
+    EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
+      BurnWaitTime, FletchWaitTime, GoodHPPerc,
+      RandomGoodHPPerc, Did, UnlitWaitTime,
+      RootsTileWalkOffsetIndex, BrazierTileWalkOffsetIndex,
+      RandomAmountToOffer                                     : Int32;
+    FoodItems, AxeItems                                       : TRSItemArray;
+    LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
+      HerbItem, UnfPotionItem, PotionItem                     : TRSItem;
+    BankTile, BrazierTile, PyromancerTile, RootsTile,
+      EnterTile, ExitTile, BankTileWalkOffset                 : TPoint;
+    FixBrazUpText, LightBrazUpText, FeedBrazUpText,
+      ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
+    BankColor, EntranceColor, ExitColor, RootsColor,
+      LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
+    BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
+    ToBankPaths, ToEntranceDoorPaths, ToBrazierPaths,
+      ToExitDoorPaths                                         : T2DPointArray;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_WINTERTODT_TYPES
+

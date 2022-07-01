@@ -1,0 +1,504 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 7/1/2022
+
+  Boss door funcs
+}
+
+{$IFNDEF INEEDBOT_WINTERTODT_BOSSDOOR}
+{$DEFINE INEEDBOT_WINTERTODT_BOSSDOOR}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds color
+}
+function TBot.FindEntraceColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.EntranceColor.RSObject, Area);
+  Result.FilterSize(Self.EntranceColor.FilterSize, __GT__);
+end;
+
+{
+  Finds color
+}
+function TBot.FindExitColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.ExitColor.RSObject, Area);
+  Result.FilterSize(Self.ExitColor.FilterSize, __GT__);
+end;
+
+{
+  Returns true if the door is visible, B is the bounds of the door on the screen
+}
+function TBot.FindEnterDoor(OurTile: TPoint; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindEntraceColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the bank, WasClicked true if clicked it
+}
+function TBot.ClickEnterDoor(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  if not Self.FindEnterDoor(OurTile, B) then
+  begin
+    Script.WriteMsg('ClickEnterDoor: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickEnterDoor: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.DoorUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.DoorUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickEnterDoor: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the enter door
+}
+procedure WalkingToEnterDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+
+    if Bot.ClickEnterDoor(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the enter door while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end
+  else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+
+  // make sure outside the arena
+  if Bot.GetWinterTodtEnergyPerc() <> -1 then
+    Walker^.Enabled := False;
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and Bank.IsOpen() then
+    Bank.Close();
+end;
+
+{
+  Walks to the enter door, return true if we clicked it early
+}
+function TBot.GoToEntrance(Force: Boolean = False): Boolean;
+var
+  Walked: Boolean;
+  PathIdx: Int32;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to enter door....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.EnterTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.EnterTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to enter door...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToEnterDoor;
+    try
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToEntranceDoorPaths), High(Self.ToEntranceDoorPaths));
+
+      if OurPos.DistanceTo(Self.ToEntranceDoorPaths[PathIdx][Low(Self.ToEntranceDoorPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToEntranceDoorPaths[PathIdx][High(Self.ToEntranceDoorPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToEntranceDoorPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to enter door!');
+
+      Bank.Close();
+
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Goes inside the arena
+}
+procedure TBot.GoInsideBossArea();
+var
+  CountDown: TCountDown;
+  WasClicked: Boolean;
+begin
+  if Self.GetWinterTodtEnergyPerc() <> -1 then
+  begin
+    Script.WriteMsg('Already inside of arena', True);
+    exit();
+  end;
+
+  if (Self.ClickEnterDoor(WasClicked) and WasClicked) or
+    Self.GoToEntrance() or
+    (Self.ClickEnterDoor(WasClicked) and WasClicked) or
+    Self.GoToEntrance(True) or
+    (Self.ClickEnterDoor(WasClicked) and WasClicked) then
+  begin
+    Minimap.WaitFlag();
+
+    // wait for the boss bar
+    CountDown.Init(5000);
+    while RSClient.IsLoggedIn() do
+    begin
+      if CountDown.IsFinished() then
+        break;
+
+      if Self.GetWinterTodtEnergyPerc() <> -1 then
+      begin
+        Wait(1000, 2000, wdLeft);
+        break;
+      end;
+
+      Wait(Script.SleepRate);
+    end;
+  end
+  else
+    Self.DoAntiBan();
+end;
+
+// EXIT
+
+{
+  Returns true if the door is visible, B is the bounds of the door on the screen
+}
+function TBot.FindExitDoor(OurTile: TPoint; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  // get the colors and the tile boxes
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
+
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindExitColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Returns true if found the bank, WasClicked true if clicked it
+}
+function TBot.ClickExitDoor(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  if not Self.FindExitDoor(OurTile, B) then
+  begin
+    Script.WriteMsg('ClickExitDoor: not visible', True);
+    exit();
+  end;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickExitDoor: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  Result := True;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.DoorUpText;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if MainScreen.IsUpText(Self.DoorUpText, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.DoorUpText);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickExitDoor: Didnt click', True);
+    exit();
+  end;
+end;
+
+{
+  While we walk to the door
+}
+procedure WalkingToExitDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    if not Bot.WaitingForDeadBoss or (Bot.GetWinterTodtEnergyPerc() = 0) then
+    begin
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+
+      if Bot.ClickExitDoor(WasClicked, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the exit door while moving, nice!');
+        Walker^.Enabled := False;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end;
+  end
+  else if Random() < 0.65 then
+    Bot.EatFood(1); // eat food while walking
+
+  // make sure outside inside arena
+  if Bot.GetWinterTodtEnergyPerc() = -1 then
+    Walker^.Enabled := False;
+end;
+
+{
+  Walks to the door, return true if we clicked it early
+}
+function TBot.GoToExit(Force: Boolean = False): Boolean;
+var
+  Walked: Boolean;
+  PathIdx: Int32;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to exit door....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.ExitTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.ExitTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to exit door...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToExitDoor;
+    try
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToExitDoorPaths), High(Self.ToExitDoorPaths));
+
+      if OurPos.DistanceTo(Self.ToExitDoorPaths[PathIdx][Low(Self.ToExitDoorPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToExitDoorPaths[PathIdx][High(Self.ToExitDoorPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToExitDoorPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to exit door!');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Exits the arena
+}
+procedure TBot.GoOutsideBossArea(WaitForDeadBoss: Boolean = False);
+var
+  CountDown: TCountDown;
+  OurPos: TPoint;
+  WasClicked: Boolean;
+begin
+  if Self.GetWinterTodtEnergyPerc() = -1 then
+  begin
+    Script.WriteMsg('Already outside of arena', True);
+    exit();
+  end;
+
+  if WaitForDeadBoss then
+  begin
+    Self.WaitingForDeadBoss := True;
+    WasClicked := Self.GoToExit();
+    Self.WaitingForDeadBoss := False;
+
+    while RSClient.IsLoggedIn() and (Self.GetWinterTodtEnergyPerc() > 0) do
+      Self.DoMainLoopStuff('Waiting for boss to die', True);
+  end;
+
+  if WasClicked or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) or
+    Self.GoToExit() or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) or
+    Self.GoToExit(True) or
+    (Self.ClickExitDoor(WasClicked) and WasClicked) then
+  begin
+    Minimap.WaitFlag();
+    if Self.GetWinterTodtEnergyPerc() > 0 then
+    begin
+      Chat.WaitOption(Self.ExitChatOption, 2000);
+      Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
+    end;
+
+    // wait to exit
+    CountDown.Init(5000);
+    OurPos := Self.RSW.GetMyPos();
+    while RSClient.IsLoggedIn() do
+    begin
+      if CountDown.IsFinished() then
+        break;
+
+      if Self.RSW.GetMyPos().DistanceTo(OurPos) > 16 then
+      begin
+        Wait(1000, 2000, wdLeft);
+        break;
+      end;
+
+      Wait(Script.SleepRate);
+    end;
+  end
+  else
+    Self.DoAntiBan();
+end;
+
+{$ENDIF} // INEEDBOT_WINTERTODT_BOSSDOOR
+

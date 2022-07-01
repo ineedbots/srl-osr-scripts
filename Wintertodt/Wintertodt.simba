@@ -1,0 +1,413 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 10/21/2021
+
+  Version: 1.1.0
+
+  Plays the Wintertodt minigame/boss in mass
+}
+
+program Wintertodt;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+{$include_once Utils.simba}
+
+{$include_once Bank.simba}
+{$include_once BossDoor.simba}
+{$include_once Roots.simba}
+{$include_once Brazier.simba}
+
+{
+  Ends the variables for boss fight
+}
+function TBot.EndBossFight(): Boolean;
+begin
+  if Self.InBossFight then
+  begin
+    Self.InBossFight := False;
+
+    Self.Did += 1;
+    Self.SkipBankCheck := False;
+    exit(True);
+  end;
+end;
+
+{
+  Starts the variables for boss fight
+}
+function TBot.BeginBossFight(): Boolean;
+begin
+  if not Self.InBossFight then
+  begin
+    Self.InBossFight := True;
+
+    Self.RandomAmountToOffer := SRL.NormalRange(-10, 10);
+
+    // set the offset tiles now
+    Self.RootsTileWalkOffsetIndex := Random(Low(Self.RootsTileWalkOffsets), High(Self.RootsTileWalkOffsets));
+    Self.BrazierTileWalkOffsetIndex := Random(Low(Self.BrazierTileWalkOffsets), High(Self.BrazierTileWalkOffsets));
+    exit(True);
+  end;
+end;
+
+{
+  Executes when we are logged in
+}
+procedure TBot.DoLoggedInStuff();
+var
+  OurHpPerc, TheirHpPerc: Int32;
+  FoodSlots: TIntegerArray;
+begin
+  OurHpPerc := Minimap.GetHPPercent();
+  TheirHpPerc := Self.GetWinterTodtEnergyPerc();
+
+  if TheirHpPerc = -1 then
+  begin
+    Self.EndBossFight();
+
+    // Allow breaks while outside
+    Script.AllowBreaks := True;
+
+    // not inside the boss arean
+    if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
+      Self.GoDoBank()
+    else
+      Self.GoInsideBossArea();
+  end
+  else
+  begin
+    // don't do breaks while in the arena
+    Script.AllowBreaks := False;
+
+    if TheirHpPerc > 0 then
+    begin
+      // boss isnt dead, we are inside
+      Self.BeginBossFight();
+
+      // make sure to go bank at the end of the round
+      if TheirHpPerc > 5 then
+        Self.ShouldBank := True
+      else if not Self.SkipBankCheck then
+      begin
+        Inventory.FindItems(Self.FoodItems, FoodSlots);
+
+        if (Length(FoodSlots) >= 3) and BioRandomCoinFlip() then
+          Self.ShouldBank := False
+        else
+          Self.ShouldBank := True;
+
+        Self.SkipBankCheck := True;
+      end;
+
+      // check if we need to escape
+      if not Inventory.FindItems(Self.FoodItems) and
+          (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc)) then
+      begin
+        Self.GoOutsideBossArea();
+        exit();
+      end;
+
+      // check if we need to eat
+      if OurHpPerc < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
+      begin
+        Self.EatFood();
+        exit();
+      end;
+
+      // check if we should fletch
+      if Inventory.FindItem(Self.LogItem) and
+        Inventory.FindItem(Self.KnifeItem) and
+        ((TheirHpPerc - 5) >= Self.GetAmountToOffer(False)) then
+      begin
+        Self.FletchLogs();
+        exit();
+      end;
+
+      // check if we need to do stuff at the braz
+      if Inventory.FindItems([Self.LogItem, Self.KnifedLogItem]) then
+      begin
+        Self.OfferStuffToBrazier();
+        exit();
+      end;
+
+      // just gather logs
+      if TheirHpPerc > 5 then
+        Self.GatherLogs()
+      else if Self.ShouldBank then
+        Self.GoOutsideBossArea(True);
+    end
+    else
+    begin
+      // boss is dead, we are inside
+      Self.EndBossFight();
+
+      if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
+        Self.GoOutsideBossArea()
+      else
+        Self.WaitForBossStart();
+    end;
+  end;
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      Self.DoLoggedInStuff();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff('', False);
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+  Food: String;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(180000);
+
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Self.SetCompass);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*30, ONE_SECOND*30, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_HOUR*1, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('zeah');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+
+  Self.KnifeItem := 'Knife';
+  Self.LogItem := 'Bruma root';
+  Self.KnifedLogItem := 'Bruma kindling';
+  Self.HerbItem := 'Bruma herb';
+  Self.UnfPotionItem := 'Rejuvenation potion (unf)';
+  Self.PotionItem := 'Rejuvenation potion';
+  Self.HammerItem := 'Hammer';
+  Self.TinderItem := 'Tinderbox';
+  Self.AxeItems := ['Rune axe', 'Dragon axe', 'Bronze axe',
+    'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
+    'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
+
+  for Food in _FOODITEMS do
+    Self.FoodItems += Food;
+
+  Self.EatHpPerc := _EATHPPERC;
+
+  Self.ShouldBank := False;
+  Self.GoodHPPerc := 80;
+  Self.RandomGoodHPPerc := 10;
+  Self.RandomEatHpPerc := 5;
+  Self.ChopWaitTime := 3000;
+  Self.BurnWaitTime := 3000;
+  Self.FletchWaitTime := 3000;
+  Self.UnlitWaitTime := 2000;
+  Self.NumFood := _NUMFOOD;
+
+  Self.BankTile := Point(1956, 683);
+  Self.BankTileWalkOffset := Point(-4, 0);
+  Self.ExitTile := Point(1910, 592);
+  Self.EnterTile := Point(1910, 600);
+
+  // Brazier
+  Self.FixBrazUpText := ['Fix'];
+  Self.LightBrazUpText := ['Light'];
+  Self.FeedBrazUpText := ['Feed'];
+
+  // Bruma roots
+  Self.ChopRootUpText := ['Chop'];
+
+  // Incapacitated Pyromancer
+  Self.HelpPyroUpText := ['Help'];
+
+  // Doors of Dinh
+  Self.DoorUpText := ['Enter'];
+  Self.ExitChatOption := 'Leave and lose all progress.';
+
+  Self.ToBankPaths := [
+    [[1914, 602], [1913, 618], [1914, 635], [1914, 651], [1915, 666], [1921, 674], [1930, 677], [1940, 681], [1949, 681]],
+    [[1920, 606], [1921, 626], [1921, 650], [1924, 665], [1936, 680], [1952, 682]],
+    [[1911, 603], [1909, 624], [1908, 650], [1907, 668], [1910, 679], [1927, 685], [1940, 685], [1951, 685]],
+    [[1914, 607], [1914, 634], [1925, 665], [1938, 683], [1953, 683]]
+  ];
+
+  Self.ToEntranceDoorPaths := [
+    [[1948, 683], [1932, 684], [1920, 681], [1916, 664], [1913, 653], [1912, 640], [1915, 626], [1914, 611], [1914, 604]],
+    [[1951, 681], [1937, 683], [1921, 681], [1913, 681], [1910, 661], [1910, 648], [1909, 633], [1912, 620], [1910, 606]],
+    [[1948, 683], [1939, 681], [1929, 670], [1925, 656], [1920, 645], [1918, 629], [1917, 617], [1915, 606]],
+    [[1951, 683], [1936, 684], [1925, 681], [1912, 677], [1909, 669], [1909, 660], [1908, 651], [1908, 637], [1908, 622], [1910, 610], [1910, 600]]
+  ];
+
+  Self.SetSideVariables(USEEASTSIDE);
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(2631713, 3, 0, 1.25);
+    RSObject.Colors += CTS2(3881520, 4, 0.39, 0.23);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 30;
+    RadiusExpand := 0.25;
+  end;
+
+  with Self.EntranceColor do
+  begin
+    RSObject.Colors += CTS2(10281414, 15, 0.07, 2.13);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 100;    
+    RadiusExpand := 10;
+  end;
+
+  with Self.ExitColor do
+  begin
+    RSObject.Colors += CTS2(2388829, 10, 0.03, 1.8);
+    RSObject.Colors += CTS2(2190167, 4, 0.15, 2.18);
+    RSObject.ClusterDistance := 8;
+    FilterSize := 50;
+    RadiusExpand := 10;
+  end;
+
+  with Self.RootsColor do
+  begin
+    RSObject.Colors += CTS2(3158056, 11, 0.14, 0.63);
+    RSObject.ClusterDistance := 3;
+    FilterSize := 50;
+    RadiusExpand := 0.1;
+  end;
+
+  with Self.InsideRootsColor do
+  begin
+    RSObject.Colors += CTS2(6922115, 4, 0.08, 0.61);
+    RSObject.Colors += CTS2(8039058, 4, 0.11, 0.97);
+    RSObject.Colors += CTS2(3623744, 5, 0.26, 0.21);
+    FilterSize := 10;
+  end;
+
+  with Self.LitBrazColor do
+  begin
+    RSObject.Colors += CTS2(4644246, 18, 0.2, 1.45);
+    RSObject.ClusterDistance := 3;
+    FilterSize := 100;
+    RadiusExpand := 1;
+  end;
+
+  with Self.UnlitBrazColor do
+  begin
+    RSObject.Colors += CTS2(6118743, 4, 0.52, 0.25);
+    RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
+    RSObject.ClusterDistance := 10;
+    FilterSize := 150;
+  end;
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.

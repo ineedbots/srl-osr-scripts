@@ -1,0 +1,47 @@
+{
+  Wintertodt
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_WINTERTODT_CONFIG}
+{$DEFINE INEEDBOT_WINTERTODT_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = True;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  MSWALKING      = True; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  // use the eastside?
+  USEEASTSIDE    = True;
+
+  // Food items to use
+  _FOODITEMS     = ['Jug of wine'];
+  _EATHPPERC     = 55; // Percentage when to start eating food
+  _NUMFOOD       = 5; // Number of foods to withdraw
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [307, 309];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_WINTERTODT_CONFIG
+
