@@ -100,6 +100,14 @@ begin
   if not RSClient.IsLoggedIn() then
     exit();
 
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
   // check if we gained xp, failsafe
   Script.CheckActivity();
 
@@ -122,6 +130,7 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
+  isLit: Boolean;
   OurTile: TPoint;
   TileRect: TRectangle;
   CompAng: Double;
@@ -129,62 +138,90 @@ var
   Text: String;
   L, A, HE, F, K, P, H, T, U, KL: TIntegerArray;
   i: Int32;
+  Item: TRSItem;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
 
-  // roots
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindRootsColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clOrange);
-  RSClient.Image.DrawRect(TileRect, clGreen);
-
-  // braz
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindLitBrazierColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindUnlitBrazierColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
-  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clOrange);
-  RSClient.Image.DrawRect(TileRect, clGreen);
-
-  // bank
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindBankColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clOrange);
-  RSClient.Image.DrawRect(TileRect, clGreen);
-
-  // exit
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindExitColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
-  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clOrange);
-  RSClient.Image.DrawRect(TileRect, clGreen);
-
-  // entrance
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
-  RSClient.Image.DrawBox(B, clRed);
-  ATPA := Self.FindEntraceColor(B);
-  RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
-  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clOrange);
-  RSClient.Image.DrawRect(TileRect, clGreen);
-
-  Text := 'Pos: ' + ToStr(OurTile) + NL;
-  Text += 'Boss HP: ' + ToStr(Self.GetWinterTodtEnergyPerc());
+  Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
+  Text += 'Boss HP: ' + ToStr(Self.GetWinterTodtEnergyPerc()) + LineEnding;
   RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if MainScreen.AnyInterfaceOpen() then
+  begin
+    if Bank.IsOpen() then
+    begin
+      for Item in Self.FoodItems do
+      begin
+        if Bank.FindItem(Item, B) then
+          RSClient.Image.DrawBox(B, clPurple);
+      end;
+    end;
+  end
+  else
+  begin          
+    // roots
+    TileRect := Self.FindRootsTile(OurTile);
+    B := Self.GetRootsSearchBox(TileRect);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindRootsColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clWhite);
+    if Self.FindRoots(OurTile, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // braz
+    TileRect := Self.FindBrazierTile(OurTile);
+    B := Self.GetBrazierSearchBox(TileRect);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindUnlitBrazierColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    ATPA := Self.FindLitBrazierColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clWhite);
+    if Self.FindBrazier(OurTile, isLit, B) then
+    begin
+      if isLit then
+        RSClient.Image.DrawBox(B, clOrange)
+      else
+        RSClient.Image.DrawBox(B, clAqua);
+    end;
+
+    // bank
+    TileRect := Self.FindBankTile(OurTile);
+    B := Self.GetBankSearchBox(TileRect);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clWhite);
+    if Self.FindBank(OurTile, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // exit
+    TileRect := Self.FindExitTile(OurTile);
+    B := Self.GetExitSearchBox(TileRect);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindExitColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clWhite);
+    if Self.FindExitDoor(OurTile, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // entrance
+    TileRect := Self.FindEntraceTile(OurTile);
+    B := Self.GetEntraceSearchBox(TileRect);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindEntraceColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clWhite);
+    if Self.FindEnterDoor(OurTile, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+  end;
 
   if Inventory.IsOpen() then
   begin
@@ -261,13 +298,13 @@ begin
   if not Script.CanReportConsole() then
     exit();
 
-  WriteOut += 'Did: ' + IntToStr(Self.Did) + NL;
-  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
-  WriteOut += 'Status: ' + Script.Status + NL;
-  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
-  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
-  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
-  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding; 
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
 
   ClearDebug();
   Writeln(WriteOut);
@@ -297,11 +334,11 @@ function TBot.GetAmountToOffer(Chopping: Boolean): Int32;
 var
   LogSlots, KnifedLogSlots: TIntegerArray;
 begin
-  LogSlots.Clear();
   Inventory.FindItem(Self.LogItem, LogSlots);
-  KnifedLogSlots.Clear();
   Inventory.FindItem(Self.KnifedLogItem, KnifedLogSlots);
+
   Result += Round(Length(KnifedLogSlots) * 1.2);
+
   if Inventory.FindItem(Self.KnifeItem) and Chopping then
     Result += Round(Length(LogSlots) * 2.4)
   else

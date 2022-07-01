@@ -19,6 +19,38 @@
 {$include_once Utils.simba}
 
 {
+  Find melting pot tile
+}
+function TBot.FindEntraceTile(OurPos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.EnterTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetEntraceSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Find melting pot tile
+}
+function TBot.FindExitTile(OurPos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.ExitTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetExitSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
+end;
+
+{
   Finds color
 }
 function TBot.FindEntraceColor(Area: TBox): T2DPointArray;
@@ -45,9 +77,9 @@ var
   ATPA: T2DPointArray;
 begin
   // get the colors and the tile boxes
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.EnterTile);
+  TileRect := Self.FindEntraceTile(OurTile);
 
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.EntranceColor.RadiusExpand)).Bounds();
+  B := Self.GetEntraceSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -59,7 +91,7 @@ begin
   ATPA := Self.FindEntraceColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.EntranceColor.NoColorTileExpand))
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -271,9 +303,9 @@ var
   ATPA: T2DPointArray;
 begin
   // get the colors and the tile boxes
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.ExitTile);
+  TileRect := Self.FindExitTile(OurTile);
 
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.ExitColor.RadiusExpand)).Bounds();
+  B := Self.GetExitSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -285,7 +317,7 @@ begin
   ATPA := Self.FindExitColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.ExitColor.NoColorTileExpand))
   else
     B := ATPA.Biggest().Bounds();
 end;

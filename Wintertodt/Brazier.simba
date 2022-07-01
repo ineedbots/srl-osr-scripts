@@ -19,6 +19,23 @@
 {$include_once Utils.simba}
 
 {
+  Find Brazier tile
+}
+function TBot.FindBrazierTile(OurPos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.BrazierTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetBrazierSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Bounds().Expand(
+    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand));
+end;
+
+{
   Finds color
 }
 function TBot.FindLitBrazierColor(Area: TBox): T2DPointArray;
@@ -44,18 +61,21 @@ var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
 begin
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BrazierTile, 0);
-  B := TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand));
+  TileRect := Self.FindBrazierTile(OurTile);
+
+  B := Self.GetBrazierSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
 
   Result := True;
+
   IsLit := False;
+
   B.LimitTo(MainScreen.Bounds());
 
   ATPA := Self.FindLitBrazierColor(B);
+
   if Length(ATPA) > 0 then
   begin
     B := ATPA.Biggest().Bounds();
@@ -68,7 +88,7 @@ begin
   if Length(ATPA) > 0 then
     B := ATPA.Biggest().Bounds()
   else
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5));
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.UnlitBrazColor.NoColorTileExpand));
 end;
 
 {

@@ -19,6 +19,22 @@
 {$include_once Utils.simba}
 
 {
+  Find melting pot tile
+}
+function TBot.FindRootsTile(OurPos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.RootsTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetRootsSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
+end;
+
+{
   Finds color
 }
 function TBot.FindRootsColor(Area: TBox): T2DPointArray;
@@ -121,9 +137,9 @@ var
   ATPA: T2DPointArray;
 begin
   // get the colors and the tile boxes
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.RootsTile);
+  TileRect := Self.FindRootsTile(OurTile);
 
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.RootsColor.RadiusExpand)).Bounds();
+  B := Self.GetRootsSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -135,7 +151,7 @@ begin
   ATPA := Self.FindRootsColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.RootsColor.NoColorTileExpand))
   else
     B := ATPA.Biggest().Bounds();
 end;

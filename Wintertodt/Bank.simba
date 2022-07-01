@@ -19,6 +19,22 @@
 {$include_once Utils.simba}
 
 {
+  Find melting pot tile
+}
+function TBot.FindBankTile(OurTile: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetBankSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+end;
+
+{
   Finds color
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
@@ -184,9 +200,9 @@ var
   ATPA: T2DPointArray;
 begin
   // get the colors and the tile boxes
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.BankTile);
+  TileRect := Self.FindBankTile(OurTile);
 
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+  B := Self.GetBankSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -198,7 +214,7 @@ begin
   ATPA := Self.FindBankColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.BankColor.NoColorTileExpand))
   else
     B := ATPA.Biggest().Bounds();
 end;

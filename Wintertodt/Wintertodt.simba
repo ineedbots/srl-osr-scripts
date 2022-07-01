@@ -229,11 +229,14 @@ begin
   Script.Debug := DEBUGMODE;
   Script.Drawing := DRAWING;
   Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
   Script.Running := True;
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
-  Script.Activity.Countdown.Init(180000);
+  Script.Activity.Countdown.Init(180000);  
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
@@ -340,7 +343,8 @@ begin
     RSObject.Colors += CTS2(3881520, 4, 0.39, 0.23);
     RSObject.ClusterDistance := 8;
     FilterSize := 30;
-    RadiusExpand := 0.25;
+    RadiusExpand := 0.25;  
+    NoColorTileExpand := 5;
   end;
 
   with Self.EntranceColor do
@@ -348,7 +352,8 @@ begin
     RSObject.Colors += CTS2(10281414, 15, 0.07, 2.13);
     RSObject.ClusterDistance := 8;
     FilterSize := 100;    
-    RadiusExpand := 10;
+    RadiusExpand := 10; 
+    NoColorTileExpand := 5;
   end;
 
   with Self.ExitColor do
@@ -357,7 +362,8 @@ begin
     RSObject.Colors += CTS2(2190167, 4, 0.15, 2.18);
     RSObject.ClusterDistance := 8;
     FilterSize := 50;
-    RadiusExpand := 10;
+    RadiusExpand := 10;  
+    NoColorTileExpand := 5;
   end;
 
   with Self.RootsColor do
@@ -365,7 +371,8 @@ begin
     RSObject.Colors += CTS2(3158056, 11, 0.14, 0.63);
     RSObject.ClusterDistance := 3;
     FilterSize := 50;
-    RadiusExpand := 0.1;
+    RadiusExpand := 0.1; 
+    NoColorTileExpand := 5;
   end;
 
   with Self.InsideRootsColor do
@@ -390,6 +397,7 @@ begin
     RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
     RSObject.ClusterDistance := 10;
     FilterSize := 150;
+    NoColorTileExpand := 5;
   end;
 
   // do login init stuff
