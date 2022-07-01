@@ -1,0 +1,515 @@
+{
+  BlastFurnace
+  Author: ineedbot
+  Date: 6/12/2022
+
+  An ALL color BF script, can use runelite plugin, or not.
+
+  Simba/SRL 1400
+}
+
+program BlastFurnace;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+{$include_once ../Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+{$include_once Utils.simba}
+
+{$include_once MeltingPot.simba}
+{$include_once ConveyorBelt.simba}
+{$include_once Bank.simba}
+{$include_once Coffer.simba}
+{$include_once Sink.simba}
+{$include_once Foreman.simba}
+{$include_once Dispenser.simba}
+
+{
+  recovers from non normal amounts in the dispenser and melting pot
+}
+procedure TBot.RecoverFromOddAmounts(RLP: Boolean);
+begin
+  // fix up coal
+  if (Self.ROres > 0) and (Self.RCoal < (Self.ROres * Self.CoalRequiredForOre())) then
+  begin
+    // fix it up
+    Self.FixUpCoalNeeded := (Self.ROres * Self.CoalRequiredForOre()) - Self.RCoal;
+    Self.FixUpOresNeeded := 0;
+    Self.NeedToDoBelt := True;
+  end
+  // fix up ores
+  else if (Self.CoalRequiredForOre() > 0) and ((Self.RCoal mod Self.WorkingInvCount) <> 0) then
+  begin
+    Self.FixUpOresNeeded := Ceil(Self.RCoal / Self.CoalRequiredForOre()) - Self.ROres;
+    Self.FixUpCoalNeeded := 0;
+    Self.NeedToDoBelt := True;
+  end
+  else
+  begin
+    Self.FixUpCoalNeeded := 0;
+    Self.FixUpOresNeeded := 0;   
+    Self.NeedToDoBelt := False;
+  end;
+
+  // make sure these are sane values
+  if not RLP then
+  begin
+    if (Self.RBars < 0) or (Self.RCoal < 0) or (Self.ROres < 0) then
+    begin
+      Self.CheckTheDispenser();
+      Self.CheckThePot();
+    end;
+  end;
+end;
+
+{
+  Core logic of the script
+}
+procedure TBot.DoLoggedInStuff();
+var
+  RLP, ForceBelt: Boolean;
+  x, y: Int32;
+  CoalSlots, OreSlots: TIntegerArray;
+  Item: TRSItem;
+begin
+  if Self.RSW.GetMyPos().X = -10000 then
+  begin
+    Script.WriteMsg('Bad pos!');
+    exit();
+  end;
+
+  // make sure run is enabled
+  if Minimap.GetRunEnergy() > 20 then
+    Minimap.EnableRun();
+
+  // read values
+  Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
+  Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
+  Self.GetWorkingInvCount(Self.WorkingInvCount);
+  Script.WriteMsg('Pos: ' + ToStr(Self.RSW.GetMyPos()) + '  Coffer: ' + ToStr(Self.RCoffer) + '  Coal: ' + ToStr(Self.RCoal) +
+    '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount), True);
+
+  // recover from bad amounts
+  Self.RecoverFromOddAmounts(RLP);
+
+  // do we need to collect bars?
+  if Self.NeedToCollect or (Self.RBars > 0) then
+  begin
+    // are there stuff in our inv? we should deposit it
+    if ((Inventory.HIGH_SLOT + 1) - Inventory.Count()) < Self.WorkingInvCount then
+      Self.GoDoBank(False, False, Item, 0);
+
+    // collect
+    Script.WriteMsg('Need to collect!', True);
+    Self.GoCollectBars();
+    Self.NeedToCollect := False;
+    exit();
+  end;
+
+  // do we need to pay the foreman?       2500gp/10mins  or 1250gp/10min with ring of charos(e) (1-3-2-3)
+  if Self.PayingForeman and (Self.NeedToPayForeman or Self.ForemanTimer.IsFinished()) then
+  begin
+    Script.WriteMsg('Need to pay foreman!', True);
+    Self.GoPayForeman();
+    exit();
+  end;
+
+  // do we need to put money in the coffer? 72kgp/h   109 gp for a trip of running  217 walking
+  if Self.RCoffer < 1500 then
+  begin
+    Script.WriteMsg('Need to refill coffer!', True);
+    Self.GoRefillCoffer();
+    exit();
+  end;
+
+  // do we need to put stuff on the belt?
+  ForceBelt := (Self.NeedToDoBelt and (Inventory.FindItem(Self.OreItem, OreSlots) or Inventory.FindItem(Self.CoalItem, CoalSlots)));
+  if ForceBelt or (Inventory.FindItem(Self.OreItem, OreSlots) xor Inventory.FindItem(Self.CoalItem, CoalSlots)) then
+  begin
+    // make sure we put on a good amount
+    if ForceBelt or ((Length(OreSlots) >= Self.WorkingInvCount) xor (Length(CoalSlots) >= Self.WorkingInvCount)) then
+    begin
+      // make sure coal bag is good
+      if ForceBelt or (not Inventory.FindItem(Self.CoalBagItem) or (Self.InCoalBag >= Self.WorkingInvCount)) then
+      begin
+        Script.WriteMsg('Need to put stuff on belt!', True);
+        Self.GoDoConveyor();
+        Self.NeedToDoBelt := False;
+        exit();
+      end;
+    end;
+  end;
+
+  // we should bank!
+  Script.WriteMsg('Need to bank!', True);
+  Self.GoDoBank(True, False, Item, 0);
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      Self.DoLoggedInStuff();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+
+    Self.DoMainLoopStuff('', False);
+  end;
+
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// SETUP AND INIT STUFF
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+
+    Self.PayingForeman :=       (Stats.GetCurrentLevel(ERSSkill.SMITHING) < 60);
+    Self.LastXP := XPBar.ReadXPBar();
+
+    Inventory.Open();
+    if not Self.GetWorkingInvCount(Self.WorkingInvCount) then
+      Self.WorkingInvCount := Inventory.HIGH_SLOT + 1;
+  end;
+
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(ONE_MINUTE*5);
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
+
+  Script.ShutdownTime := (TOTALRUNTIME * ONE_MINUTE) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
+
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+
+  Script.Antiban.AddTask(ONE_MINUTE*1, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_MINUTE*4, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*6,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*10,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*12,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*14,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*20, 0.2, 0.0);
+
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 1.0);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('zeah');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+  Self.UsingIceGloves := ICEGLOVES;
+  Self.CofferAmount := COFFER_AMOUNT;
+  Self.ForemanTimer.Init((ONE_MINUTE * 10) - (ONE_SECOND * 30));
+  Self.ForemanTimer.Restart();
+
+  Self.OreItem := ORE_ITEM;
+  Self.BarItem := BAR_ITEM;
+  Self.CoalItem:= COAL_ITEM;
+  Self.CoalBagItem := 'Coal bag';
+  Self.StaminaPotItems := ['Stamina potion(4)', 'Stamina potion(3)', 'Stamina potion(2)', 'Stamina potion(1)'];
+  Self.CoinsItem := 'Coins';
+  Self.BucketItem := 'Bucket';
+  Self.WaterBucketItem := 'Bucket of water';
+  Self.IceGlovesItem := 'Ice gloves';
+  Self.GoldGlovesItem := 'Goldsmith gauntlets';
+  Self.ToolItems := [Self.CoalBagItem, Self.WaterBucketItem, Self.BucketItem, Self.IceGlovesItem, Self.GoldGlovesItem];
+
+
+  // The bars are still molten! You need to cool them down.
+  // The coal bag contains 27 pieces of coal.
+  // The coal bag is empty.
+  // You are an experienced smith, you may use the furnace free of charge!
+  // The coffer is empty, and you have no coins to deposit.
+  // What is this? The fee to use the furnace is 2,500 coins.     
+  // The coffer is empty, and you can only deposit coins on worlds where the workers are present.
+
+  Self.EmptyCoalBagOptionStr := ['Empty Coal bag', 'Empty'];
+  Self.FillCoalBagOptionsStr := ['Fill Coal bag', 'Fill'];
+
+
+  Self.MeltingPotTile := [0, 0];
+  Self.MeltingPotTileHeight := 5;
+  Self.MeltingPotUpTextsStr := ['Check Melting Pot', 'Check'];
+  Self.MeltingPotOptionsTextsStr := ['Check Melting Pot', 'Check'];
+  Self.PotChatTexts := ['Coal:', 'Gold Ore:'];
+
+  with Self.MeltingPotMMColor do
+  begin
+    RSObject.Colors += CTS2(875989, 8, 0.16, 1.55);
+    RSObject.ClusterDistance := 1;
+  end;
+
+  with Self.MeltingPotColor do
+  begin
+    RSObject.Colors += CTS2(3378368, 8, 0.03, 0.88);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.ConveyorTile := [0, -16];
+  Self.ConveyorTileHeight := 5;
+  Self.ConveyorTileWalkOffset := [-4, 0];
+  Self.ToConveyorPaths := [
+    [[22, 24], [2, 21], [-15, 5], [-15, -1], [-19, -14], [-3, -15]],
+    [[22, 24], [1, 15], [-1, 13], [-19, 6], [-19, -14], [-3, -15]],
+    [[22, 24], [24, 13], [0, 13], [-14, 21], [-24, 6], [-27, 2], [-31, -14], [-16, -14], [-3, -15]]
+  ];
+  Self.ConveyorUpTextsStr := ['Put-ore-on Conveyor belt', 'Put-or'];
+  Self.ConveyorOptionsTextsStr := ['Put-ore-on Conveyor belt', 'Put-or'];
+
+  // You must put money in the coffer to pay the workers.
+  // You don't have anything suitable for putting into the blast furnace.
+
+  Self.ConveyorChatAddOreTexts := ['Add all your', 'Add all your ore to the furnace?'];
+  Self.ConveyorAddOreOptionTexts := ['Yes,', 'Yes, and don''t ask again.'];
+  Self.ConveyorChatForemanTexts := ['You must ask the foreman', 'You must ask the foreman''s premission before using the blast furnace.'];
+  Self.ConveyorChatCollectTexts := ['You should collect', 'You should collect your bars before making any more.'];
+  Self.ConveyorChatOreSmeltsTexts := ['You should make sure', 'You should make sure all your ore smelts before adding any more.'];
+
+  with Self.ConveyorBeltColor do
+  begin
+    RSObject.Colors += CTS2(408653, 5, 0.15, 3.72);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.BankTile := [22, 28];
+  Self.BankTileHeight := 0;
+  Self.BankTileWalkOffset := [0, -4];
+  Self.ToBankPaths := [
+    [[-3, -15], [-16, -14], [-19, -14], [-15, 1], [-3, 13], [14, 17], [22, 24]],
+    [[-3, -15], [-23, -14], [-19, 10], [-2, 17], [2, 21], [22, 20], [22, 24]],
+    [[-3, -15], [-25, -14], [-32, -17], [-28, 0], [-25, 4], [-13, 20], [7, 16], [11, 13], [19, 25]]
+  ];
+
+  with Self.ChestColor do
+  begin
+    RSObject.Colors += CTS2(2832199, 14, 0.06, 0.10);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.CofferTile := [14, 24];
+  Self.CofferTileHeight := 0;
+  Self.CofferUpTextsStr := ['Use Coffer', 'Use'];
+  Self.CofferOptionsTextsStr := ['Use Coffer', 'Use'];
+  Self.CofferChatTitleTexts := ['Select', 'Select an Option'];
+  Self.CofferOptions := ['Deposit', 'Deposit coins.'];
+  Self.CofferQueries := ['Deposit', 'Deposit how much? (10 coins)'];
+  Self.CofferForemanTexts := ['You must ask the foreman', 'You must ask the foreman''s permission before using the blast furnace.'];
+
+  with Self.CofferColor do
+  begin
+    RSObject.Colors += CTS2(10752, 1, 0.01, 0.01);
+    RSObject.Colors += CTS2(2201021, 3, 0.05, 0.32);
+    RSObject.Erode := 0;
+    RSObject.Grow := 1;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 2;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.SinkTile := [-3, 26];
+  Self.SinkTileHeight := 0;
+  Self.SinkUpTextsStr := ['Fill-bucket Sink', 'Fill-'];
+  Self.SinkOptionsTextsStr := ['Fill-bucket Sink', 'Fill-'];
+
+  with Self.SinkColor do
+  begin
+    RSObject.Colors += CTS2(8877419, 8, 0.13, 0.38);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.ForemanUpTextsStr := ['Blast Furnace Foreman'];
+  Self.ForemanOptionsTextsStr := ['Pay Blast Furnace Foreman', 'Pay'];
+  Self.ForemanChatTitleTexts := ['Pay', 'Pay 2,500 coins to use the Blast Furnace?'];
+  Self.ForemanChatOptionsTexts := ['Yes'];
+
+  with Self.ForemanColor do
+  begin
+    RSObject.Colors += CTS2(9413550, 5, 0.09, 0.61);
+    RSObject.Erode := 1;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+  end;
+
+
+  Self.DispenserTile := [-12, 0];
+  Self.DispenserTileHeight := 1;
+  Self.DispenserTileWalkOffset := [-4, 0];
+  Self.ToDispenserPaths := [
+    [[-3, -15], [-19, -14], [-19, -1], [-15, 1]],
+    [[-3, -15], [-31, -14], [-23, 2], [-15, 1]]
+  ];
+  Self.DispenserTakeOptionsTextStr := ['Take Bar dispenser', 'Take'];
+  Self.DispenserCheckOptionsTextStr := ['Check Bar dispenser', 'Check'];
+  Self.DispenserUseOptionsTextStr := ['Use'];
+  Self.DispenserUpTextsStr := ['Bar dispenser'];
+  Self.DispenserOptionsTextsStr := DispenserTakeOptionsTextStr;
+
+  Self.DispenserChatTexts := ['Bronze Bars:', 'Gold Bars:'];
+  Self.DispenserChatNoBars := ['The dispenser doesn', 'The dispenser doesn''t contain any bars'];
+
+  with Self.DispenserColor do
+  begin
+    RSObject.Colors += CTS2(7368823, 6, 0.37, 0.11);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+    NoColorTileExpand := 5;
+  end;
+
+  with Self.HotDispenserColor do
+  begin
+    RSObject.Colors += CTS2(4099256, 2, 0.04, 1.46);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+  end;
+
+  with Self.CoolDispenserColor do
+  begin
+    RSObject.Colors += CTS2(7045249, 2, 0.05, 0.33);
+    RSObject.Erode := 2;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+  end;
+
+
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+
+  // start the timers
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
+

@@ -1,0 +1,256 @@
+{
+  BlastFurnace
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Handles everything to do with the foreman
+}
+
+{$IFNDEF INEEDBOT_BLASTFURANCE_FOREMAN}
+{$DEFINE INEEDBOT_BLASTFURANCE_FOREMAN}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+{$include_once ../Utils.simba}
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{$include_once Sink.simba}
+{$include_once Bank.simba}
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindForemanColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.ForemanColor.RSObject, Area);
+  Result.FilterSize(Self.ForemanColor.FilterSize, __GT__);
+end;
+
+{
+  Returns true if the foreman is visible, B is the bounds of him on the screen
+}
+function TBot.FindForeman(out B: TBox; HasSinkPT: Boolean = False; SinkPT: TPoint = Point(0, 0)): Boolean;
+var
+  ATPA: T2DPointArray;
+begin
+  ATPA := Self.FindForemanColor(MainScreen.Bounds());
+
+  if Length(ATPA) > 0 then
+  begin
+    Result := True;
+
+    if HasSinkPT then
+      B := ATPA.NearestTo(SinkPT).Bounds()
+    else
+      B := ATPA.Biggest().Bounds();
+  end;
+end;
+
+{
+  Returns true if found the foreman, WasClicked true if clicked it
+}
+function TBot.ClickForeman(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+  Height: Int32;
+  FoundSink: Boolean;
+  SinkPT: TPoint;
+begin
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  Height := Self.GetHeightOffset(OurTile);
+
+  if Self.FindSink(OurTile, Height, B) then
+  begin
+    FoundSink := True;
+    SinkPT := B.Middle();
+  end;
+
+  // find the sink
+  if not Self.FindForeman(B, FoundSink, SinkPT) then
+  begin
+    Script.WriteMsg('ClickForeman: not visible', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickForeman: Found, checking uptext', True);
+
+  Result := True;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickForeman: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Self.ForemanUpTextsStr;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Self.ForemanUpTextsStr, Random(100, 250)) then
+  begin
+    Script.WriteMsg('ClickForeman: Bad uptext', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickForeman: Good uptext, clicking', True);
+
+  if MainScreen.IsUpText(Self.ForemanOptionsTextsStr, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    WasClicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    WasClicked := ChooseOption.Select(Self.ForemanOptionsTextsStr);
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickForeman: Didnt click', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickForeman: Clicked', True);
+end;
+
+{
+  waits for the foreman optinos to open
+}
+function TBot.WaitForemanOption(): Boolean;
+var
+  CountDown: TCountdown;
+begin
+  // we only wait a finite amount of time...
+  CountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
+  while RSClient.IsLoggedIn() do
+  begin
+    // does the chat options there?
+    if Chat.IsOpen() and Chat.GetChatTitle().Strip().StartsWith(Self.ForemanChatTitleTexts[0]) then
+    begin
+      Script.WriteMsg('WaitForemanOption: found chat options', True);
+      exit(True);
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitForemanOption: Still moving...', True);
+      CountDown.Restart();
+    end;
+
+    // watch for timeout
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitForemanOption: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to foreman...', False);
+  end;
+end;
+
+{
+  Does pay foreman things
+}
+procedure TBot.GoPayForeman();
+var
+  Item: TRSItem;
+  ClickedForeman: Boolean;
+  OurPos: TPoint;
+  Height, i: Int32;
+  B: TBox;
+begin
+  Item := '';
+  // get the coins if needed
+  if not Inventory.FindItem(Self.CoinsItem) then
+  begin
+    Self.GoDoBank(False, True, Item, 2500);
+    Wait(0, 1500, wdLeft);
+  end;
+
+  // check if we have the coins
+  if not Inventory.FindItem(Self.CoinsItem) then
+  begin
+    Script.WriteMsg('no coins');
+    Self.DoAntiBan();
+    exit();
+  end;
+
+  // go to sink, this is where the foreman is around
+  OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeightOffset(OurPos);
+  if not Self.FindSink(OurPos, Height, B) then
+    Self.GoToSink(True, False);
+
+  // click the foreman
+  for i := 0 to 3 do
+  begin
+    if Self.ClickForeman(ClickedForeman) and ClickedForeman then
+      break;
+
+    if i = 1 then
+      Self.GoToSink(True, False);
+
+    Minimap.SetCompassAngle(Random() * 360.0);
+    Wait(50, 1000);
+  end;
+
+  // look for the foreman
+  if ClickedForeman then
+  begin
+    // give him the money
+    if Self.WaitForemanOption() then
+    begin
+      Wait(0, 1000, wdLeft);
+
+      // select the option
+      if not Chat.ClickOption(Self.ForemanChatOptionsTexts[0], Script.ShouldPressKeyboard()) then
+        Script.WriteMsg('Couldn''t click option')
+      else
+      begin
+        // set the vars
+        Self.NeedToPayForeman := False;
+        Self.ForemanTimer.Restart();
+      end;
+
+      Wait(0, 1000, wdLeft);
+    end
+    else
+    begin
+      Script.WriteMsg('Foreman options didn''t open');
+
+      // check if we need to pay him
+      Self.PayingForeman :=       (Stats.GetCurrentLevel(ERSSkill.SMITHING) < 60);
+    end;
+  end
+  else
+    Script.WriteMsg('Couldn''t find the foreman');
+
+  // withdraw the item again if needed
+  if (Item <> '') or Inventory.FindItem(Self.CoinsItem) then
+  begin
+    if Item = '' then
+      Item := 'was bar';
+
+    Self.GoDoBank(False, True, Item, Self.CofferAmount);
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_BLASTFURANCE_FOREMAN
+

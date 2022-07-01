@@ -1,0 +1,59 @@
+{
+  BlastFurnace
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Declares all the types
+}
+
+{$IFNDEF INEEDBOT_BLASTFURANCE_TYPES}
+{$DEFINE INEEDBOT_BLASTFURANCE_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+{$include_once ../Utils.simba}
+
+type
+  TBot = record
+    RSW                                                          : TRSWalker;
+    ConveyorBeltColor, SinkColor, CofferColor, ChestColor,
+      MeltingPotColor, MeltingPotMMColor, DispenserColor,
+      HotDispenserColor, CoolDispenserColor, ForemanColor        : TScriptColor;
+    MeltingPotTile, CofferTile, BankTile, DispenserTile,
+      ConveyorTile, SinkTile, BankTileWalkOffset,
+      ConveyorTileWalkOffset, DispenserTileWalkOffset            : TPoint;
+    ToBankPaths, ToConveyorPaths, ToDispenserPaths               : T2DPointArray;
+    MeltingPotTileHeight, CofferTileHeight, BankTileHeight,
+      DispenserTileHeight, ConveyorTileHeight, SinkTileHeight,
+      RCoal, ROres, RBars, WorkingInvCount, InCoalBag, Did,
+      RCoffer, LastXP, CofferAmount, FixUpCoalNeeded,
+      FixUpOresNeeded                                            : Int32;
+    OreItem, BarItem, CoalItem, CoalBagItem, CoinsItem,
+      BucketItem, WaterBucketItem, IceGlovesItem, GoldGlovesItem : TRSItem;
+    StaminaPotItems, ToolItems                                   : TRSItemArray;
+    EmptyCoalBagOptionStr, FillCoalBagOptionsStr,
+      ConveyorUpTextsStr, CofferUpTextsStr, SinkUpTextsStr,
+      MeltingPotUpTextsStr, ForemanUpTextsStr,
+      ForemanOptionsTextsStr, DispenserUpTextsStr,
+      DispenserOptionsTextsStr, DispenserTakeOptionsTextStr,
+      DispenserCheckOptionsTextStr, MeltingPotOptionsTextsStr,
+      ConveyorOptionsTextsStr, CofferOptionsTextsStr,
+      SinkOptionsTextsStr, DispenserUseOptionsTextStr,
+      CofferOptions, CofferQueries, PotChatTexts,
+      DispenserChatTexts, DispenserChatNoBars,
+      ConveyorChatAddOreTexts, ConveyorChatForemanTexts,
+      ConveyorAddOreOptionTexts, CofferChatTitleTexts,
+      CofferForemanTexts, ForemanChatTitleTexts,
+      ForemanChatOptionsTexts, ConveyorChatCollectTexts,
+      ConveyorChatOreSmeltsTexts                                 : TStringArray;
+    UsingIceGloves, PayingForeman, NeedToPayForeman,
+      NeedToCollect, NeedToDoBelt                                : Boolean;
+    ForemanTimer                                                 : TCountDown;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_BLASTFURANCE_TYPES
+

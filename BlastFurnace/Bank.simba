@@ -1,0 +1,862 @@
+{
+  BlastFurnace
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Handles everything to do with the bank
+}
+
+{$IFNDEF INEEDBOT_BLASTFURANCE_BANK}
+{$DEFINE INEEDBOT_BLASTFURANCE_BANK}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+{$include_once ../Utils.simba}
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds the bank tile
+}
+function TBot.FindBankTile(OurPos: TPoint; Height: Int32): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, Self.BankTileHeight - Height);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetBankSearchBox(BankTile: TRectangle): TBox;
+begin
+  Result := BankTile.Expand(Round(BankTile.Radius() * Self.ChestColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.ChestColor.RSObject, Area);
+  Result.FilterSize(Self.ChestColor.FilterSize, __GT__);
+end;
+
+{
+  Returns true if the bank is visible, B is the bounds of the bank on the screen
+}
+function TBot.FindBank(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  TileRect := Self.FindBankTile(OurTile, Height);
+
+  B := Self.GetBankSearchBox(TileRect);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindBankColor(B);
+
+  if Length(ATPA) <= 0 then
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.ChestColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Find bank item
+}
+function TBot.FindBankItem(Item: TRSItem; out B: TBox): Boolean;
+var
+  i: Int32;
+begin
+  // try and find it
+  for i := 0 to 3 do
+  begin
+    if Bank.FindItem(Item, B) then
+    begin
+      Result := True;
+      break;
+    end;
+
+    // fix the uptext and chooseoption menu
+    Bank.FixUpText();
+
+    // find it again
+    if Bank.FindItem(Item, B) then
+    begin
+      Result := True;
+      break;
+    end;
+  end;
+end;
+
+{
+  Deposits our inv into the bank
+}
+function TBot.DepositItemsIntoBank(Pattern: TIntegerArray; CurProducts: Int32; Amount: Int32 = -2): Boolean;
+var
+  i, IC, QuantityAmount: Int32;
+  UsingButton, Depod: Boolean;
+  R: Double;
+begin
+  IC := Inventory.Count();
+  for i in Pattern do
+  begin
+    if Inventory.IsSlotUsed(Inventory.GetSlotBox(i)) then
+    begin
+      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+      if Amount = -2 then
+      begin
+        R := SRL.TruncatedGauss(0.0, 1.0);
+        case R of
+          0.0..0.5: QuantityAmount := BANK_DEPOSIT_ALL;
+          0.5..0.6: QuantityAmount := CurProducts;
+          0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+          0.7..0.8: QuantityAmount := 10;
+          0.8..0.9: QuantityAmount := 5;
+          else QuantityAmount := 1;
+        end;
+      end
+      else
+        QuantityAmount := Amount;
+
+      if Bank.DepositSlot([i, QuantityAmount], UsingButton) then
+      begin
+        Depod := True;
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+      end
+      else
+      begin
+        Bank.FixUpText();
+        if Bank.DepositSlot([i, QuantityAmount], UsingButton) then
+        begin
+          Depod := True;
+          Wait(SRL.SkewedRand(1000, 500, 2500));
+        end;
+      end;
+    end;
+  end;
+
+  if Depod then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  if Inventory.IsFull() and Depod then
+    exit();
+
+  Result := True;
+end;
+
+{
+  withdraw item from bank
+}
+function TBot.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False): Boolean;
+var
+  IC, QuantityAmount, i: Int32;
+  UsingButton, Withdrew: Boolean;
+  R: Double;
+begin
+  IC := Inventory.Count();
+  for i := 0 to 5 do
+  begin
+    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+    if Amount = -3 then
+    begin
+      R := SRL.TruncatedGauss(0.0, 1.0);
+      if not UsingButton and inRange(R, 0.4, 0.6) then
+        QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
+      else
+      begin
+        case R of
+          0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
+          0.6..0.8: QuantityAmount := Self.WorkingInvCount;
+          else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+        end;
+      end;
+    end
+    else
+      QuantityAmount := Amount;
+
+    if Bank.WithdrawHelper(B, QuantityAmount, Noted, UsingButton) then
+    begin
+      Withdrew := True;
+      Wait(SRL.SkewedRand(1000, 500, 2500));
+      break;
+    end
+    else
+      Bank.FixUpText();
+  end;
+
+  if not Withdrew then
+    exit();
+
+  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+  Result := True;
+end;
+
+{
+  Does the name of this function
+}
+procedure TBot.DepositAnItemAndWithdrawCoins(Pattern: TIntegerArray; B: TBox; Amount: Int32; out Item: TRSItem);
+var
+  OreSlots, CoalSlots: TIntegerArray;
+  Slot: Int32;
+begin
+  // deposit an item
+  if Inventory.IsFull() then
+  begin
+    // find the items we want to withdraw if deposited
+    Inventory.FindItem(Self.OreItem, OreSlots);
+    Inventory.FindItem(Self.CoalItem, CoalSlots);
+
+    Slot := Pattern[Random(0, High(Pattern))];
+
+    if OreSlots.Find(Slot) <> -1 then
+      Item := Self.GetOreItemName()
+    else if CoalSlots.Find(Slot) <> -1 then
+      Item := Self.GetCoalItemName()
+    else
+      Item := 'was bar';
+
+    // deposit it
+    if not Self.DepositItemsIntoBank([Slot], 1, 1) then
+    begin
+      Script.WriteMsg('Couldn''t deposit item into bank');
+      exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+
+    Script.AntiBan.AfterBankAntiBan(3);
+  end
+  else
+    Item := 'wasn''t full';
+
+  // withdraw the coins
+  if not Self.WithdrawItemFromBank(B, Amount, False) then
+  begin
+    Script.WriteMsg('Couldn''t withdraw coins');
+    exit();
+  end;
+end;
+
+{
+  Does the name of this function
+}
+procedure TBot.DepositCoinsAndWithdrawAnItem(CoalB: TBox; OreB: TBox; out Item: TRSItem);
+var
+  CoinSlot, i: Int32;
+  Depod: Boolean;
+  S, S2, S3: String;
+  B: TBox;
+begin
+  // deposit the coins
+  if Inventory.FindItem(Self.CoinsItem, CoinSlot) then
+  begin
+    for i := 0 to 5 do
+    begin
+      if Self.DepositItemsIntoBank([CoinSlot], 1, BANK_DEPOSIT_ALL) then
+      begin
+        Depod := True;
+        break;
+      end;
+    end;
+
+    if not Depod then
+    begin
+      Script.WriteMsg('Couldn''t deposit coins');
+      exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+
+    Script.AntiBan.AfterBankAntiBan(3);
+  end;
+
+  // withdraw our item
+  if (Item <> 'wasn''t full') and (Item <> 'was bar') then
+  begin
+    // check it
+    S := Item;
+    S2 := Self.GetOreItemName();
+    S3 := Self.GetCoalItemName();
+    if S.Lower() = S2.Lower() then
+      B := OreB
+    else if S.Lower() = S3.Lower() then
+      B := CoalB
+    else
+    begin
+      Script.WriteMsg('item wasn''t ore or coal');
+      exit();
+    end;
+
+    // withdraw it
+    if not Self.WithdrawItemFromBank(B, 1, False) then
+    begin
+      Script.WriteMsg('couldn''t withdraw item from bank');
+      exit();
+    end;
+  end;
+end;
+
+{
+  Does all the banking...
+}
+procedure TBot.DoBanking(DoWithdrawal: Boolean; DoingCoinWithdrawal: Boolean; out TempItem: TRSItem; Amount: Int32);
+var
+  ToolSlots, Pattern, ProductSlots: TIntegerArray;
+  R: Double;
+  i, CurProducts, CoalToWithdraw, OresToWithdraw, CoalBagSlot, CoalBankAmount: Int32;
+  FoundCoal, FoundOre, FoundCoins, FoundStam, HasCoalBag: Boolean;
+  CoalB, OreB, CoinsB, StamB: TBox;
+  Item: TRSItem;
+  CountDown: TCountDown;
+label
+  do_exit;
+begin
+  // make sure bank is open
+  if DepositBox.IsOpen() then
+  begin
+    DepositBox.Close(Script.ShouldPressKeyboard());
+    exit();
+  end;
+
+  if not Bank.IsOpen(True) then
+  begin
+    Bank.FixUpText();
+
+    if not Bank.IsOpen(True) then
+      exit();
+  end;
+
+  Inventory.FindItems(Self.ToolItems, ToolSlots);
+  Script.WriteMsg('DoBanking: ToolSlots: ' + ToStr(ToolSlots), True);
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  Script.WriteMsg('DoBanking: Pattern: ' + ToStr(Pattern), True);
+
+  // remember how many produce we have, so we can count
+  Inventory.FindItem(Self.BarItem, ProductSlots);
+  CurProducts := Length(ProductSlots);
+  Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
+
+  // find withdraw items now
+  FoundCoal := Self.FindBankItem(Self.CoalItem, CoalB);
+  FoundOre := Self.FindBankItem(Self.OreItem, OreB);
+  FoundCoins := Self.FindBankItem(Self.CoinsItem, CoinsB);
+
+  for Item in Self.StaminaPotItems do
+  begin
+    FoundStam := Self.FindBankItem(Item, StamB);
+
+    if FoundStam then
+      break;
+  end;
+
+  if FoundCoal then
+  begin
+    CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+    Script.WriteMsg('DoBanking: Coal amount in bank: ' + ToStr(CoalBankAmount), True);
+  end;
+
+  Script.WriteMsg('DoBanking: Found coal: ' + ToStr(FoundCoal)
+    + '  ore: ' + ToStr(FoundOre) + '  coins: ' + ToStr(FoundCoins) + '  stam: '
+    + ToStr(FoundStam), True);
+
+  Script.SetStatus('Banking...');
+  Script.AntiBan.AfterBankAntiBan(7);
+
+  // check if we doing the coin withdrawal
+  if DoingCoinWithdrawal then
+  begin
+    // check if we need the coins
+    if TempItem = '' then
+    begin
+      if not FoundCoins then
+      begin
+        Script.Stop('No more coins');
+        goto do_exit;
+      end;
+
+      Script.WriteMsg('DoBanking: Withdrawing coins', True);
+      Self.DepositAnItemAndWithdrawCoins(Pattern, CoinsB, Amount, TempItem);
+    end
+    else
+    begin
+      // deposit the coins, and withdraw the item we depositted
+      Script.WriteMsg('DoBanking: Depositing coins', True);
+      Self.DepositCoinsAndWithdrawAnItem(CoalB, OreB, TempItem);
+    end;
+
+    Wait(0, 1500, wdLeft);
+    goto do_exit;
+  end;
+
+  // deposit our stuff
+  if not Self.DepositItemsIntoBank(Pattern, CurProducts) then
+  begin
+    Script.WriteMsg('Failed to deposit items');
+    goto do_exit;
+  end;
+
+  Wait(0, 1000, wdLeft);
+
+  if DoWithdrawal then
+  begin
+    // get info
+    Self.GetWorkingInvCount(Self.WorkingInvCount);
+    HasCoalBag := Inventory.FindItem(Self.CoalBagItem, CoalBagSlot);
+    // make sure the values are updated
+    Self.GetTripInfo(HasCoalBag, CoalToWithdraw, OresToWithdraw);
+    Script.WriteMsg('DoBanking: Withdrawing: ' + ToStr(CoalToWithdraw) + ' coal and '
+      + ToStr(OresToWithdraw) + ' ores.  Has coalbag: ' + ToStr(HasCoalBag), True);
+
+    // make sure we have what we need
+    if (CoalToWithdraw > 0) and not FoundCoal then
+    begin
+      Script.Stop('No more coal!');
+      goto do_exit;
+    end;
+
+    if (OresToWithdraw > 0) and not FoundOre then
+    begin
+      Script.Stop('No more ores!');
+      goto do_exit;
+    end;
+
+    Script.AntiBan.AfterBankAntiBan(3);
+
+    // check if we need a sip of stam
+    if (Minimap.GetRunEnergy() <= 20) and FoundStam then
+    begin
+      // withdraw the pot
+      if Self.WithdrawItemFromBank(StamB, 1) then
+      begin
+        Wait(0, 1000, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
+
+        // find it
+        if Inventory.FindItems(Self.StaminaPotItems, Pattern) then
+        begin
+          // drink it
+          Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+          Wait(0, 750, wdLeft);
+          ChooseOption.Select('Drink');
+          Wait(0, 500, wdLeft);
+
+          Script.AntiBan.AfterBankAntiBan(2);
+        end
+        else
+          Script.WriteMsg('Couldn''t find stam pot in inv');
+
+        // deposit the vial
+        if not Self.DepositItemsIntoBank(Pattern, 1) then
+          Script.WriteMsg('Failed to deposit the vial!');
+
+        Wait(0, 1000, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
+      end;
+    end;
+
+    // withdraw our crap
+
+    // first do the coalbag
+    // TODO randomize? or use open coalbag???
+    if HasCoalBag and ((CoalToWithdraw + OresToWithdraw) > Self.WorkingInvCount) then
+    begin
+      // hopefully this doesn't fail due to lag
+      Mouse.Move(Inventory.GetSlotBox(CoalBagSlot));
+      Wait(0, 750, wdLeft);
+      ChooseOption.Open();
+      Wait(50, 500, wdLeft);
+
+      // check if the bag isnt empty
+      if ChooseOption.HasOption(Self.EmptyCoalBagOptionStr, False, False) then
+      begin
+        Script.WriteMsg('Coal bag isnt empty...');
+        ChooseOption.Select(Self.EmptyCoalBagOptionStr);
+        Wait(1500, 2500); // assume it doesn't lag right here
+        Mouse.Click(Inventory.GetSlotBox(CoalBagSlot), MOUSE_RIGHT);
+        Wait(50, 500);
+      end;
+
+      // make sure we can fill it
+      if not ChooseOption.HasOption(Self.FillCoalBagOptionsStr, False) then
+      begin
+        Script.WriteMsg('No fill option on the coal bag!');
+        goto do_exit;
+      end;
+
+      CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+
+      // fill it
+      ChooseOption.Select(Self.FillCoalBagOptionsStr);
+
+      // if over 100k, just assume it worked... really hope it dont lag
+      if CoalBankAmount >= 100000 then
+      begin
+        Self.InCoalBag := Self.WorkingInvCount;
+        CoalToWithdraw -= Self.WorkingInvCount;
+      end
+      else
+      begin
+        CountDown.Init(SRL.SkewedRand(2500, 2000, 3000));
+
+        // watch for the change
+        while RSClient.IsLoggedIn() do
+        begin
+          if SRL.GetItemAmount(CoalB.Expand(2)) <> CoalBankAmount then
+            break;
+
+          if CountDown.IsFinished() then
+            break;
+
+          Self.DoMainLoopStuff('Waiting for the coal to change...', False);
+        end;
+
+        i := SRL.GetItemAmount(CoalB.Expand(2));
+        if i = CoalBankAmount then
+        begin
+          Script.WriteMsg('Coal amount didnt change!');
+          goto do_exit;
+        end;
+
+        Self.InCoalBag := CoalBankAmount - i;
+        CoalToWithdraw -= CoalBankAmount - i;
+      end;
+
+      Script.WriteMsg('InCoalBag: ' + ToStr(Self.InCoalBag), True);
+      Wait(0, 1000, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(3);
+    end;
+
+    // withdraw it
+    if CoalToWithdraw > 0 then
+    begin
+      if CoalToWithdraw >= Self.WorkingInvCount then
+        i := -3
+      else
+        i := CoalToWithdraw;
+
+      if not Self.WithdrawItemFromBank(CoalB, i) then
+      begin
+        Script.WriteMsg('Failed to withdraw coal');
+        goto do_exit;
+      end;
+    end;
+
+    if OresToWithdraw > 0 then
+    begin
+      if OresToWithdraw >= Self.WorkingInvCount then
+        i := -3
+      else
+        i := OresToWithdraw;
+
+      if not Self.WithdrawItemFromBank(OreB, i) then
+      begin
+        Script.WriteMsg('Failed to withdraw ore');
+        goto do_exit;
+      end;
+    end;
+
+    Wait(0, 1000, wdLeft);
+  end;
+
+  // count how much stuff we did
+do_exit:
+  ProductSlots.Clear();
+  Inventory.FindItem(Self.BarItem, ProductSlots);
+  Self.Did += CurProducts - Length(ProductSlots);
+
+  Script.SetStatus('Depositted!');
+  Script.WriteMsg('Banked... Currently did ' + IntToStr(Self.Did) + '!');
+
+  // exit
+  Script.WriteMsg('Finished banking...', True);
+  Script.AntiBan.AfterBankAntiBan(7);
+  Bank.Close(Script.ShouldPressKeyboard());
+
+  // allow breaks here only
+  Script.AllowBreaks := True;
+  Self.DoAntiBan();
+  Script.AllowBreaks := False;
+end;
+
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
+function TBot.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+  RLP: Boolean;
+  x, y: Int32;
+begin
+  // we only wait a finite amount of time...
+  BankOpenCountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
+  while RSClient.IsLoggedIn() do
+  begin
+    Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
+    Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
+
+    // is the bank open?
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      exit(True);
+    end;
+
+    // enter pin if needed
+    if BankPin.IsOpen() then
+    begin
+      Wait(1000, 1750);
+      Script.WriteMsg('WaitBankOpen: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      Wait(500, 1000);
+      BankOpenCountDown.Restart();
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end
+    else if BankOpenCountDown.TimeRemaining() < 3500 then
+      Bank.FixUpText();
+
+    // timed out?
+    if BankOpenCountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+
+  Script.WriteMsg('WaitBankOpen: Timed out...', True);
+  // bank didnt open... failed.
+end;
+
+{
+  Returns true if found the bank, WasClicked true if clicked it
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+  Height: Int32;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    exit(True);
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  Height := Self.GetHeightOffset(OurTile);
+
+  // find the bank
+  if not Self.FindBank(OurTile, Height, B) then
+  begin
+    Script.WriteMsg('ClickBank: Bank not visible', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickBank: Found bank, checking uptext', True);
+
+  Result := True;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickBank: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+  begin
+    Script.WriteMsg('ClickBank: Bad uptext', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickBank: Good bank uptext, clicking', True);
+
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+
+    WasClicked := Mouse.DidClick(True);
+  end;
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickBank: Didnt click', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickBank: Clicked the bank', True);
+end;
+
+{
+  While we walk to the bank
+}
+procedure WalkingToBank(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickBank(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the bank while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    Walker^.Enabled := False;
+end;
+
+{
+  Walks to the bank, return true if we clicked it early
+}
+function TBot.GoToBank(Force: Boolean = False; Banking: Boolean = True): Boolean;
+var
+  Walked: Boolean;
+  PathIdx, Height: Int32;
+  OurPos: TPoint;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+  B: TBox;
+begin
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    exit(True);
+
+  Script.WriteMsg('Going to bank spot....', True);
+  OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeightOffset(OurPos);
+
+  if Force or (OurPos.DistanceTo(Self.BankTile) > 50) or not Self.FindBank(OurPos, Height, B) then
+  begin
+    Script.SetStatus('Going to bank spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    if Banking then
+      Self.RSW.OnWalkingEvent := @WalkingToBank;
+    try
+      PathIdx := SRL.TruncatedGauss(Low(Self.ToBankPaths), High(Self.ToBankPaths));
+
+      if OurPos.DistanceTo(Self.ToBankPaths[PathIdx][Low(Self.ToBankPaths[PathIdx])]) <
+        OurPos.DistanceTo(Self.ToBankPaths[PathIdx][High(Self.ToBankPaths[PathIdx])]) then
+        Walked := Self.RSW.WalkPath(Self.ToBankPaths[PathIdx], 8)
+      else
+      begin
+        Walked := True;
+        Self.RSW.Enabled := True;
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to bank!');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked the bank
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Does banking
+}
+procedure TBot.GoDoBank(DoWithdrawal: Boolean; DoingCoinWithdrawal: Boolean; out TempItem: TRSItem; Amount: Int32);
+var
+  ClickedBank, RLP: Boolean;
+  x, y: Int32;
+begin
+  Script.WriteMsg('Doing bank...', True);
+
+  // click it
+  if not ((Self.ClickBank(ClickedBank) and ClickedBank)
+    or Self.GoToBank()
+    or (Self.ClickBank(ClickedBank) and ClickedBank)
+    or Self.GoToBank(True)
+    or (Self.ClickBank(ClickedBank) and ClickedBank)) then
+  begin
+    Self.DoAntiBan();
+    exit();
+  end;
+
+  // count values for bank
+  Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
+  Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
+  Self.GetWorkingInvCount(Self.WorkingInvCount);
+
+  // if bank opened, then do it!
+  if Self.WaitBankOpen() then
+    Self.DoBanking(DoWithdrawal, DoingCoinWithdrawal, TempItem, Amount);
+end;
+
+{$ENDIF} // INEEDBOT_BLASTFURANCE_BANK
+

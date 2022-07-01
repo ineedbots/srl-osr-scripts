@@ -1,0 +1,867 @@
+{
+  BlastFurnace
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Utility functions and stuff for the script specificly
+}
+
+{$IFNDEF INEEDBOT_BLASTFURANCE_UTILS}
+{$DEFINE INEEDBOT_BLASTFURANCE_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+{$include_once ../Utils.simba}
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once MeltingPot.simba}
+{$include_once ConveyorBelt.simba}
+{$include_once Bank.simba}
+{$include_once Coffer.simba}
+{$include_once Sink.simba}
+{$include_once Foreman.simba}
+{$include_once Dispenser.simba}
+
+{
+  Gets the coal item name
+}
+function TBot.GetCoalItemName(): String;
+begin
+  Result := COAL_ITEM;
+end;
+
+{
+  Gets the ore item name
+}
+function TBot.GetOreItemName(): String;
+begin
+  Result := ORE_ITEM;
+end;
+
+{
+  Gets the bar item name
+}
+function TBot.GetBarItemName(): String;
+begin
+  Result := BAR_ITEM;
+
+  if Result.Count(' ') <= 0 then
+    Script.WriteMsg('No space found in bar item');
+end;
+
+{
+  Use the middle lava color to detect location
+}
+function TRSWalker.GetMyPos(): TPoint; override;
+var
+  RotatedMMPT, LavaMMPT: TPoint;
+  Angle: Double;
+  TPA2, TPA: TPointArray;
+  CCount: Int32;
+  Color: TCTS2Color;
+begin
+  Angle := Minimap.GetCompassAngle(False);
+
+  // look for the color
+  for Color in Bot.MeltingPotMMColor.RSObject.Colors do
+  begin
+    CCount += SRL.FindColors(TPA2, Color, Minimap.Bounds());
+    TPA := TPA.Combine(TPA2);
+  end;
+
+  // make sure its valid
+  if CCount < 10 then
+    exit(Point(-10000, 10000));
+
+  // find the largest cluster
+  LavaMMPT := TPA.Cluster(Bot.MeltingPotMMColor.RSObject.ClusterDistance).Biggest().Mean();
+
+  // normalize it
+  RotatedMMPT := LavaMMPT.Rotate(-Angle, Minimap.Center());
+
+  // the offset from this point is our pos
+  Result.X := Minimap.Center().X - RotatedMMPT.X;
+  Result.Y := Minimap.Center().Y - RotatedMMPT.Y;
+end;
+
+{
+  Finds height offset for tiles
+}
+function TBot.GetHeightOffset(OurPos: TPoint): Int32;
+begin
+  // we want our height, the only thing with height in this area is the saffolding
+  Result := 0;
+  if inRange(OurPos.Y, -18, -14) then
+  begin
+    case OurPos.X of
+      -22..-18: Result := 1;
+      -18..-14: Result := 2;
+      -14..-10: Result := 3;
+      -10..-6: Result := 4;
+      -6..-2: Result := 5;
+    end;
+  end;
+end;
+
+{
+  Xp per bar
+}
+function TBot.GetXPPerBar(): Int32;
+var
+  BarName: String;
+begin
+  // should be okay, we check to make sure it contains a space in the func
+  BarName := Self.GetBarItemName().Before(' ').Lower();
+
+  // not going to be an issue when the rounding difference is > a whole bar's xp???
+  case BarName of
+    'bronze': Result := 6; // 6.2
+    'iron': Result := 12; // 12.5
+    'silver': Result := 13; // 13.6
+    'steel': Result := 17; // 17.5
+    'gold':
+    begin
+      // TODO check gold smith golves
+      Result := 22; // 22.5
+      Result := 56; // 56.2
+    end;
+    'mithril': Result := 30;
+    'adamantite': Result := 37; // 37.5
+    'runite': Result := 50;
+  end;
+end;
+
+{
+  Sets the amount of working inv slots, (basically all slots minus tool slots)
+}
+function TBot.GetWorkingInvCount(out InvCount: Int32): Boolean;
+var
+  TS: TIntegerArray;
+begin
+  // make sure our inv is opened
+  if not Inventory.IsOpen() then
+    exit(False);
+
+  // get our tools
+  Inventory.FindItems(Self.ToolItems, TS);
+
+  // count
+  Result := True;
+  InvCount := (Inventory.HIGH_SLOT + 1) - Length(TS);
+end;
+
+{
+  iron 27 iron collect bars
+  steel 27 coal 27 iron collect bars
+  mithril 54 coal, 27 coal 27 mith collect bars, 27 coal 27 mith collect bars
+  addy 54 coal, 27 coal 27 addy collect bars
+  rune 54 coal, 54 coal, 54 coal, 27 coal 27 rune collect bars, 27 coal 27 rune collect bars
+
+  Gets how much coal and ore to withdraw
+}
+procedure TBot.GetTripInfo(CoalBag: Boolean; out Coal: Int32; out Ores: Int32);
+var
+  BarName: String;
+  CoalInvs, MaxCoal: Int32;
+begin
+  BarName := Self.GetBarItemName().Before(' ').Lower();
+  CoalInvs := Self.RCoal div Self.WorkingInvCount;
+  Coal := 0;
+  Ores := 0;
+
+  if Self.FixUpCoalNeeded > 0 then
+  begin
+    MaxCoal := Self.WorkingInvCount;
+    if CoalBag then
+      MaxCoal := Self.WorkingInvCount * 2;
+
+    Coal := Min(Self.FixUpCoalNeeded, MaxCoal);
+
+    Self.FixUpCoalNeeded -= Coal;
+    exit();
+  end;
+
+  if Self.FixUpOresNeeded > 0 then
+  begin
+    Ores := Min(Self.FixUpOresNeeded, Self.WorkingInvCount);
+
+    Self.FixUpOresNeeded -= Ores;
+    exit();
+  end;
+
+  if CoalBag then
+  begin
+    case BarName of
+      'steel':
+      begin
+        Coal := Self.WorkingInvCount;
+        Ores := Self.WorkingInvCount;
+      end;
+      'mithril':
+      begin
+        if CoalInvs = 0 then
+        begin
+          Coal := Self.WorkingInvCount * 2;
+          Ores := 0;
+        end
+        else
+        begin
+          Coal := Self.WorkingInvCount;
+          Ores := Self.WorkingInvCount;
+        end;
+      end;
+      'adamantite':
+      begin
+        if CoalInvs = 0 then
+        begin
+          Coal := Self.WorkingInvCount * 2;
+          Ores := 0;
+        end
+        else
+        begin
+          Coal := Self.WorkingInvCount;
+          Ores := Self.WorkingInvCount;
+        end;
+      end;
+      'runite':
+      begin
+        if (CoalInvs <> 3) and (CoalInvs < 6) then
+        begin
+          Coal := Self.WorkingInvCount * 2;
+          Ores := 0;
+        end
+        else
+        begin
+          Coal := Self.WorkingInvCount;
+          Ores := Self.WorkingInvCount;
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    case BarName of
+      'bronze':
+      begin
+        if CoalInvs = 0 then
+          Coal := Self.WorkingInvCount
+        else
+          Ores := Self.WorkingInvCount;
+      end;
+      'iron': Ores := Self.WorkingInvCount;
+      'silver': Ores := Self.WorkingInvCount;
+      'gold': Ores := Self.WorkingInvCount;
+      'steel':
+      begin
+        if CoalInvs = 0 then
+          Coal := Self.WorkingInvCount
+        else
+          Ores := Self.WorkingInvCount;
+      end;
+      'mithril':
+      begin
+        if CoalInvs < 2 then
+          Coal := Self.WorkingInvCount
+        else
+          Ores := Self.WorkingInvCount;
+      end;
+      'adamantite':
+      begin
+        if CoalInvs < 3 then
+          Coal := Self.WorkingInvCount
+        else
+          Ores := Self.WorkingInvCount;
+      end;
+      'runite':
+      begin
+        if CoalInvs < 4 then
+          Coal := Self.WorkingInvCount
+        else
+          Ores := Self.WorkingInvCount;
+      end;
+    end;
+  end;
+end;
+
+{
+  Updates the amount of stuff in melter
+}
+function TBot.CoalRequiredForOre(): Int32;
+var
+  BarName: String;
+begin
+  BarName := Self.GetBarItemName().Before(' ').Lower();
+
+  case BarName of
+    'bronze': Result := 1;
+    'steel': Result := 1;
+    'mithril': Result := 2;
+    'adamantite': Result := 3;
+    'runite': Result := 4;
+  end;
+end;
+
+{
+  Gets the coffer coins amount
+
+  RLP will be true if found runelite plugin for blastfurn
+  x and y is the coords of the plugin ui
+
+  Returns true if found
+}
+function TBot.GetCofferAmount(out Amount: Int32; out RLP: Boolean; out x: Int32; out y: Int32): Boolean;
+var
+  B, _B: TBox;
+  S: String;
+  FColor: TOCRColorRule;
+begin
+  // look for the runelite plugin
+  // TODO store in init?
+  _B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+  FColor := TOCRColorRule.Create([16777215, 10]);
+
+  // find the text
+  if OCR.LocateText(_B, 'Coffer:', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    // found it store values
+    RLP := True;
+    x := B.X1;
+    y := B.Y1;
+
+    // look for the amount of gp left, should be right of it
+    B.X1 += 60;
+    B.X2 += 100;
+
+    // find it
+    S := OCR.Recognize(B, FColor, RS_FONT_PLAIN_12);
+
+    // 1,254 gp
+    // 69.1K gp
+    // 33.5M gp
+
+    // strip the ' gp' part
+    if S.Count(' ') >= 1 then
+      S := S.Strip().Before(' ');
+
+    // remove the commas (is this system localized??)
+    S := S.Replace(',', '');
+
+    // convert it to a num
+    if S.EndsWith('K') then
+    begin
+      S := S.Before('K');
+
+      try
+        Amount := Round(StrToFloat(S) * 1000);
+        Result := True;
+      except
+      end;
+    end
+    else if S.EndsWith('M') then
+    begin
+      S := S.Before('M');
+
+      try
+        Amount := Round(StrToFloat(S) * 1000000);
+        Result := True;
+      except
+      end;
+    end
+    else
+    begin
+      try
+        Amount := StrToInt(S);
+        Result := True;
+      except
+      end;
+    end;
+    exit();
+  end;
+
+  // without runelite plugin
+  RLP := False;
+
+  // make sure its not obstructed, we use xpbar to find it
+  if MainScreen.AnyInterfaceOpen() or not XPBar.IsOpen() then
+    exit();
+
+  // use xpbar offset, find the number
+  _B := XPBar.Bounds();
+  B := [_B.X2 - 42, _B.Y2 + 33, _B.X2 -10, _B.Y2 + 65];
+  Amount := SRL.GetItemAmount(B);
+  Result := True;
+end;
+
+{
+  Stuff inside the smelter
+
+  Return true if need to Click to continue for more info
+}
+function TBot.GetStuffInsideMelter(RLP: Boolean; x, y: Int32; out Coal: Int32; out Ores: Int32; out Bars: Int32): Boolean;
+var
+  BA: TBoxArray;
+  Slots: TIntegerArray;
+  S, S2, S3: String;
+  SA: TStringArray;
+  NowXP, NumBars: Int32;
+begin
+  // no runelite plugin?
+  if not RLP then
+  begin
+    // check xp difference to count bars!
+    if XPBar.IsOpen() then
+    begin
+      NowXP := XPBar.Read();
+
+      // check the difference if it changed
+      if (Self.LastXP <> -1) and (NowXP <> Self.LastXP) then
+      begin
+        NumBars := (NowXP - Self.LastXP) div Self.GetXPPerBar();
+        Bars += NumBars;
+        Ores -= NumBars;
+        Coal -= NumBars * Self.CoalRequiredForOre();
+      end;
+
+      Self.LastXP := NowXP;
+    end;
+
+    // read chat!
+    if Chat.IsOpen() then
+    begin
+      S := Chat.GetChat().Strip();
+
+      {
+        Coal: 0
+        Tin Ore: 0
+        Copper Ore: 0
+        Iron Ore: 0
+        Silver Ore: 0
+      }
+      {
+        Gold Ore: 0
+        Mithril Ore: 0
+        Adamantite Ore: 0
+        Runite Ore: 0
+      }
+      if S.StartsWith(Self.PotChatTexts[0]) or S.StartsWith(Self.PotChatTexts[1]) then
+      begin
+        // is there more?
+        if S.StartsWith(Self.PotChatTexts[0]) then
+          Result := True;
+
+        // parse it
+        SA := S.Explode(LineEnding);
+
+        // find the coal line
+        S2 := Self.GetCoalItemName();
+        for S3 in SA do
+        begin
+          // bad line
+          if S3.Count(':') <= 0 then
+            continue;
+
+          if S3.Before(':').Lower() = S2.Lower() then
+          begin
+            try
+              Coal := StrToInt(S3.After(':').Strip());
+            except
+            end;
+
+            break;
+          end;
+        end;
+
+        // find the ore line
+        S2 := Self.GetOreItemName();
+        for S3 in SA do
+        begin
+          // bad line
+          if S3.Count(':') <= 0 then
+            continue;
+
+          if S3.Before(':').Lower() = S2.Lower() then
+          begin
+            try
+              Ores := StrToInt(S3.After(':').Strip());
+            except
+            end;
+
+            break;
+          end;
+        end;
+      end
+      {
+        Bronze Bars: 0
+        Iron Bars: 0
+        Silver Bars: 0
+        Steel Bars: 0
+      }
+      {
+        Gold Bars: 0
+        Mithril Bars: 0
+        Adamantite Bars: 0
+        Runite Bars: 0
+      }
+      else if S.StartsWith(Self.DispenserChatTexts[0]) or S.StartsWith(Self.DispenserChatTexts[1]) then
+      begin
+        // is there more to read? click to continue?
+        if S.StartsWith(Self.DispenserChatTexts[0]) then
+          Result := True;
+
+        // parse it
+        SA := S.Explode(LineEnding);
+
+        // search for bar item line
+        S2 := Self.GetBarItemName();
+        for S3 in SA do
+        begin
+          // bad line
+          if (S3.Count(':') <= 0) or (S3.Count(' ') <= 0) then
+            continue;
+
+          if S3.Before(':').Before(' ').Lower() = S2.Before(' ').Lower() then
+          begin
+            try
+              Bars := StrToInt(S3.After(':').Strip());
+            except
+            end;
+
+            break;
+          end;
+        end;
+      end
+      // no bars
+      else if S.StartsWith(Self.DispenserChatNoBars[0]) then
+        Bars := 0;
+    end;
+    exit();
+  end;
+
+  // runelite plugin
+
+  // grid of the items
+  BA := Grid(4, 1, 31, 31, [5, 0], [x, y - 46]);
+  Coal := 0;
+  Ores := 0;
+  Bars := 0;
+
+  // make sure it is on screen
+  if (y - 46) < 0 then
+    exit();
+
+  // find each item's count
+  Slots := ItemFinder.Find(Self.CoalItem, BA);
+  if Length(Slots) > 0 then
+    Coal := SRL.GetItemAmount(BA[Slots[0]]);
+
+  Slots := ItemFinder.Find(Self.OreItem, BA);
+  if Length(Slots) > 0 then
+    Ores := SRL.GetItemAmount(BA[Slots[0]]);
+
+  Slots := ItemFinder.Find(Self.BarItem, BA);
+  if Length(Slots) > 0 then
+    Bars := SRL.GetItemAmount(BA[Slots[0]]);
+end;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  Script.Antiban.HoverSkill(ERSSKILL.SMITHING, Random(1700, 3200), True);
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  Angle: Double;
+  RectTile: TRectangle;
+  OurPos: TPoint;
+  Height, i, x, y: Int32;
+  ATPA: T2DPointArray;
+  RLP: Boolean;
+  TPA, TPA2: TPointArray;
+  B: TBox;
+  Text: String;
+  C, CO, BAR, STAM, ORE, COIN, BUCKET, WBUCKET, ICE, GOLD: TIntegerArray;
+  Color: TCTS2Color;
+  Item: TRSItem;
+begin
+  Angle := Minimap.GetCompassAngle(False);
+  OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeightOffset(OurPos);
+
+  if Chat.IsOpen() then
+    Text := 'ChatText: ' + Chat.GetChat() + LineEnding;
+
+  Text += 'Pos: ' + ToStr(OurPos) + LineEnding;
+
+  if OurPos.X <> -10000 then
+    Text += 'Height: ' + ToStr(Height) + LineEnding;
+
+  Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
+  Text += 'Coffer: ' + ToStr(Self.RCoffer) + LineEnding;
+
+  Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
+  Text += 'Coal: ' + ToStr(Self.RCoal) + LineEnding;
+  Text += 'Ores: ' + ToStr(Self.ROres) + LineEnding;
+  Text += 'Bars: ' + ToStr(Self.RBars) + LineEnding;
+
+  Text += 'In coalbag: ' + ToStr(Self.InCoalBag) + LineEnding;
+
+  Self.GetWorkingInvCount(Self.WorkingInvCount);
+  Text += 'Working inv count: ' + ToStr(Self.WorkingInvCount) + LineEnding;
+
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  // MM
+  for Color in Self.MeltingPotMMColor.RSObject.Colors do
+  begin
+    SRL.FindColors(TPA2, Color, Minimap.Bounds());
+    TPA := TPA.Combine(TPA2);
+  end;
+  RSClient.Image.DrawTPA(TPA, clBlue);
+
+  if MainScreen.AnyInterfaceOpen() then
+  begin
+    if Bank.IsOpen() then
+    begin
+      if Bank.FindItem(Self.CoalItem, B) then
+        RSClient.Image.DrawBox(B, clNavy);
+
+      if Bank.FindItem(Self.OreItem, B) then
+        RSClient.Image.DrawBox(B, clGray);
+
+      if Bank.FindItem(Self.CoinsItem, B) then
+        RSClient.Image.DrawBox(B, clTeal);
+
+      for Item in Self.StaminaPotItems do
+      begin
+        if Bank.FindItem(Item, B) then
+          RSClient.Image.DrawBox(B, clPurple);
+      end;
+    end;
+  end
+  else
+  begin
+    // melting pot
+    RectTile := Self.FindMeltingPotTile(OurPos, Height);
+    B := Self.GetMeltingPotSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindMeltingPotColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.MeltingPotTile, Angle), 4, clWhite);
+    if Self.FindMeltingPot(OurPos, Height, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+    TPA := [B.Middle()];
+
+    // belt
+    RectTile := Self.FindConveyorTile(OurPos, Height);
+    B := Self.GetConveyorSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindConveyorColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.ConveyorTile, Angle), 4, clWhite);
+    if Self.FindConveyor(OurPos, Height, B, True, TPA.Mean()) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // bank
+    RectTile := Self.FindBankTile(OurPos, Height);
+    B := Self.GetBankSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.BankTile, Angle), 4, clWhite);
+    if Self.FindBank(OurPos, Height, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // coffer
+    RectTile := Self.FindCofferTile(OurPos, Height);
+    B := Self.GetCofferSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindCofferColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.CofferTile, Angle), 4, clWhite);
+    if Self.FindCoffer(OurPos, Height, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+
+    // sink
+    RectTile := Self.FindSinkTile(OurPos, Height);
+    B := Self.GetSinkSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindSinkColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.SinkTile, Angle), 4, clWhite);
+    if Self.FindSink(OurPos, Height, B) then
+      RSClient.Image.DrawBox(B, clWhite);
+    TPA := [B.Middle()];
+
+
+    // foreman
+    ATPA := Self.FindForemanColor(MainScreen.Bounds());
+    RSClient.Image.DrawATPA(ATPA);
+    if Self.FindForeman(B, True, TPA.Mean()) then
+      RSClient.Image.DrawBox(B, clYellow);
+
+
+    // dispenser
+    RectTile := Self.FindDispenserTile(OurPos, Height);
+    B := Self.GetDispenserSearchBox(RectTile);
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindDispenserColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    ATPA := Self.FindHotDispenserColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    ATPA := Self.FindCoolDispenserColor(B);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(RectTile, clBlue);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.DispenserTile, Angle), 4, clWhite);
+    if Self.FindDispenser(OurPos, Height, B, i) then
+    begin
+      if i = 0 then
+        RSClient.Image.DrawBox(B, clWhite)
+      else if i = 1 then
+        RSClient.Image.DrawBox(B, clOrange)
+      else
+        RSClient.Image.DrawBox(B, clAqua);
+    end;
+  end;
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItem(Self.CoalBagItem, C);
+    Inventory.FindItem(Self.CoalItem, CO);
+    Inventory.FindItem(Self.BarItem, BAR);
+    Inventory.FindItem(Self.OreItem, ORE);
+    Inventory.FindItems(Self.StaminaPotItems, STAM);
+    Inventory.FindItem(Self.CoinsItem, COIN);
+    Inventory.FindItem(Self.BucketItem, BUCKET);
+    Inventory.FindItem(Self.WaterBucketItem, WBUCKET);
+    Inventory.FindItem(Self.IceGlovesItem, ICE);
+    Inventory.FindItem(Self.GoldGlovesItem, GOLD);
+
+    for i := 0 to 27 do
+    begin
+      if C.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if CO.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clNavy)
+      else if BAR.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clYellow)
+      else if ORE.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray)
+      else if STAM.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple)
+      else if COIN.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clTeal)
+      else if BUCKET.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGreen)
+      else if WBUCKET.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if ICE.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clBlue)
+      else if GOLD.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  // TODO complete
+  RSClient.Image.Clear();
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Did: ' + ToStr(Self.Did) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(False));
+end;
+
+{$ENDIF} // INEEDBOT_BLASTFURANCE_UTILS
+

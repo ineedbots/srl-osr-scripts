@@ -1,0 +1,45 @@
+{
+  BlastFurnace Config
+  Author: ineedbot
+  Date: 6/30/2022
+
+  Handles everything config related
+}
+
+{$IFNDEF INEEDBOT_BLASTFURANCE_CONFIG}
+{$DEFINE INEEDBOT_BLASTFURANCE_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+{$include_once ../Utils.simba}
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = True;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  MSWALKING      = True; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+  ICEGLOVES      = True;  // Using ice gloves?
+
+  COAL_ITEM      = 'Coal';
+  BAR_ITEM       = 'Adamantite bar';
+  ORE_ITEM       = 'Adamantite ore';
+  COFFER_AMOUNT  = 72000;    // Amount to insert into coffer
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [352, 355, 356, 357, 358, 386,
+                      387, 395, 424, 466, 494, 495,
+                      496, 515, 516];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_BLASTFURANCE_CONFIG
+
