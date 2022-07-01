@@ -1,0 +1,1030 @@
+{
+  utils
+  Author: ineedbot
+  Date: 10/12/2021
+
+  Shared funcs between all scripts
+}
+
+{$IFNDEF INEEDBOT_UTILS}
+{$DEFINE INEEDBOT_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once Types.simba}
+{$include_once Antiban.simba}
+
+{
+  Logs to the console.
+}
+procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False);
+begin
+  if not Self.Debug and IsDebug then
+    exit();
+
+  WriteLn(SRL.TimeStamp() + ':[Bot]: ' + ToStr(Message));
+end;
+
+{
+  Sets the status of the script
+}
+procedure TScript.SetStatus(S: String);
+begin
+  if Self.Status = S then
+    exit();
+
+  Self.Status := S;
+
+  if Self.Debug then
+    Self.WriteMsg('[Debug]: ' + S);
+end;
+
+{
+  Ends the script.
+}
+procedure TScript.Stop(Reason: String = '');
+begin
+  Self.WriteMsg(Reason);
+  Self.SetStatus('Stopping... ' + Reason);
+  Self.StopReason := Reason;
+  Self.Running := False;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+function TScript.CanDraw(): Boolean;
+begin
+  if not Self.DrawCounter.IsFinished() or not Self.Drawing then
+    exit();
+
+  Self.DrawCounter.Restart();
+
+  Result := True;
+end;
+
+{
+  Does the proggy report to the console window
+}
+function TScript.CanReportConsole(): Boolean;
+begin
+  if not Self.ReportCounter.IsFinished() or not Self.Reporting then
+    exit();
+
+  Self.ReportCounter.Restart();
+
+  Result := True;
+end;
+
+{
+  Returns true if under attack
+}
+function TScript.CheckUnderAttack(): Boolean;
+var
+  HP: Int32;
+begin
+  HP := Minimap.GetHPLevel();
+
+  if (HP < Self.HPAmount) and Self.IsUnderAttack() then
+  begin
+    Self.SetStatus('Under attack!');
+    Self.WriteMsg('UNDER ATTACK!');
+
+    Result := True;
+  end;
+
+  Self.HPAmount := HP;
+end;
+
+{
+  Are we underattack?
+}
+function TScript.IsUnderAttack(): Boolean;
+var
+  HPBars: TRSHPBarArray;
+  OurBox: TBox;
+begin
+  OurBox := MainScreen.GetPlayerBox().Expand(MainScreen.ConvertDistance(8));
+
+  if Self.Debug and Self.Drawing then
+  begin
+    RSClient.Image.DrawBox(OurBox, clRed);
+    RSClient.Image.DrawCross(OurBox.Middle(), 5, clRed);
+  end;
+
+  HPBars := MainScreen.FindHPBars(OurBox);
+
+  Result := Length(HPBars) > 0;
+end;
+
+{
+  Does general checks and does antiban.
+}
+procedure TScript.DoGeneralChecks();
+begin
+  // check if we need to end the script
+  if GetTimeRunning() > Self.ShutdownTime then
+    Self.Stop('Completed the runtime');
+    
+  // update our mousespeed, when we get tired, slow it down
+  Mouse.Speed := Self.BaseMouseSpeed - Round(Self.MaxTiredMouseSpeed * (1 - (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100)));
+end;
+
+{
+  From Flight's AIOFisher
+  Pauses the run time
+}
+procedure PauseRunTime(Task: PBreakTask);
+var
+  T: PBreakTask;
+begin
+  Script.TrueRunTime.Pause();
+  T := Task;
+end;
+
+{
+  From Flight's AIOFisher
+
+  Stuff to do after break is over
+}
+procedure ResumeRunTime(Task: PBreakTask);
+var
+  T: PBreakTask;
+begin
+  if GetTimeRunning() > Script.ShutdownTime then
+    Script.Stop('Completed the runtime');
+
+  Script.TrueRunTime.Resume();
+  T := Task;
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Should we press the keyboard?
+}
+function TScript.ShouldPressKeyboard(): Boolean;
+begin
+  if Self.KeyboardMenuButtons then
+    Result := (SRL.TruncatedGauss(0.0, 1.0) < 0.5)
+  else
+    Result := False;
+end;
+
+{
+  Gets adjencent tiles to use right now!
+}
+function TScript.GetAdjTiles(): array of TRectangle;
+var
+  i: Int32;
+  MMC: TPoint;
+  Ang, NormDist: Double;
+  AdjRect: TRectangle;
+  MMTiles: TPointArray;
+begin
+  MMC := Minimap.Center();
+  Ang := Minimap.GetCompassAngle(False);
+  NormDist := MainScreen.ConvertDistance(3);
+
+  MMTiles := [[MMC.X-4,MMC.Y],[MMC.X,MMC.Y-4],[MMC.X+4,MMC.Y],[MMC.X,MMC.Y+4]];
+  for i := Low(MMTiles) to High(MMTiles) do
+  begin
+    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
+    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
+    AdjRect.Expand(NormDist);
+
+    Result += AdjRect;
+  end;
+end;
+
+{
+  Fixes runelite plugin
+}
+function TRSMinimap.GetHPCircle: TCircle; override;
+begin
+  Result := [Self.X1 + Self.HitpointsCircleOffset.X, Self.Y1 + Self.HitpointsCircleOffset.Y, 11];
+end;
+
+{
+  Fixes the color
+}
+function TRSMinimap.IsRunEnabled: Boolean; override;
+begin
+  Result := SRL.CountColor(CTS2(4606022, 8, 2.24, 0.11), Self.GetRunCircle().Bounds) <= 50;
+end;
+
+{
+  Prevents array out of bounds
+}
+function TRSMake.Select(Index: Int32; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;
+var
+  Buttons: TRSButtonArray;
+begin
+  Buttons := Self.GetItemButtons();
+
+  if Index < Length(Buttons) then
+    Result := Self.SelectHelper(Buttons[Index], Quantity, UseKeyboard);
+end;
+
+{
+  Adds tinted colors, should be added to SRL
+}
+function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
+const
+  COLOR_BARS = [
+  {GREEN} $00FF00,
+  {RED} $0000FF
+  ];
+  COLOR_SPLATS = [
+  {BLUE} $FF4040, $AD0703, $550503,
+  {RED} $0000C0, $03037F, $010161,
+  {BLACK AND WHITE} $FFFFFF, $000000,
+  {TINTED RED} $000046, $01012F, $010124,
+  {TINTED BLUE} $5E1717, $400301, $1F0201,
+  {YELLOW TEXT} $00FFFF
+  ];
+const
+  BAR_WIDTH = 29;
+  BAR_HEIGHT = 4;
+var
+  Matrix: T2DIntegerArray;
+
+  procedure Fix(TPA: TPointArray);
+  var
+    P: TPoint;
+  begin
+    FilterPointsBox(TPA, 1, 0, High(Matrix[0]), High(Matrix));
+    SortTPAByX(TPA, True);
+
+    for P in TPA do
+      if (Matrix[P.Y][P.X-1] <> 0) then
+        Matrix[P.Y][P.X] := 255;
+  end;
+
+  procedure Find(var Result: TRSHPBarArray);
+  var
+    W, H, X, Y, YY: Int32;
+  label
+    Bad;
+  begin
+    W := Length(Matrix[0])-BAR_WIDTH-1;
+    H := Length(Matrix)-5;
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] <> 0) and (Matrix[Y][X+BAR_WIDTH] <> 0) then
+          Matrix[Y][X] := 254;
+
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] = 254) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = 255)) then
+        begin
+          for YY := Max(Y - BAR_HEIGHT, 0) to Y do
+            if Matrix[YY][X] = $00FF00 then
+              goto Bad;
+
+          Matrix[Y][X] := $00FF00;
+          Result += [[X, Y, X + BAR_WIDTH, Y + BAR_HEIGHT]];
+
+          Bad:
+        end;
+  end;
+
+var
+  B: TBox;
+  Color: Int32;
+  TPA, Splats, Temp: TPointArray;
+  P: TPoint;
+  Bars: TRSHPBarArray;
+  Bar: TRSHPBar;
+  Frozen: Boolean;
+begin
+  Frozen := Client.GetIOManager().IsFrozen();
+  if not Frozen then
+    Freeze();
+
+  Area.LimitTo(Self.Bounds);
+
+  try
+    for Color in COLOR_BARS do
+      if FindColors(Temp, Color, Area) then
+        TPA += Temp;
+
+    for TPA in TPA.Cluster(15) do
+    begin
+      Matrix := [];
+      Bars := [];
+      Splats := [];
+
+      B := GetTPABounds(TPA);
+
+      for Color in COLOR_SPLATS do
+        if FindColors(Temp, Color, B.Expand(15, Area)) then
+          Splats += Temp;
+
+      OffsetTPA(Splats, Point(-B.X1+1, -B.Y1+1));
+      SetLength(Matrix, B.Height()+2, B.Width()+2);
+
+      for P in TPA do
+        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := 255;
+
+      Fix(Splats);
+      Find(Bars);
+
+      for Bar in Bars do
+      begin
+        if (Matrix[Bar.Bounds.Y1, Bar.Bounds.X1] = 0) or
+           (Matrix[Bar.Bounds.Y1, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X1] = 0) then
+         Continue;
+
+        Bar.Bounds := Bar.Bounds.Offset([B.X1-1, B.Y1-1]);
+        if FindColors(TPA, $00FF00, Bar.Bounds) then
+          Bar.Percent := TPA.Bounds().Width() / 30 * 100;
+
+        Result += Bar;
+      end;
+    end;
+  finally
+    if not Frozen then
+      UnFreeze();
+  end;
+end;
+
+{
+  Returns true when the option appears
+}
+function TRSChat.WaitOption(Option: String; WaitTime: Int32; Interval: Int32 = -1; Colors: TIntegerArray = [CHAT_COLOR_BLACK, CHAT_COLOR_WHITE]): Boolean;
+var
+  CountDown: TCountDown;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  CountDown.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.FindOption(Option, Colors) then
+      exit(True);
+
+    if CountDown.IsFinished() then
+      exit(False);
+
+    Wait(Interval);
+  end;
+end;
+
+{
+  Does the orginal, but allows for string array as input
+}
+function TRSChat.FindMessage(Messages: TStringArray; Colors: TIntegerArray = CHAT_MESSAGE_COLORS): Boolean; overload;
+var
+  I: Int32;
+  Msg: String;
+begin
+  for I := 0 to CHAT_INPUT_LINE - 1 do
+  begin
+    Msg := Self.GetMessage(I, Colors);
+    if Msg.IsInString(Messages) then
+      Exit(True);
+  end;
+end;
+
+{
+  Merges atpas together who's bounds intersect
+}
+function T2DPointArray.Intersection(ATPA: T2DPointArray): T2DPointArray;
+var
+  i, h: Int32;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    for h := Low(ATPA) to High(ATPA) do
+    begin
+      if ATPA[h].Bounds().Contains(Self[i].Bounds()) then
+      begin
+        Result += ATPA[h].Intersection(Self[i]);
+      end;
+    end;
+  end;
+end;
+
+{
+  Merges the tpas together
+}
+function TPointArray.Intersection(TPA: TPointArray): TPointArray;
+var
+  TP, TP2: TPoint;
+begin
+  for TP in Self do
+  begin
+    for TP2 in TPA do
+    begin
+      if TP = TP2 then
+        Result += TP;
+    end;
+  end;
+end;
+
+{
+  The overlapping area of the two boxes
+}
+function TBox.OverlappingArea(B: TBox): TBox;
+begin
+  Result := [Max(Self.X1, B.X1), Max(Self.Y1, B.Y1), Min(Self.X2, B.X2), Min(Self.Y2, B.Y2)];
+end;
+
+{
+  Takes the TPA thats furthest from the point
+}
+function T2DPointArray.FurthestFrom(From: TPoint): TPointArray; constref;
+var
+  TPA: TPointArray;
+  Found: Boolean;
+  Dist, BestDist: Double;
+begin
+  for TPA in Self do
+  begin
+    Dist := TPA.Mean().DistanceTo(From);
+
+    if not Found or (Dist > BestDist) then
+    begin
+      Found := True;
+      BestDist := Dist;
+      Result := TPA;
+    end;
+  end;
+end;
+
+{
+  Takes the TPA thats nearest to the point
+}
+function T2DPointArray.NearestTo(From: TPoint): TPointArray; constref;
+var
+  TPA: TPointArray;
+  Found: Boolean;
+  Dist, BestDist: Double;
+begin
+  for TPA in Self do
+  begin
+    Dist := TPA.Mean().DistanceTo(From);
+
+    if not Found or (Dist < BestDist) then
+    begin
+      Found := True;
+      BestDist := Dist;
+      Result := TPA;
+    end;
+  end;
+end;
+
+{
+  Shift clicks the slot
+}
+function TRSInventory.ShiftClick(Slot: Int32): Boolean;
+var
+  Circle: TCircle;
+begin
+  IsKeyDown(VK_SHIFT); // Clear cache
+
+  try
+    if Self.IsSlotUsed(Slot) then
+    begin
+      if not IsKeyDown(VK_SHIFT) then
+        KeyDown(VK_SHIFT);
+
+      Wait(100, 250);
+
+      Mouse.Click(Self.GetSlotBox(Slot), MOUSE_LEFT);
+
+      // Spam click a little
+      for 1 to SRL.TruncatedGauss(0, 3) do
+      begin
+        Circle.X := Mouse.Position().X;
+        Circle.Y := Mouse.Position().Y;
+        Circle.Radius := 5;
+
+        Mouse.Click(Circle, MOUSE_LEFT, True);
+      end;
+
+      Wait(0, 250, wdLeft);
+
+      Result := True;
+    end;
+  finally
+    if IsKeyDown(VK_SHIFT) then
+      KeyUp(VK_SHIFT);
+  end;
+end;
+
+{
+  tries to read the xp bar, makes sure interfaces are not covering it
+}
+function TRSXPBar.ReadXPBar(): Int32;
+begin
+  if MainScreen.AnyInterfaceOpen() then
+    exit(-1);
+    
+  if not Self.Open() then
+    exit(-1);
+    
+  Result := Self.Read();
+end;
+
+{
+  Returns true when the xpbar changes
+}
+function TRSXPBar.WaitChange(C: Int32 = -1; Tim: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
+  Temp: Int32;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  if C = -1 then
+    C := Self.ReadXPBar();
+
+  T.Init(Tim);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    Temp := Self.ReadXPBar();
+    if Temp = -1 then
+      break;
+
+    if Temp <> C then
+      exit(True);
+
+    Wait(Interval);
+  end;
+end;
+
+{
+  Number of players on the minimap
+}
+function TRSMinimap.PlayersNearby(): Int32;
+var
+  TPA: TPointArray;
+  TP, MMC: TPoint;
+begin
+  TPA := Self.GetDots(ERSMinimapDot.PLAYER);
+  MMC := Minimap.Center();
+
+  for TP in TPA do
+  begin
+    // sometimes it false positives with the middle point
+    if TP.DistanceTo(MMC) < 4 then
+      continue;
+
+    Result += 1;
+  end;
+end;
+
+{
+  Returns amount of any other players are on the mainscreen
+}
+function TRSMainScreen.PlayersOnMainScreen(): Int32;
+var
+  TPA: TPointArray;
+  CompAng: Single;
+  TP, MMC: TPoint;
+begin
+  TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
+
+  if Length(TPA) <= 0 then
+    exit(0);
+
+  CompAng := Minimap.GetCompassAngle(False);
+  MMC := Minimap.Center();
+
+  for TP in TPA do
+  begin
+    if TP.DistanceTo(MMC) < 4 then
+      continue;
+
+    if Self.IsVisible(Minimap.PointToMs(TP, CompAng)) then
+      Result += 1;
+  end;
+end;
+
+{
+  Sorts the bars
+}
+function TRSHPBarArray.Sort(TP: TPoint): TRSHPBarArray;
+var
+  BoxArray: TBoxArray;
+  HPBar: TRSHPBar;
+  Boxx: TBox;
+begin
+  for HPBar in Self do
+  begin
+    BoxArray += HPBar.Bounds;
+  end;
+
+  BoxArray.SortFromMidPoint(TP);
+
+  for Boxx in BoxArray do
+  begin
+    for HPBar in Self do
+    begin
+      if Boxx = HPBar.Bounds then
+      begin
+        Result += HPBar;
+        break;
+      end;
+    end;
+  end;
+end;
+
+{
+  The original, but allows an array as input
+}
+function TRSChooseOption.HasOption(Text: TStringArray; CaseSensitive: Boolean = True; CloseIfNotFound: Boolean = True): Boolean;
+var
+  Choices: TRSChooseOption_OptionArray;
+  I, J: Int32;
+begin
+  if Self.Open() then
+  begin
+    Wait(0, 1000, wdLeft);
+
+    Choices := GetOptions();
+
+    for I := 0 to High(Choices) do
+      for J := 0 to High(Text) do
+        if (CaseSensitive and (Text[J] in Choices[I].Text)) or ((not CaseSensitive) and (Lowercase(Text[J]) in Lowercase(Choices[I].Text))) then
+        begin
+          exit(True);
+        end;
+
+    if CloseIfNotFound then
+    begin
+      WaitEx(500, 250);
+
+      Self.Close();
+    end;
+  end;
+end;
+
+{
+  Is the string found in the string array?
+}
+function String.IsInString(A: TStringArray): Boolean;
+var
+  I: Int32;
+begin
+  for I := 0 to High(A) do
+      if (A[I] in Self) or (A[I] = Self) then
+        exit(True);
+end;
+
+{
+  Returns true when the inventory changed
+}
+function TRSInventory.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  if C = -1 then
+    C := Self.Count();
+
+  T.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    if C <> Self.Count() then
+      exit(True);
+
+    Wait(Interval);
+  end;
+end;
+
+{
+  Useful for while loops when need to clear an array
+}
+function TIntegerArray.Clear(): Boolean;
+begin
+  SetLength(Self, 0);
+  exit(True);
+end;
+
+{
+  Is the point in range of any thing in the array?
+}
+function TPointArray.InRangeOfAny(PT: TPoint; Dist: Double): Int32;
+var
+  i: Int32;
+begin
+  Result := -1;
+
+  for i := Low(Self) to High(Self) do
+  begin
+    if Self[i].DistanceTo(PT) <= Dist then
+      exit(i);
+  end;
+end;
+
+{
+  Randomizes points who is near the point
+}
+procedure TPointArray.RandomizeNearDists(PT: TPoint; Dist: Double; Chance: Double = 0.5);
+var
+  i, h: Int32;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    for h := Low(Self) to High(Self) do
+    begin
+      if i = h then
+        continue;
+
+      if Abs(Self[i].DistanceTo(PT) - Self[h].DistanceTo(PT)) > Dist then
+        continue;
+
+      if Random() > Chance then
+        continue;
+
+      Swap(Self[i], Self[h]);
+    end;
+  end;
+end;
+
+{
+  Adds the ability to use the arrow keys to move the compass
+}
+procedure TRSMinimap.SetCompassAngle(Degrees: Double; Accuracy: Double = 5); override;
+var
+  Left, LastLeft: Boolean;
+  CountDown: TCountDown;
+  Angle: Double;
+begin
+  if Script.MiddleClicking and (Random() < 0.9) then
+    inherited(Degrees, Accuracy)
+  else
+  begin
+    Degrees := FixD(Degrees);
+    CountDown.Init(5000);
+
+    while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
+    begin
+      Angle := Self.GetCompassAngle(True);
+      if Abs(SRL.DeltaAngle(Angle, Degrees)) <= Max(Accuracy, 5) then
+        break;
+
+      Left := (Round((360 - Angle) + Degrees) mod 360 <= Round((Angle + 360) - Degrees) mod 360);
+      if Left <> LastLeft then
+      begin
+        KeyUp(VK_Left);
+        KeyUp(VK_Right);
+      end;
+
+      LastLeft := Left;
+
+      KeyDown((Ord(Left) * 2) + 37);
+      Wait(10);
+    end;
+
+    KeyUp(VK_Left);
+    KeyUp(VK_Right);
+  end;
+end;
+
+{
+  Clicks the compass
+}
+function TRSMinimap.ClickCompass(): Boolean;
+begin
+  Result := True;
+
+  Mouse.Click(Self.GetCompassCircle(), MOUSE_LEFT);
+end;
+
+{
+  Sets the compass north
+}
+function TRSMinimap.SetCompassNorth(DoClick: Boolean = True): Boolean;
+var
+  CompAng: Double;
+begin
+  CompAng := Self.GetCompassAngle(True);
+
+  if (CompAng > 355) or (CompAng < 5) then
+    exit(True);
+
+  if DoClick then
+  begin
+    Result := Self.ClickCompass();
+    MainScreen.SetHighestPitch();
+  end
+  else
+  begin
+    Self.SetCompassAngle(0);
+    Result := True;
+  end;
+end;
+
+{
+  Updates the zoom level
+}
+procedure TScript.UpdateZoomLevel();
+begin
+  MM2MS.ZoomLevel := Options.GetZoomLevel();
+end;
+
+{
+  Taken from SRL5
+
+  Returns true if we did the click
+}
+function TMouse.DidClick(Red: Boolean = True; Time: integer = 200): boolean;
+var
+  TimeOut, x, y, w, h, R, G: integer;
+  B: TBox;
+begin
+  GetMousePos(x, y);
+  GetClientDimensions(w, h);
+  B := IntToBox(x - 15, y - 15, x + 15, y + 15);
+
+  B.LimitTo(IntToBox(0, 0, w - 1, h - 1));
+
+  TimeOut := GetSystemTime() + Time;
+  while (GetSystemTime() < TimeOut) do
+  begin
+    R := CountColorTolerance(255, B, 15);
+    G := CountColorTolerance(65535, B, 15);
+    if Red then
+    begin
+      if (G > 8) then
+        exit();
+      Result := (R > 20);
+    end else
+    begin
+      if (R > 5) then
+        exit();
+      Result := (G > 35);
+    end;
+    if Result then
+      exit();
+  end;
+end;
+
+{
+  thanks wasplib for the colors and values to test against
+}
+function TRSMainScreen.AnyInterfaceOpen(): Boolean;
+begin
+  if SRL.CountColor(CTS2(8693433, 5, 0.10, 1.17), InterfaceArea.Bounds()) > 35000 then
+    exit(True);
+
+  if SRL.CountColor(CTS0(3358536, 2), InterfaceArea.Bounds()) > 10000 then
+    exit(True);
+end;
+
+{
+  Closes any interface that might be open on the mainscreen
+}
+function TRSMainScreen.CloseInterface(PressEscape: Boolean = False): Boolean;
+var
+  Buttons: TRSButtonArray;
+begin
+  if not Self.AnyInterfaceOpen() then
+    exit();
+
+  // wasplib !
+  Buttons := FindButtons([[21,21], [24,23]]);
+  if Buttons <> [] then
+  begin
+    if PressEscape then
+      Keyboard.PressKey(VK_ESCAPE)
+    else
+      Buttons[High(Buttons)].Click();
+
+    WaitUntil(not Self.AnyInterfaceOpen(), 100, 2000);
+
+    Result := True;
+  end;
+
+  // make sure that press esc to close interface is enabled
+  if Self.AnyInterfaceOpen() then
+    Keyboard.PressKey(VK_ESCAPE);
+end;
+
+{
+  Returns the velocity vector
+}
+function TScript.GetVelocity(Position: TPoint): TDoubleArray;
+var
+  TimeDelta: Int32;
+  PosDelta: TPoint;
+begin
+  // calcuate move velocity
+  TimeDelta := GetTimeRunning() - Script.LastPosTime;
+  PosDelta := Position - Script.LastPos;
+
+  SetLength(Result, 2);
+  Result[0] := PosDelta.X / (TimeDelta / 1000);
+  Result[1] := PosDelta.Y / (TimeDelta / 1000);
+
+  Script.LastPos := Position;
+  Script.LastPosTime := GetTimeRunning();
+end;
+
+{
+  Converts Walker velocity to MS velocity
+}
+function TScript.WalkerVelToMSVel(Vel: TDoubleArray): TPoint;
+begin
+  // velocity is minimap pixels per second
+
+  // convert from MM pixels to tiles
+  Vel[0] /= 4;
+  Vel[1] /= 4;
+
+  // convert to pixels on mainscreen at normal zoom
+  Vel[0] *= 40;
+  Vel[1] *= 40;
+
+  // get zoomed
+  Result := Point(MainScreen.ConvertDistance(Round(Abs(Vel[0]))),
+                MainScreen.ConvertDistance(Round(Abs(Vel[1]))));
+
+  // fix the abs
+  if Vel[0] > 0 then
+    Result.X := -Result.X;
+
+  if Vel[1] > 0 then
+    Result.Y := -Result.Y;
+
+  // rotate it according to compass
+  Result := Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+end;
+
+{
+  Converts Walker velocity to MM velocity
+}
+function TScript.WalkerVelToMMVel(Vel: TDoubleArray): TPoint;
+begin
+  Result := Point(Round(Vel[0]), Round(Vel[1]));
+
+  // fix the abs
+  if Vel[0] > 0 then
+    Result.X := -Result.X;
+
+  if Vel[1] > 0 then
+    Result.Y := -Result.Y;
+
+  // rotate it according to compass
+  Result := Result.Rotate(Minimap.GetCompassAngle(False), Point(0, 0));
+end;
+
+{
+  Returns a predicted offset vector from where the box will be when the mouse finally arrives to it
+}
+function TScript.GetOffsetForVel(TarBox: TBox; Velocity: TPoint): TPoint;
+var
+  Dist, TimeForMouse: Double;
+begin
+  // get the mouse distance to the target
+  Dist := TarBox.Middle().DistanceTo(Mouse.Position());
+
+  // predict how long it will take for the mouse to reach the target
+  // TODO complete, its some function of Dist, Speed and possibly some constant
+  TimeForMouse := 0.25;
+
+  // now apply the velocity and the time to the result
+  Result := Point(
+    Round(Velocity.X * TimeForMouse),
+    Round(Velocity.Y * TimeForMouse)
+  );
+end;
+
+{
+  While the mouse looks for uptext
+}
+procedure WhileMouseMovesLookForUpText(Sender: PMouse; var X, Y: Double; var Done: Boolean);
+var
+  UpText: String;
+begin
+  if Script.MouseLooksForUpText.Len() <= 0 then
+    exit();
+
+  Sender := Sender;
+  X := X;
+  Y := Y;
+
+  UpText := MainScreen.GetUpText();
+  if UpText.IsInString(Script.MouseLooksForUpText) then
+    Done := True;
+end;
+
+{$ENDIF} // INEEDBOT_UTILS
+

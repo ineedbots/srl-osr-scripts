@@ -12,7 +12,9 @@
 {$IFNDEF SRL_OSR}
   {$I SRL/OSR.simba}
 {$ENDIF}
-{$include_once ../Utils.simba}
+
+{$include_once ../Utils/Utils.simba}
+
 {$include_once Types.simba}
 
 const

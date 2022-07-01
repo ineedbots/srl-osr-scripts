@@ -12,7 +12,7 @@ program BlastFurnace;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
-{$include_once ../Utils.simba}
+{$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
 {$include_once Config.simba}
@@ -171,10 +171,6 @@ begin
   Script.WriteMsg('Stop reason: ' + Script.StopReason);
   TerminateScript('Time to shutdown');
 end;
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// SETUP AND INIT STUFF
 
 {
   When the player logs in.

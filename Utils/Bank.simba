@@ -1,0 +1,127 @@
+{
+  Util bank
+  Author: ineedbot
+  Date: 6/30/2022
+}
+
+{$IFNDEF INEEDBOT_UTILS_BANK}
+{$DEFINE INEEDBOT_UTILS_BANK}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Find the items!
+}
+function TRSDepositBox.FindItems(Items: TRSItemArray; out Slots: TIntegerArray): Boolean;
+var
+  Item: TRSItem;
+begin
+  if not Self.IsOpen() then
+    exit();
+
+  for Item in Items do
+    Slots += ItemFinder.Find(Item, Self.GetSlotBoxes());
+
+  Result := Length(Slots) > 0;
+end;
+
+{
+  Find the items
+}
+function TRSDepositBox.FindItems(Items: TRSItemArray): Boolean; overload;
+var
+  Slots: TIntegerArray;
+begin
+  Result := Self.FindItems(Items, Slots);
+end;
+
+{
+  Get the slot box for the deposit box
+}
+function TRSDepositBox.GetSlotBox(Slot: Int32): TBox;
+begin
+  Result := Self.GetSlotBoxes()[Slot];
+end;
+
+{
+  Is the depositbox slot in use?
+}
+function TRSDepositBox.IsSlotUsed(B: TBox): Boolean; overload;
+begin
+  Result := Inventory.IsSlotUsed(B);
+end;
+
+{
+  Is the depositbox slot in use?
+}
+function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
+begin
+  Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
+end;
+
+{
+  Fixes the problem with uptext covering the bank interface, only when the bank tag plugin is used on runelite
+}
+function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
+var
+  B: TBox;
+  Fix: Boolean;
+  RearrangeText: String;
+begin
+  // fixes the issue where uptext can cover the button, making isopen fail
+  if (MainScreen.GetUpText <> '') then
+  begin
+    B := Self.Bounds();
+    RearrangeText := OCR.RecognizeStatic([B.X1 + 7, B.Y2 - 41, B.X1 + 102, B.Y2 - 24], TOCRColorRule.Create([2070783, 5]), RS_FONT_PLAIN_12);
+
+    if RearrangeText.IsInString(['Rearrange mode:']) then
+      Fix := True;
+  end;
+
+  if Fix then
+    exit(True);
+
+  Result := inherited(WaitForItems);
+end;
+
+{
+  Mouse callback when the uptext is cleared
+}
+procedure WatchForClearUptext(Sender: PMouse; var X, Y: Double; var Done: Boolean);
+begin
+  Sender := Sender;
+  X := X;
+  Y := Y;
+
+  if MainScreen.GetUpText() = '' then
+    Done := True;
+end;
+
+{
+  Fixes the problem with uptext covering the bank interface, only when the bank tag plugin is used on runelite
+}
+function TRSBank.FixUpText(): Boolean;
+var
+  BeforeCallback: TMouseMovingEvent;
+begin
+  if ChooseOption.IsOpen() then
+    ChooseOption.Close();
+
+  if MainScreen.GetUpText() = '' then
+    exit(True);
+
+  BeforeCallback := @Mouse.OnMoving;
+  Mouse.OnMoving := @WatchForClearUptext;
+  Mouse.Move(Minimap.Bounds());
+  Mouse.OnMoving := @BeforeCallback;
+
+  Result := (MainScreen.GetUpText() = '');
+end;
+
+{$ENDIF} // INEEDBOT_UTILS_BANK
+

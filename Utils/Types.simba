@@ -1,0 +1,54 @@
+const
+  DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
+                                       2,3,7,6,10,11,15,14,18,19,23,22,26,27];
+
+  NL = #13#10;
+
+{
+  Util types
+  Author: ineedbot
+  Date: 6/30/2022
+}
+
+{$IFNDEF INEEDBOT_UTILS_TYPES}
+{$DEFINE INEEDBOT_UTILS_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+type
+  TScriptColor = record
+    RSObject                                                  : TRSObjectFinder;
+    FilterSize, NoColorTileExpand                             : Int32;
+    RadiusExpand                                              : Double;
+  end;
+
+  TAntiBanEnergy = record
+    BioHash, Endurance, Patience, BoxPTRad: Double;
+  end;
+
+  TScript = record
+    Status, StopReason                                        : String;
+    MouseLooksForUpText                                       : TStringArray;
+    Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks,
+      KeyboardMenuButtons, ShiftClicking, MiddleClicking      : Boolean;
+    BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
+      MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
+    Activity: record
+      XP                                                      : Int32;
+      Countdown                                               : TCountDown;
+    end;
+    ShutdownTime                                              : Int64;
+    TrueRunTime                                               : TStopwatch;
+    DrawCounter, ReportCounter                                : TCountdown;
+    AntiBan                                                   : TAntiban;
+    AntiBanEnergy                                             : TAntiBanEnergy;
+    LastPos                                                   : TPoint;
+  end;
+
+var
+  Script: TScript;
+
+{$ENDIF} // INEEDBOT_UTILS_TYPES
+
