@@ -123,5 +123,155 @@ begin
   Result := (MainScreen.GetUpText() = '');
 end;
 
+{
+  Returns a good antiban inv slot seq
+}
+function TRSBank.GetGoodPattern(): TIntegerArray;
+var
+  R: Double;
+begin
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Result := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Result := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Result := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+end;
+
+{
+  Find bank item
+}
+function TRSBank.FindBankItem(Item: TRSItem; out B: TBox): Boolean;
+var
+  i: Int32;
+begin
+  // try and find it
+  for i := 0 to 3 do
+  begin
+    if Self.FindItem(Item, B) then
+    begin
+      Result := True;
+      break;
+    end;
+
+    // fix the uptext and chooseoption menu
+    Self.FixUpText();
+
+    // find it again
+    if Self.FindItem(Item, B) then
+    begin
+      Result := True;
+      break;
+    end;
+  end;
+end;
+
+{
+  Deposits our inv into the bank
+}
+function TRSBank.DepositItemsIntoBank(Pattern: TIntegerArray; CurProducts: Int32; Amount: Int32 = -2): Boolean;
+var
+  i, IC, QuantityAmount: Int32;
+  UsingButton, Depod: Boolean;
+  R: Double;
+begin
+  IC := Inventory.Count();
+  for i in Pattern do
+  begin
+    if Inventory.IsSlotUsed(Inventory.GetSlotBox(i)) then
+    begin
+      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+      if Amount = -2 then
+      begin
+        R := SRL.TruncatedGauss(0.0, 1.0);
+        case R of
+          0.0..0.5: QuantityAmount := BANK_DEPOSIT_ALL;
+          0.5..0.6: QuantityAmount := CurProducts;
+          0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+          0.7..0.8: QuantityAmount := 10;
+          0.8..0.9: QuantityAmount := 5;
+          else QuantityAmount := 1;
+        end;
+      end
+      else
+        QuantityAmount := Amount;
+
+      if Self.DepositSlot([i, QuantityAmount], UsingButton) then
+      begin
+        Depod := True;
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+      end
+      else
+      begin
+        Self.FixUpText();
+        if Self.DepositSlot([i, QuantityAmount], UsingButton) then
+        begin
+          Depod := True;
+          Wait(SRL.SkewedRand(1000, 500, 2500));
+        end;
+      end;
+    end;
+  end;
+
+  if Depod then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  if Inventory.IsFull() and Depod then
+    exit();
+
+  Result := True;
+end;
+
+{
+  withdraw item from bank
+}
+function TRSBank.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False; AllAmount: Int32 = 28): Boolean;
+var
+  IC, QuantityAmount, i: Int32;
+  UsingButton, Withdrew: Boolean;
+  R: Double;
+begin
+  IC := Inventory.Count();
+  for i := 0 to 5 do
+  begin
+    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+    if Amount = -3 then
+    begin
+      R := SRL.TruncatedGauss(0.0, 1.0);
+      if not UsingButton and inRange(R, 0.4, 0.6) then
+        QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
+      else
+      begin
+        case R of
+          0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
+          0.6..0.8: QuantityAmount := AllAmount;
+          else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+        end;
+      end;
+    end
+    else
+      QuantityAmount := Amount;
+
+    if Self.WithdrawHelper(B, QuantityAmount, Noted, UsingButton) then
+    begin
+      Withdrew := True;
+      Wait(SRL.SkewedRand(1000, 500, 2500));
+      break;
+    end
+    else
+      Self.FixUpText();
+  end;
+
+  if not Withdrew then
+    exit();
+
+  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+  Result := True;
+end;
+
 {$ENDIF} // INEEDBOT_UTILS_BANK
 
