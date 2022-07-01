@@ -319,7 +319,7 @@ begin
 
   // Doors of Dinh
   Self.DoorUpText := ['Enter'];
-  Self.ExitChatOption := 'Leave and lose all progress.';
+  Self.ExitChatOptions := ['Leave and lose all progress.'];
 
   Self.ToBankPaths := [
     [[1914, 602], [1913, 618], [1914, 635], [1914, 651], [1915, 666], [1921, 674], [1930, 677], [1940, 681], [1949, 681]],

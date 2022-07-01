@@ -507,8 +507,8 @@ begin
     Minimap.WaitFlag();
     if Self.GetWinterTodtEnergyPerc() > 0 then
     begin
-      Chat.WaitOption(Self.ExitChatOption, 2000);
-      Chat.ClickOption(Self.ExitChatOption, BioRandomCoinFlip());
+      Chat.WaitOption(Self.ExitChatOptions[0], 2000);
+      Chat.ClickOption(Self.ExitChatOptions[0], BioRandomCoinFlip());
     end;
 
     // wait to exit

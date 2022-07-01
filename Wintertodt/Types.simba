@@ -19,7 +19,6 @@ type
   TBot = record
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
-    ExitChatOption                                            : String;
     ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
       InBossFight, SkipBankCheck                              : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
@@ -33,7 +32,8 @@ type
     BankTile, BrazierTile, PyromancerTile, RootsTile,
       EnterTile, ExitTile, BankTileWalkOffset                 : TPoint;
     FixBrazUpText, LightBrazUpText, FeedBrazUpText,
-      ChopRootUpText, HelpPyroUpText, DoorUpText              : TStringArray;
+      ChopRootUpText, HelpPyroUpText, DoorUpText,
+      ExitChatOptions                                         : TStringArray;
     BankColor, EntranceColor, ExitColor, RootsColor,
       LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
     BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
