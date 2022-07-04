@@ -354,13 +354,9 @@ function TBot.EatFood(Num: Int32 = -1): Boolean;
 var
   HPPrec, i, NumEaten: Int32;
   FoodSlots, Pattern: TIntegerArray;
-  R: Extended;
   CountDown: TCountDown;
   Eaten: Boolean;
 begin
-  if Bank.IsOpen() then
-    exit();
-
   if not Inventory.FindItems(Self.FoodItems, FoodSlots) then
   begin
     Script.WriteMsg('No food!', True);
@@ -369,13 +365,7 @@ begin
 
   Script.WriteMsg('Eating food...', True);
 
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // remove all slots that isnt food
   for i := High(Pattern) downto Low(Pattern) do
@@ -410,9 +400,7 @@ begin
 
     // eat it
     Inventory.HoverSlot(Pattern[i]);
-
     HPPrec := Minimap.GetHPPercent();
-    CountDown.Init(2500);
 
     if MainScreen.IsUpText(['Eat', 'Drink']) then
     begin
@@ -421,7 +409,8 @@ begin
     end
     else
       Eaten := ChooseOption.Select(['Drink', 'Eat']);
-
+    
+    CountDown.Init(SRL.SkewedRand(2500, 2000, 3000));
     while Eaten do
     begin
       if not RSClient.IsLoggedIn() or CountDown.IsFinished() then
@@ -436,11 +425,14 @@ begin
         break;
       end;
 
-      Wait(Script.SleepRate);
+      Self.DoMainLoopStuff('Waiting to heal from food', False);
     end;
 
     if not Eaten then
+    begin
+      Script.WriteMsg('Eat failed', True);
       break;
+    end;
 
     Result := True;
   end;

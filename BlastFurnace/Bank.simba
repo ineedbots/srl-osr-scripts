@@ -341,7 +341,7 @@ begin
     // withdraw our crap
 
     // first do the coalbag
-    // TODO randomize? or use open coalbag???
+    // TODO randomize order?
     if HasCoalBag and ((CoalToWithdraw + OresToWithdraw) > Self.WorkingInvCount) then
     begin
       // hopefully this doesn't fail due to lag
@@ -529,7 +529,10 @@ var
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+  begin
+    WasClicked := True;
     exit(True);
+  end;
 
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();

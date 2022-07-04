@@ -308,18 +308,40 @@ begin
 
   // Brazier
   Self.FixBrazUpText := ['Fix'];
+  Self.FixBrazOptions := ['Fix'];
+
   Self.LightBrazUpText := ['Light'];
+  Self.LightBrazOptions := ['Light'];
+
   Self.FeedBrazUpText := ['Feed'];
+  Self.FeedBrazOptions := ['Feed'];
 
   // Bruma roots
   Self.ChopRootUpText := ['Chop'];
+  Self.ChopRootOptions := ['Chop'];
 
   // Incapacitated Pyromancer
   Self.HelpPyroUpText := ['Help'];
+  Self.HelpPyroOptions := ['Help'];
+  
+  // Crate
+  // Take-concoction
+  // Take-5-
+  Self.UnfCrateUpText := ['Take-'];
+  Self.UnfCrateOptions := ['Take-'];
+
+  // Sprouting Roots
+  Self.HerbUpText := ['Pick'];
+  Self.HerbOptions := ['Pick'];
 
   // Doors of Dinh
-  Self.DoorUpText := ['Enter'];
-  Self.ExitChatOptions := ['Leave and lose all progress.'];
+  Self.DoorEnterUpText := ['Enter'];
+  Self.DoorEnterOptions := ['Enter'];
+
+  Self.DoorExitUpText := ['Enter'];
+  Self.DoorExitOptions := ['Enter'];
+
+  Self.ExitChatOptions := ['Leave', 'Leave and lose all progress.'];
 
   Self.ToBankPaths := [
     [[1914, 602], [1913, 618], [1914, 635], [1914, 651], [1915, 666], [1921, 674], [1930, 677], [1940, 681], [1949, 681]],

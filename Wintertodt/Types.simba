@@ -32,8 +32,12 @@ type
     BankTile, BrazierTile, PyromancerTile, RootsTile,
       EnterTile, ExitTile, BankTileWalkOffset                 : TPoint;
     FixBrazUpText, LightBrazUpText, FeedBrazUpText,
-      ChopRootUpText, HelpPyroUpText, DoorUpText,
-      ExitChatOptions                                         : TStringArray;
+      ChopRootUpText, HelpPyroUpText, DoorEnterUpText,
+      ExitChatOptions, FixBrazOptions, LightBrazOptions, 
+      FeedBrazOptions, ChopRootOptions, HelpPyroOptions,
+       DoorEnterOptions, DoorExitOptions, UnfCrateUpText, 
+       UnfCrateOptions, HerbUpText, HerbOptions,
+       DoorExitUpText                                         : TStringArray;
     BankColor, EntranceColor, ExitColor, RootsColor,
       LitBrazColor, UnlitBrazColor, InsideRootsColor          : TScriptColor;
     BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
