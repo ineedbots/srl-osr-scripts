@@ -85,7 +85,7 @@ begin
 
     IC := Inventory.Count();
     // inv is full!
-    if IC >= 28 then
+    if IC >= (Inventory.HIGH_SLOT + 1) then
     begin
       Script.WriteMsg('ChopLogs: InvFull!', True);
       break;
@@ -320,7 +320,8 @@ begin
   begin
     if {(Self.ClickRoots(WasClicked) and WasClicked) or
       Self.GoToLogs() or
-      (Self.ClickRoots(WasClicked) and WasClicked) or} // its safer in this location
+      (Self.ClickRoots(WasClicked) and WasClicked) or}
+      // its safer in this location
       Self.GoToLogs(True) or
       (Self.ClickRoots(WasClicked) and WasClicked) then
     begin

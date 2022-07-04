@@ -32,7 +32,7 @@ end;
 function TBot.GetBrazierSearchBox(TileRect: TRectangle): TBox;
 begin
   Result := TileRect.Bounds().Expand(
-    Round(TileRect.Radius() * Self.LitBrazColor.RadiusExpand));
+    Round(TileRect.Radius() * Self.UnlitBrazColor.RadiusExpand));
 end;
 
 {

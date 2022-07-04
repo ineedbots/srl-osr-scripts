@@ -388,7 +388,6 @@ begin
     RSObject.Colors += CTS2(4644246, 18, 0.2, 1.45);
     RSObject.ClusterDistance := 3;
     FilterSize := 100;
-    RadiusExpand := 1;
   end;
 
   with Self.UnlitBrazColor do
@@ -397,6 +396,7 @@ begin
     RSObject.Colors += CTS2(7763567, 4, 0.76, 0.17);
     RSObject.ClusterDistance := 10;
     FilterSize := 150;
+    RadiusExpand := 1;
     NoColorTileExpand := 5;
   end;
 
