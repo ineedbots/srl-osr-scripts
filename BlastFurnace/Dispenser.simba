@@ -396,6 +396,8 @@ begin
     exit();
   end;
 
+  Self.AfterActionAntiBan(True);
+
   // wait for the chat to open
   Self.WaitCheckDispenser();
   Wait(0, 750, wdLeft);
@@ -627,6 +629,8 @@ begin
       goto go_exit;
     end;
   end;
+
+  Self.AfterActionAntiBan(True);
 
   // wait for the collection
   if not Self.WaitGoCollectBars(IC) then

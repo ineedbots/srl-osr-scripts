@@ -281,6 +281,8 @@ begin
     exit();
   end;
 
+  Self.AfterActionAntiBan(True);
+
   // wait for the chat to open
   if not Self.WaitPotChat() then
   begin

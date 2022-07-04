@@ -329,6 +329,8 @@ begin
       or Self.GoToSink(True)
       or (Self.ClickSink(ClickedSink) and ClickedSink) then
     begin
+      Self.AfterActionAntiBan(True);
+
       // wait for the bucket to fill
       if not Self.WaitFillBucket() then
       begin
@@ -377,6 +379,8 @@ begin
     Script.WriteMsg('Couldn''t click dispenser');
     exit();
   end;
+
+  Self.AfterActionAntiBan(True);
 
   Result := Self.WaitUseBucket();
 end;

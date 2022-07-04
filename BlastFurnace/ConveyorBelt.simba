@@ -417,6 +417,8 @@ begin
     exit();
   end;
 
+  Self.AfterActionAntiBan(True);
+
   // get ready to use the coalbag
   Wait(0, 1500, wdLeft);
   if CoalBag and (Random() < 0.8) then

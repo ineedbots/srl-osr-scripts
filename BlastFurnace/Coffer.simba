@@ -292,6 +292,8 @@ begin
     or Self.GoToCoffer(True)
     or (Self.ClickCoffer(ClickedCoffer) and ClickedCoffer) then
   begin
+    Self.AfterActionAntiBan(True);
+
     // wait for the options to appear
     if Self.WaitCofferOption() then
     begin

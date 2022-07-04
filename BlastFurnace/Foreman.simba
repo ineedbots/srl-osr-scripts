@@ -216,6 +216,8 @@ begin
   // look for the foreman
   if ClickedForeman then
   begin
+    Self.AfterActionAntiBan(True);
+
     // give him the money
     if Self.WaitForemanOption() then
     begin
