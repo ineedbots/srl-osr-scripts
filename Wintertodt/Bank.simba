@@ -366,6 +366,20 @@ begin
 
   Script.WriteMsg('DoBanking: Pattern: ' + ToStr(Pattern), True);
 
+  Script.AntiBan.AfterBankAntiBan(20);
+  Script.SetStatus('Banking');
+
+  // deposit our stuff
+  if not Bank.DepositItemsIntoBank(Pattern) then
+  begin
+    Script.WriteMsg('Failed to deposit items');
+    Bank.Close(Script.ShouldPressKeyboard());
+    exit();
+  end;
+
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(7);
+
   for Item in Self.FoodItems do
   begin
     HadFood := Bank.FindBankItem(Item, FoodB);
@@ -382,20 +396,6 @@ begin
   end;
 
   NumFoodToUse := Round(Self.NumFood * Random(0.75, 1.25));
-
-  Script.AntiBan.AfterBankAntiBan(20);
-  Script.SetStatus('Banking');
-
-  // deposit our stuff
-  if not Bank.DepositItemsIntoBank(Pattern) then
-  begin
-    Script.WriteMsg('Failed to deposit items');
-    Bank.Close(Script.ShouldPressKeyboard());
-    exit();
-  end;
-
-  Wait(0, 1000, wdLeft);
-  Script.AntiBan.AfterBankAntiBan(7);
 
   // withdraw our food
   if not Bank.WithdrawItemFromBank(FoodB, NumFoodToUse) then
