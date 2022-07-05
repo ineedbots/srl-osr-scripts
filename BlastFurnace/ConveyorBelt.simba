@@ -417,7 +417,7 @@ begin
     exit();
   end;
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
 
   // get ready to use the coalbag
   Wait(0, 1500, wdLeft);
