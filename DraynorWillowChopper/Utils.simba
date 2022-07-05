@@ -1,0 +1,288 @@
+{
+  Draynor Village Chopper utils
+  Author: ineedbot
+  Date: 7/4/2022
+
+  Utils
+}
+
+{$IFNDEF INEEDBOT_DVC_UTILS}
+{$DEFINE INEEDBOT_DVC_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once Bank.simba}
+{$include_once Tree.simba}
+{$include_once Misc.simba}
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, Random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Enables special attack
+}
+function TBot.CheckSpec(): Boolean;
+begin
+  if not Self.Specing then
+    exit();
+
+  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle()) >= 100 then
+  begin
+    Script.WriteMsg('Special attack boosting');
+
+    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
+
+    Wait(1000, 2000, wdLeft);
+    Result := True;
+  end;
+end;
+
+{
+  Checks if we are under attack
+}
+procedure TBot.CheckUnderAttack();
+begin
+  if Script.CheckUnderAttack() then
+  begin
+    Self.GoToBank(True);
+
+    if Script.HPAmount < 5 then
+      Script.Stop('Critical HP!')
+    else
+      Wait(5000, 15000);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+var
+  B: TBox;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // are we under attack?
+  Self.CheckUnderAttack();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  Self.CheckSpec();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // TODO check cluescroll
+  if Self.FoundBirdsNest(B) and Chat.FindMessage(Self.BirdNestText, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]) then
+  begin
+    if Inventory.IsFull() then
+      Self.DropAThing();
+    Script.WriteMsg('Picking up bird nest');
+    if Self.ClickBirdsNest(B) then
+      Minimap.WaitFlag();
+  end;
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  Wait(0, 750, wdLeft);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  TreeTile, OurTile, BankTile, FireTile, TP: TPoint;
+  TileRect: TRectangle;
+  i: Int32;
+  CompAng: Double;
+  Text: String;
+  B: TBox;
+  T, L, K: TIntegerArray;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  for TreeTile in Self.TreeTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, TreeTile, 4);
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindTreeColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TreeTile, CompAng), 4, clBlue);
+    RSClient.Image.DrawRect(TileRect, clBlue);
+  end;
+
+  for BankTile in Self.BankTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clGreen);
+    RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+
+  for i := Low(Self.FireStartTiles) to High(Self.FireStartTiles) do
+  begin
+    FireTile := Self.FireStartTiles[i].Tile;
+
+    TileRect := Self.RSW.GetTileMSEx(OurTile, FireTile);
+
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clGreen);
+    ATPA := Self.FindFireColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, FireTile, CompAng), 4, clOrange);
+    RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+
+  TPA := Minimap.GetDots(ERSMinimapDot.ITEM);
+  if SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0 then
+    TPA += Minimap.Center();
+  for TP in TPA do
+  begin
+    TileRect := Minimap.PointToMsRect(TP, CompAng);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BirdNestColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clRed);
+
+    ATPA := Self.FindBirdNestColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clBlue);
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.LogItems, L);
+    Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.KnifedLogItems, K);
+
+    for i := 0 to 27 do
+    begin
+      if L.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if K.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Banking: ' + ToStr(Self.Banking) + NL;
+  WriteOut += 'Firemaking: ' + ToStr(Inventory.FindItem(Self.TinderItem)) + NL;
+  WriteOut += 'Fletching: ' + ToStr(Inventory.FindItem(Self.KnifeItem)) + NL;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + NL;
+  WriteOut += 'Status: ' + Script.Status + NL;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + NL;
+  WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + NL;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + NL;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + NL;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + NL;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{$ENDIF} // INEEDBOT_DVC_UTILS
+
+
+
+

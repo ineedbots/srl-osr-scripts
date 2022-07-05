@@ -1,0 +1,42 @@
+{
+  Draynor Village Chopper config
+  Author: ineedbot
+  Date: 7/4/2022
+
+  Handles everything config related
+}
+
+{$IFNDEF INEEDBOT_DVC_CONFIG}
+{$DEFINE INEEDBOT_DVC_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = True;  // Do proggies onto the console?
+  SHIFTDROP      = True;  // Use shift for dropping?
+  USESPEC        = False; // Use the special attack when it can.
+
+  TAKEBREAKS     = True;  // Take breaks?
+
+  // use bank?
+  BANKLOGS        = True;
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_DVC_CONFIG
+
+

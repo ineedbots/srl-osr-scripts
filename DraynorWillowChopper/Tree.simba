@@ -1,0 +1,330 @@
+{
+  Draynor Village Chopper tree
+  Author: ineedbot
+  Date: 7/4/2022
+
+  Handles everything tree related
+}
+
+{$IFNDEF INEEDBOT_DVC_TREE}
+{$DEFINE INEEDBOT_DVC_TREE}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Returns all the found trees
+}
+function TBot.FindTreeColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
+  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
+end;
+
+{
+  Updates which fish tile we are at
+}
+procedure TBot.UpdateWalkedTree(Here: Boolean = True);
+var
+  CTreeTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CTreeTiles := Copy(Self.TreeTiles);
+    CTreeTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedTree := Self.WalkedTree;
+    Self.WalkedTree := Self.TreeTiles.Find(CTreeTiles[0]);
+    if Self.LastWalkedTree <> Self.WalkedTree then
+      Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
+  end
+  else
+  begin
+    if (Self.TreeTiles.Len() > 1) then
+    begin
+      if Self.WalkedTreeForward then
+      begin
+        Self.WalkedTree += 1;
+        if Self.WalkedTree > High(Self.TreeTiles) then
+        begin
+          Self.WalkedTree -= 2;
+          Self.WalkedTreeForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedTree -= 1;
+        if Self.WalkedTree < Low(Self.TreeTiles) then
+        begin
+          Self.WalkedTree += 2;
+          Self.WalkedTreeForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
+
+{
+  Waits while we are chopping the tree
+}
+procedure TBot.WhileChopping(TreeTile: TPoint);
+var
+  TimeoutCounter: TCountdown;
+  OurPos: TPoint;
+  _: TBox;
+  InvCount: Int32;
+begin
+  // wait for us to stop moving before we start monitoring the tree tile.
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked tree...');
+
+  Self.UpdateWalkedTree(True);
+
+  OurPos := Self.RSW.GetMyPos();
+  InvCount := Inventory.Count();
+
+  // we timeout if we do not gain something into our inventory
+  TimeoutCounter.Init(Self.ChopWaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if not Self.FindTree(OurPos, TreeTile, _) then
+    begin
+      Script.WriteMsg('WhileChopping: Tree not found', True);
+      break;
+    end;
+
+    if Inventory.IsFull() then
+    begin
+      Script.WriteMsg('WhileChopping: Inventory full', True);
+      break;
+    end;
+
+    if Inventory.Count() > InvCount then
+    begin
+      Script.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
+      TimeoutCounter.Restart();
+    end;
+    InvCount := Inventory.Count();
+
+    if TimeoutCounter.IsFinished() then
+    begin
+      Script.WriteMsg('WhileChopping: Timed out', True);
+      break;
+    end;
+    Self.DoMainLoopStuff('Chopping tree...');
+  end;
+
+  if TimeoutCounter.IsFinished() then
+    Script.WriteMsg('WhileChopping: No log gained in timeout...', True);
+
+  Script.SetStatus('Tree chopping completed!');
+end;
+
+{
+  Tries to find the tree at the tile, returns true if it does, also the area of where it is
+
+  This is mainly from olly/srl-development woodcut test script
+}
+function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out B: TBox): Boolean;
+var
+  Tile: TRectangle;
+  TPA: TPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  Tile := Self.RSW.GetTileMSEx(PlayerPos, TreePos, 4);
+
+  B := Tile.Expand(Round(Tile.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+
+  // find the tree's colors in this tile
+  TPA := Self.FindTreeColor(B).Biggest();
+
+  if Length(TPA) > Self.TreeColor.FilterSize then
+  begin
+    // if the circle is larger than the tile's circle, this is good
+    Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+  end;
+end;
+
+{
+  Attempts to click on a tree, returns if it does
+}
+function TBot.ClickTree(out WasClicked: Boolean; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+  CTreeTiles: TPointArray;
+  TT: TPoint;
+begin
+  if OurPos = Point(-1, -1) then
+    OurPos := Self.RSW.GetMyPos();
+
+  CTreeTiles := Copy(Self.TreeTiles);
+  CTreeTiles.Sort(OurPos);
+  CTreeTiles.RandomizeNearDists(OurPos, 8, 0.1);
+
+  for TT in CTreeTiles do
+  begin
+    if not Self.FindTree(OurPos, TT, B) then
+      continue;
+
+    // now apply velocity and check uptext
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    Result := True;
+    Self.CurrentChoppingTreeTile := TT;
+
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Self.TreeOptions;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
+
+    if not MainScreen.IsUpText(Self.TreeOptions, Random(100, 250)) then
+    begin
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    if Random() < 0.10 then
+      WasClicked := ChooseOption.Select(Self.TreeOptions)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickTree: Didnt click', True);
+    end;
+
+    break;
+  end;
+end;
+
+{
+  While we walk to the Trees
+}
+procedure WalkingToTrees(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickTree(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the tree while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and Bank.IsOpen() then
+    Bank.Close();
+end;
+
+{
+  Walks to the fish,
+  Returns true if we clicked the fishing spot while walking
+}
+function TBot.GoToTrees(Force: Boolean = False): Boolean;
+var
+  Where, OurPos: TPoint;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to trees...', True);
+  OurPos := Self.RSW.GetMyPos();
+  Where := Self.TreeTiles[Self.WalkedTree];
+  if Force then
+    Where := Self.TreeWalkTile;
+
+  if (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to trees spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToTrees;
+    try
+      Walked := Self.RSW.WebWalk(Where.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to tree spot');
+
+      Bank.Close();
+
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+
+  // set the 'next' fish spot...
+  if not Force then
+    Self.UpdateWalkedTree(False);
+end;
+
+{
+  Returns tree if clicked the tree
+}
+function TBot.TryClickTree(): Boolean;
+var
+  WasClicked: Boolean;
+begin
+  Minimap.WaitPlayerMoving();
+  Result := (Self.ClickTree(WasClicked) and WasClicked);
+end;
+
+{$ENDIF} // INEEDBOT_DVC_TREE
+
+
+
+
