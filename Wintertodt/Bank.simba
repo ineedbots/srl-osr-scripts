@@ -398,7 +398,7 @@ begin
   NumFoodToUse := Round(Self.NumFood * Random(0.75, 1.25));
 
   // withdraw our food
-  if not Bank.WithdrawItemFromBank(FoodB, NumFoodToUse) then
+  if not Bank.WithdrawItemFromBank(FoodB, NumFoodToUse - Length(FoodSlots)) then
   begin
     Script.WriteMsg('Failed to withdraw food');
     Bank.Close(Script.ShouldPressKeyboard());
