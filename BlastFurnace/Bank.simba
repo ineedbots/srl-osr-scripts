@@ -712,7 +712,7 @@ begin
     exit();
   end;
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
 
   // count values for bank
   Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
