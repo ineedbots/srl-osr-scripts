@@ -57,22 +57,6 @@ begin
 end;
 
 {
-  Executes when we need to gather items to fill our inventory
-}
-procedure TBot.DoGathering();
-begin
-  if Self.TryClickTree() or
-    Self.GoToTrees() or
-    Self.TryClickTree() then
-  begin
-    Self.AfterActionAntiBan(True);
-    Self.WhileChopping(Self.CurrentChoppingTreeTile);
-  end
-  else
-    Self.DoAntiBan();
-end;
-
-{
   Main loop of the script.
 }
 procedure TBot.Run();
@@ -152,6 +136,9 @@ begin
   Script.Debug := DEBUGMODE;
   Script.Drawing := DRAWING;
   Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
   Script.Running := True;
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
@@ -195,18 +182,20 @@ begin
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
+
   Self.Specing := USESPEC;
-  Self.ShiftDropping := SHIFTDROP;
   Self.Banking := BANKLOGS;
   
   // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
+  Self.TreeUptexts := ['Chop down Willow', 'Chop', 'down', 'Willow'];
   Self.LogItems := ['Willow logs'];
   Self.TinderItem := 'Tinderbox';
   Self.KnifeItem := 'Knife';
   Self.KnifedLogItems := ['Willow longbow (u)'];
   Self.FletchWaitTime := 3000;
   Self.NestUpText := ['Take'];
+  Self.NestOptions := ['Take'];
   Self.NoLightText := ['You can''t light a fire here.'];
   Self.BirdNestText := ['A bird''s nest falls out of the tree.'];
   Self.ToolItems := [Self.TinderItem, Self.KnifeItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
@@ -219,6 +208,23 @@ begin
   Self.TreeTiles := [Point(4144, 3498), Point(4152, 3504), Point(4164, 3508),
     Point(4158, 3520), Point(4162, 3536)];
   Self.TreeWalkTile := Point(4148, 3496);
+
+  Self.ToBankPaths := [
+    [[4148, 3498], [4150, 3493], [4155, 3484], [4157, 3472], [4157, 3467], [4165, 3461], [4178, 3461], [4178, 3466]],
+    [[4146, 3493], [4142, 3489], [4153, 3473], [4152, 3468], [4147, 3458], [4154, 3456], [4166, 3456], [4179, 3459], [4179, 3469]],
+    [[4149, 3498], [4148, 3488], [4142, 3483], [4143, 3472], [4145, 3466], [4150, 3461], [4156, 3458], [4170, 3458], [4178, 3459], [4179, 3467]],
+    [[4149, 3498], [4153, 3499], [4170, 3499], [4183, 3499], [4203, 3491], [4205, 3482], [4205, 3473], [4200, 3459], [4189, 3457], [4180, 3460], [4180, 3467]]
+  ];
+
+  Self.ToTreesPaths := [
+    [[4178, 3466], [4178, 3461], [4165, 3461], [4157, 3467], [4157, 3472], [4155, 3484], [4150, 3493], [4148, 3498]],
+    [[4179, 3469], [4179, 3459], [4166, 3456], [4154, 3456], [4147, 3458], [4152, 3468], [4153, 3473], [4142, 3489], [4146, 3493]],
+    [[4179, 3467], [4178, 3459], [4170, 3458], [4156, 3458], [4150, 3461], [4145, 3466], [4143, 3472], [4142, 3483], [4148, 3488], [4149, 3498]],
+    [[4180, 3467], [4180, 3460], [4189, 3457], [4200, 3459], [4205, 3473], [4205, 3482], [4203, 3491], [4183, 3499], [4170, 3499], [4153, 3499], [4149, 3498]]
+  ];
+
+  // 2 is willow longbow
+  Self.MakeOption := 2;
 
   with Self.TreeColor do
   begin
@@ -248,6 +254,7 @@ begin
     RSObject.ClusterDistance := 3;
     FilterSize := 10;
     RadiusExpand := 0.25;
+    NoColorTileExpand := 5;
   end;
   
   with Self.FireColor do

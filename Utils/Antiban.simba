@@ -335,7 +335,7 @@ var
   cArr: TIntegerArray;
 begin
   tpa := Minimap.GetDots(DotType);
-  if tpa.Len() < 1 then exit();
+  if Length(tpa) < 1 then exit();
   a := Minimap.GetCompassAngle(False);
   repeat
     inc(Tries);

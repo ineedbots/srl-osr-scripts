@@ -18,6 +18,8 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Tree.simba}
+
 {
   Finds the bank tile
 }
@@ -49,11 +51,11 @@ end;
 function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
-  TPA: TPointArray;
+  ATPA: T2DPointArray;
 begin
-  TileRect := Self.FindBankTile(OurTile, BankTile);
+  Tile := Self.FindBankTile(OurTile, BankTile);
 
-  B := Self.GetBankSearchBox(TileRect);
+  B := Self.GetBankSearchBox(Tile);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -63,10 +65,10 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   // check the bank's colors within the tile
-  TPA := Self.FindBankColor(B).Biggest();
+  ATPA := Self.FindBankColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.BankColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
+    B := Tile.Bounds().Expand(-MainScreen.ConvertDistance(Self.BankColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -130,11 +132,15 @@ procedure TBot.DoBanking();
 var
   ToolSlots, LogSlots, Pattern: TIntegerArray;
   CurLogs, i: Int32;
-  R: Extended;
   IsBank: Boolean;
 begin
   if not Bank.IsOpen() and not DepositBox.IsOpen() then
-    exit();
+  begin
+    Bank.FixUpText();
+
+    if not Bank.IsOpen() and not DepositBox.IsOpen() then
+      exit();
+  end;
 
   IsBank := Bank.IsOpen();
   Script.SetStatus('Depositing items...');
@@ -156,16 +162,10 @@ begin
 
   Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
   Script.WriteMsg('DepositItems: LogSlots: ' + ToStr(LogSlots), True);
-  CurLogs := LogSlots.Len();
+  CurLogs := Length(LogSlots);
 
   // randomize the deposit pattern
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // randomly chop it off for extra antiban
   if SRL.Dice(20) then
@@ -178,18 +178,20 @@ begin
     Pattern.Remove(i);
 
   // deposit our stuff
-  for i in Pattern do
+  if IsBank then
   begin
-    if IsBank then
+    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+      Bank.DepositAll()
+    else if not Bank.DepositItemsIntoBank(Pattern, CurLogs) then
     begin
-      if Inventory.IsSlotUsed(i) then
-      begin
-        // TODO randomize using deposit buttons
-        Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
-        Wait(750, 1250);
-      end;
-    end
-    else
+      Script.WriteMsg('DepositItems: Failed to deposit items into bank');
+      exit();
+    end;
+  end
+  else
+  begin
+    // TODO better
+    for i in Pattern do
     begin
       if DepositBox.IsSlotUsed(i) then
       begin
@@ -216,7 +218,7 @@ begin
   end;
 
   // update how many we did
-  Self.LogsDone += CurLogs - LogSlots.Len();
+  Self.LogsDone += CurLogs - Length(LogSlots);
 
   Script.WriteMsg('DepositItems: LogSlots (after bank): ' + ToStr(LogSlots), True);
 
@@ -229,9 +231,9 @@ begin
   if (Random() > 0.75) or Self.RSW.ScreenWalk then
   begin
     if IsBank then
-      Bank.Close()
+      Bank.Close(Script.ShouldPressKeyboard())
     else
-      DepositBox.Close();
+      DepositBox.Close(Script.ShouldPressKeyboard());
   end;
 end;
 
@@ -373,25 +375,42 @@ end;
   Walks to the bank,
   Returns true if we clicked the bank while walking
 }
-function TBot.GoToBank(Force: Boolean = False): Boolean;
+function TBot.GoToBank(Force: Boolean = False; Banking: Boolean = True): Boolean;
 var
   OurPos: TPoint;
+  PathIdx: Int32;
   Walked: Boolean;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+    exit(True);
+
   Script.WriteMsg('Going to bank spot....', True);
   OurPos := Self.RSW.GetMyPos();
 
-  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
-    Force then
+  if Force or (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) then
   begin
     Script.SetStatus('Going to bank spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
-    Self.RSW.OnWalkingEvent := @WalkingToBank;
+    if Banking then
+      Self.RSW.OnWalkingEvent := @WalkingToBank;
     try
-      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
+      Walked := True;
+      Self.RSW.Enabled := True;
+
+      if Length(Self.ToBankPaths) > 0 then
+      begin
+        PathIdx := SRL.TruncatedGauss(Low(Self.ToBankPaths), High(Self.ToBankPaths));
+
+        if OurPos.DistanceTo(Self.ToBankPaths[PathIdx][Low(Self.ToBankPaths[PathIdx])]) <
+          OurPos.DistanceTo(Self.ToBankPaths[PathIdx][High(Self.ToBankPaths[PathIdx])]) then
+          Walked := Self.RSW.WalkPath(Self.ToBankPaths[PathIdx], 8);
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Self.BankWalkTile.Random(-6, 6, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -418,12 +437,17 @@ begin
   if (Self.ClickBank(WasClicked) and WasClicked)
     or Self.GoToBank()
     or (Self.ClickBank(WasClicked) and WasClicked)
-    or Self.GoToBank(True) then
+    or Self.GoToBank(True)
+    or (Self.ClickBank(WasClicked) and WasClicked) then
   begin
+    Self.AfterActionAntiBan(True, False);
+    
     if Self.WaitBankOpen() then
     begin
       Self.DoBanking();
       Self.UpdateWalkedTree(True);
+
+      Self.GoToTrees(True);
     end;
   end;
 end;

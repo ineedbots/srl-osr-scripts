@@ -20,15 +20,17 @@
 const
   DEBUGMODE      = False; // For debugging purposes
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
-  MSWALKING      = False; // Use mainscreen walking?
   DOREPORTS      = True;  // Do proggies onto the console?
-  SHIFTDROP      = True;  // Use shift for dropping?
-  USESPEC        = False; // Use the special attack when it can.
 
   TAKEBREAKS     = True;  // Take breaks?
+  MSWALKING      = False; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
   // use bank?
   BANKLOGS        = True;
+  USESPEC         = False; // Use the special attack when it can.
 
   // Account details
   _USERNAME       = '';
@@ -38,5 +40,3 @@ const
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?
 
 {$ENDIF} // INEEDBOT_DVC_CONFIG
-
-

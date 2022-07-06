@@ -19,12 +19,19 @@
 {$include_once Utils.simba}
 
 {
-  Returns all fires in the area
+  Finds the tile
 }
-function TBot.FindFireColor(Area: TBox): T2DPointArray;
+function TBot.FindNestTile(TP: TPoint; CompAng: Double): TRectangle;
 begin
-  Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
-  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+  Result := Minimap.PointToMsRect(TP, CompAng);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetNestSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.BirdNestColor.RadiusExpand)).Bounds();
 end;
 
 {
@@ -34,6 +41,156 @@ function TBot.FindBirdNestColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.BirdNestColor.RSObject, Area);
   Result.FilterSize(Self.BirdNestColor.FilterSize, __GT__);
+end;
+
+{
+  Gets nest item dots
+}
+function TBot.GetNestItemDots(): TPointArray;
+begin
+  Result := Minimap.GetDots(ERSMinimapDot.ITEM);
+  if SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0 then
+    Result += Minimap.Center();
+end;
+
+{
+  Returns true if found a birdsnest on the screen
+}
+function TBot.FoundBirdsNest(out B: TBox): Boolean;
+var
+  ATPA: T2DPointArray;
+  TPA, Dots: TPointArray;
+  CompAng: Single;
+  TP: TPoint;
+  TileRect: TRectangle;
+begin
+  Dots := Self.GetNestItemDots();
+  if Length(Dots) <= 0 then
+    exit();
+
+  CompAng := Minimap.GetCompassAngle(False);
+
+  for TP in Dots do
+  begin
+    TileRect := Self.FindNestTile(TP, CompAng);
+
+    B := Self.GetNestSearchBox(TileRect);
+
+    if not MainScreen.IsVisible(B.Middle()) then
+      continue;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    ATPA := Self.FindBirdNestColor(B);
+    TPA := ATPA.Biggest();
+
+    if Length(TPA) < Self.BirdNestColor.FilterSize then
+      continue;
+
+    B := TPA.Bounds();
+    Result := True;
+  end;
+end;
+
+{
+  Returns true if picked up the nest
+}
+function TBot.ClickBirdsNest(B: TBox): Boolean;
+begin
+  Mouse.Move(B);
+
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Self.NestUpText) then
+  begin
+    Script.WriteMsg('Bad nest uptext');
+    exit();
+  end;
+
+  if MainScreen.IsUpText(Self.NestOptions) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    Result := ChooseOption.Select(Self.NestOptions);
+end;
+
+{
+  Does birdnest stuff
+}
+procedure TBot.CheckBirdnest();
+var
+  B: TBox;
+begin
+  if Chat.IsOpen() and Chat.FindMessage(Self.BirdNestText, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]) then
+  begin      
+    // TODO check cluescroll
+    if Self.FoundBirdsNest(B) then
+    begin
+      if Inventory.IsFull() then
+        Self.DropAThing();
+      Script.WriteMsg('Picking up bird nest');
+      if Self.ClickBirdsNest(B) then
+      begin
+        Minimap.WaitFlag();
+        Minimap.WaitPlayerMoving();
+      end;
+    end;
+  end;
+end;
+
+{
+  Finds the tile
+}
+function TBot.FindFireTile(PlayerPos, FirePos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetFireSearchBox(Tile: TRectangle): TBox;
+begin
+  Result := Tile.Expand(Round(Tile.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all fires in the area
+}
+function TBot.FindFireColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
+  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+end;
+
+{
+  Tries to find a fire at the location
+}
+function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out B: TBox): Boolean;
+var
+  Tile: TRectangle;
+  TPA: TPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  Tile := Self.FindFireTile(PlayerPos, FirePos);
+
+  B := Self.GetFireSearchBox(Tile);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+
+  // find the tree's colors in this tile
+  TPA := Self.FindFireColor(B).Biggest();
+
+  if Length(TPA) > Self.FireColor.FilterSize then
+  begin
+    // make sure the middle of the tile is inside!
+    Result := TPA.MinAreaCircle().Contains(TPA.Mean());
+  end;
 end;
 
 {
@@ -51,72 +208,12 @@ begin
 end;
 
 {
-  Returns true if found a birdsnest on the screen
-}
-function TBot.FoundBirdsNest(out B: TBox): Boolean;
-var
-  ATPA: T2DPointArray;
-  TPA, Dots: TPointArray;
-  CompAng: Single;
-  TP: TPoint;
-  TileRect: TRectangle;
-begin
-  Dots := Minimap.GetDots(ERSMinimapDot.ITEM);
-  if SRL.CountColor(CTS1(255, 75), Box(Minimap.Center().Offset(-1, -1), 1, 1)) > 0 then
-    Dots += Minimap.Center();
-  if Length(Dots) <= 0 then
-    exit();
-
-  CompAng := Minimap.GetCompassAngle(False);
-
-  for TP in Dots do
-  begin
-    TileRect := Minimap.PointToMsRect(TP, CompAng);
-
-    B := TileRect.Expand(Round(TileRect.Radius() * Self.BirdNestColor.RadiusExpand)).Bounds();
-
-    if not MainScreen.IsVisible(B.Middle()) then
-      continue;
-
-    B.LimitTo(MainScreen.Bounds());
-
-    ATPA := Self.FindBirdNestColor(B);
-    TPA := ATPA.Biggest();
-
-    if TPA.Len() < Self.BirdNestColor.FilterSize then
-      continue;
-
-    B := TPA.Bounds();
-    Result := True;
-  end;
-end;
-
-{
-  Returns true if picked up the nest
-}
-function TBot.ClickBirdsNest(B: TBox): Boolean;
-begin
-  Mouse.Move(B);
-
-  Script.RareSmallWait();
-
-  if MainScreen.IsUpText(Self.NestUpText) and (Random() < 0.9) then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := Mouse.DidClick(True);
-  end
-  else if MainScreen.IsUpText('options') then
-    Result := ChooseOption.Select(Self.NestUpText);
-end;
-
-{
   Drops all the logs in our inventory
 
   Part of this is from Flight's AIOFisher
 }
 procedure TBot.DropItems();
 var
-  R: Extended;
   Pattern, LogSlots: TIntegerArray;
   CurLogs, i, S: Int32;
 begin
@@ -125,17 +222,11 @@ begin
   // query the fish
   Inventory.FindItems(Self.LogItems, LogSlots);
   Inventory.FindItems(Self.KnifedLogItems, LogSlots);
-  CurLogs := LogSlots.Len();
+  CurLogs := Length(LogSlots);
   Script.WriteMsg('DropItems: Log slots (before drop): ' + ToStr(LogSlots), True);
 
   // choose a random drop pattern
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // possibly not drop all logs, for antiban
   if SRL.Dice(20) then
@@ -143,6 +234,7 @@ begin
   if SRL.Dice(20) then
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
+  // only drop logs...
   for i := High(Pattern) downto Low(Pattern) do
     if LogSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
@@ -150,7 +242,7 @@ begin
   S := Mouse.Speed;
   Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
   // drop
-  if Self.ShiftDropping then
+  if Script.ShiftClicking then
     Inventory.ShiftDrop(Pattern)
   else
   begin
@@ -172,7 +264,7 @@ begin
   LogSlots.Clear();
   Inventory.FindItems(Self.LogItems, LogSlots);
   Inventory.FindItems(Self.KnifedLogItems, LogSlots);
-  Self.LogsDone += CurLogs - LogSlots.Len();
+  Self.LogsDone += CurLogs - Length(LogSlots);
   Script.WriteMsg('DropItems: Log slots (after drop): ' + ToStr(LogSlots), True);
 
   Script.SetStatus('Logs dropped!');
@@ -190,7 +282,7 @@ begin
   // init the stuff for waiting for the fire to be lit
   Script.SetStatus('Waiting for the fire to be lit...');
   FireTimeout.Init(Self.FireWaitTime);
-  while RSClient.IsLoggedIn() and not FireTimeout.IsFinished() do
+  while RSClient.IsLoggedIn() do
   begin
     // check for level ups
     if Chat.LeveledUp() then
@@ -217,8 +309,12 @@ begin
       exit(True);
     end;
 
+    if FireTimeout.IsFinished() then
+      break;
+
     Self.DoMainLoopStuff('', False);
-    Self.CheckUnderattack();
+    if Self.CheckUnderattack() then
+      exit();
   end;
 
   Script.WriteMsg('WaitFireCreated: Timed out...', True);
@@ -234,8 +330,8 @@ var
   InvCountTimeout: TCountdown;
 begin
   Script.SetStatus('Waiting for the log to place...');
-  InvCountTimeout.Init(2500 + Random(500));
-  while RSClient.IsLoggedIn() and not InvCountTimeout.IsFinished() do
+  InvCountTimeout.Init(SRL.SkewedRand(3000, 2500, 3500));
+  while RSClient.IsLoggedIn() do
   begin
     // do we have a smaller bag?
     // then the log must be on the ground
@@ -247,20 +343,27 @@ begin
 
     // check for the message if we cannot light a fire
     // so make sure the GAME chat is visible and chat is scrolled to the bottom
-    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
-    if S.IsInString(Self.NoLightText) then
+    if Chat.IsOpen() then
     begin
-      Script.WriteMsg('WaitPlaceLog: Cannot light a fire here text', True);
-      // Push the GAME chat so it doesnt false positive next time
-      Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
-      Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
-      Script.RareSmallWait();
-      ChooseOption.Select('Examine');
-      exit(False);
+      S := Chat.GetMessage(7, [CHAT_COLOR_BLACK]);
+      if S.IsInString(Self.NoLightText) then
+      begin
+        Script.WriteMsg('WaitPlaceLog: Cannot light a fire here text', True);
+        // Push the GAME chat so it doesnt false positive next time
+        Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
+        Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
+        Script.RareSmallWait();
+        ChooseOption.Select('Examine');
+        exit(False);
+      end;
     end;
 
+    if InvCountTimeout.IsFinished() then
+      break;
+
     Self.DoMainLoopStuff('', False);
-    Self.CheckUnderattack();
+    if Self.CheckUnderattack() then
+      exit();
   end;
 
   Script.WriteMsg('WaitPlaceLog: Timed out...', True);
@@ -274,7 +377,6 @@ var
   TinderBoxSlot, i, XP, CurLogs, CurSelectedItem, CurHoveredItem, Idx, NextLog,
     CurInvCount: Int32;
   LogSlots, Pattern: TIntegerArray;
-  R: Extended;
   //CurPos, Pos: TPoint;
 begin
   // make sure we have logs and a tinderbox
@@ -302,13 +404,7 @@ begin
   Script.WriteMsg('LightLogs: LogSlots: ' + ToStr(LogSlots), True);
 
   // randomize the pattern
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // randomly chop it off for extra antiban
   {if SRL.Dice(20) then
@@ -322,11 +418,11 @@ begin
       Pattern.Remove(Pattern[i]);
 
   // trim to the limit param
-  if Pattern.Len() > NumLights then
+  if Length(Pattern) > NumLights then
     SetLength(Pattern, NumLights);
 
   // start lighting the logs
-  CurLogs := LogSlots.Len();
+  CurLogs := Length(LogSlots);
   // CurPos := Self.RSW.GetMyPos();
 
   for Idx := Low(Pattern) to High(Pattern) do
@@ -450,7 +546,7 @@ begin
     LogSlots.Clear();
     Inventory.FindItems(Self.LogItems, LogSlots);
     // update how many logs we completed chopping
-    Self.LogsDone += CurLogs - LogSlots.Len();
+    Self.LogsDone += CurLogs - Length(LogSlots);
 
     Script.WriteMsg('LightLogs: LogSlots(after): ' + ToStr(LogSlots), True);
   end;
@@ -459,37 +555,11 @@ begin
 end;
 
 {
-  Tries to find a fire at the location
-}
-function TBot.FindFire(PlayerPos: TPoint; FirePos: TPoint; out B: TBox): Boolean;
-var
-  Tile: TRectangle;
-  TPA: TPointArray;
-begin
-  // get the tile location on the mainscreen, and check if its visible
-  Tile := Self.RSW.GetTileMSEx(PlayerPos, FirePos);
-
-  B := Tile.Expand(Round(Tile.Radius() * Self.FireColor.RadiusExpand)).Bounds();
-  if not MainScreen.IsVisible(B.Middle()) then
-    exit();
-
-  B.LimitTo(MainScreen.Bounds());
-
-  // find the tree's colors in this tile
-  TPA := Self.FindFireColor(B).Biggest();
-
-  if Length(TPA) > Self.FireColor.FilterSize then
-  begin
-    // make sure the middle of the tile is inside!
-    Result := TPA.MinAreaCircle().Contains(TPA.Mean());
-  end;
-end;
-
-{
   Goes to the fire tile.
   Returns true if we are on the tile exactly
+  And no fire is on the tile
 }
-function TBot.GoToFireStart(Force: Boolean = False): Boolean;
+function TBot.GoToFireStart(out FoundFire: Boolean; Force: Boolean = False): Boolean;
 var
   OurPos, FirePos: TPoint;
   Timeout: TCountdown;
@@ -504,17 +574,17 @@ begin
   if Self.FindFire(OurPos, FirePos, _) then
   begin
     Script.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
+    FoundFire := True;
     exit();
   end;
 
   // Go to the starting fire tile
-  if (OurPos.DistanceTo(FirePos) >= 32) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, FirePos).Mean()) or
-    Force then
+  if Force or (OurPos.DistanceTo(FirePos) >= 32) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, FirePos).Mean()) then
   begin
     Script.SetStatus('Walking to starting fire tile...');
     try
-      Walked := Self.RSW.WebWalk(FirePos + Point(-4, 0).Random(-3, 3, True), 0, BioRandomFixed());
+      Walked := Self.RSW.WalkBlind(FirePos + Point(-3, 0).Random(-3, 3, True), 0);
     except
     end;
 
@@ -529,6 +599,7 @@ begin
   if Self.FindFire(OurPos, FirePos, _) then
   begin
     Script.WriteMsg('GoToFireStart: Found a fire at the start tile.', True);
+    FoundFire := True;
     exit();
   end;
 
@@ -549,7 +620,7 @@ begin
         // try mainscreen, it maybe inaccurate
         DidMSClick := True;
 
-        TileRect := Self.RSW.GetTileMSEx(OurPos, FirePos);
+        TileRect := Self.FindFireTile(OurPos, FirePos);
 
         if not MainScreen.IsVisible(TileRect.Mean()) then
           continue;
@@ -560,7 +631,10 @@ begin
 
         // check if a fire exists here
         if MainScreen.IsUpText('options') and ChooseOption.HasOption(['Fire']) then
+        begin
+          FoundFire := True;
           break;
+        end;
 
         if MainScreen.IsUpText('Walk here') then
           Mouse.Click(MOUSE_LEFT)
@@ -582,14 +656,16 @@ end;
 {
   Start burning the logs to get rid of them
 }
-function TBot.TryFireItems(): Boolean;
+function TBot.TryFireItems(out FoundFire: Boolean): Boolean;
 begin
+  FoundFire := False;
+
   // make sure we have logs and a tinderbox
   if not Inventory.FindItem(Self.TinderItem) or not Inventory.FindItems(Self.LogItems) then
     exit(True);
 
   // try go to the fire
-  if not Self.GoToFireStart() then
+  if not Self.GoToFireStart(FoundFire) then
     exit();
 
   // pause antiban so tasks won't 100% run once we are done
@@ -609,10 +685,13 @@ end;
 procedure TBot.FireItems();
 var
   OurPos, FirePos: TPoint;
+  FoundFire: Boolean;
 begin
   while RSClient.IsLoggedIn() do
   begin
-    if not Self.TryFireItems() then
+    Self.TryFireItems(FoundFire);
+
+    if FoundFire then
     begin
       Script.SetStatus('Trying a different fire lane...');
       Script.WriteMsg('Trying a different fire lane...');
@@ -643,11 +722,6 @@ begin
       break;
   end;
 end;
-
-//////////////////////////////////
-
-/////////////
-// FLETCH FUNCS
 
 {
   Fletches the logs
@@ -688,7 +762,8 @@ begin
     Inventory.ClickSlot(LogSlot);
   end;
 
-  if not Make.IsOpen(2500 + Random(1000)) then
+  // wait for make to open
+  if not Make.IsOpen(SRL.SkewedRand(2500, 2000, 3000)) then
   begin
     Script.WriteMsg('Fletch: make didnt open', True);
     exit();
@@ -697,10 +772,10 @@ begin
   Wait(0, 1000, wdLeft);
 
   // option '2' is willow longbow
-  if not Make.Select(2, MAKE_QUANTITY_ALL, BioRandomCoinFlip()) then
+  if not Make.Select(Self.MakeOption, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard()) then
   begin
     Script.WriteMsg('Fletch: didnt select the option', True);
-    Exit();
+    exit();
   end;
 
   Self.AfterActionAntiBan(True);
@@ -749,4 +824,3 @@ begin
 end;
 
 {$ENDIF} // INEEDBOT_DVC_MISC
-

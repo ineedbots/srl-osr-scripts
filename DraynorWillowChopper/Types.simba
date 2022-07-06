@@ -17,14 +17,15 @@
 
 type
   TBot = record
-    WalkedTreeForward, Specing, ShiftDropping, Banking        : Boolean;
+    WalkedTreeForward, Specing, Banking                       : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
-      LastWalkedTree, FiredTile, FletchWaitTime               : Int32;
+      LastWalkedTree, FiredTile, FletchWaitTime, MakeOption   : Int32;
     RSW                                                       : TRSWalker;
     TinderItem, KnifeItem                                     : TRSItem;
     LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;
-    TreeOptions, NoLightText, NestUpText, BirdNestText        : TStringArray;
+    TreeOptions, NoLightText, NestUpText, BirdNestText,
+      TreeUptexts, NestOptions                                : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
     TreeWalkTile, BankWalkTile, CurrentChoppingTreeTile       : TPoint;
     FireStartTiles: array of record
@@ -32,12 +33,10 @@ type
       NumFires                                                : Int32;
     end;
     BankColor, TreeColor, FireColor, BirdNestColor            : TScriptColor;
+    ToBankPaths, ToTreesPaths                                 : T2DPointArray;
   end;
 
 var
   Bot: TBot;
 
 {$ENDIF} // INEEDBOT_DVC_TYPES
-
-
-

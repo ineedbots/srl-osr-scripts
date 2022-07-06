@@ -1014,7 +1014,7 @@ procedure WhileMouseMovesLookForUpText(Sender: PMouse; var X, Y: Double; var Don
 var
   UpText: String;
 begin
-  if Script.MouseLooksForUpText.Len() <= 0 then
+  if Length(Script.MouseLooksForUpText) <= 0 then
     exit();
 
   Sender := Sender;
