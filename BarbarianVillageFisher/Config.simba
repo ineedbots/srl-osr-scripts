@@ -1,0 +1,38 @@
+{
+  Barbarian Village Fisher
+  Author: ineedbot
+  Date: 7/6/2022
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_BVF_CONFIG}
+{$DEFINE INEEDBOT_BVF_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  MSWALKING      = False; // Use mainscreen walking?
+  DOREPORTS      = True;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  SHIFTDROP      = True;  // Shift drop?
+  COOKINGFISH    = False; // Cooking?
+  BANKFISH       = False; // Do banking?
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_BVF_CONFIG

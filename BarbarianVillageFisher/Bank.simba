@@ -1,0 +1,398 @@
+{
+  Barbarian Village Fisher
+  Author: ineedbot
+  Date: 7/6/2022
+
+  Bank
+}
+
+{$IFNDEF INEEDBOT_BVF_BANK}
+{$DEFINE INEEDBOT_BVF_BANK}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+{
+  Returns all the found banks
+}
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+end;
+
+{
+  Banks the items
+}
+procedure TBot.DoBanking();
+var
+  ToolSlots, FishSlots, Pattern: TIntegerArray;
+  CurFish, i: Int32;
+  R: Extended;
+  IsBank: Boolean;
+begin
+  if not Bank.IsOpen() and not DepositBox.IsOpen() then
+    exit();
+
+  IsBank := Bank.IsOpen();
+  Script.SetStatus('Depositing items...');
+  Script.AntiBan.AfterBankAntiBan(20);
+
+  // query the items in our inventory
+  if IsBank then
+  begin
+    Inventory.FindItem(Self.BaitItem, ToolSlots);
+    Inventory.FindItem(Self.RodItem, ToolSlots);
+    Inventory.FindItems(Self.BurntFish, FishSlots);
+    Inventory.FindItems(Self.CookedFish, FishSlots);
+    Inventory.FindItems(Self.RawFish, FishSlots);
+  end
+  else
+  begin
+    DepositBox.FindItems([Self.BaitItem], ToolSlots);
+    DepositBox.FindItems([Self.RodItem], ToolSlots);
+    DepositBox.FindItems(Self.BurntFish, FishSlots);
+    DepositBox.FindItems(Self.CookedFish, FishSlots);
+    DepositBox.FindItems(Self.RawFish, FishSlots);
+  end;
+
+  Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
+  Script.WriteMsg('DepositItems: FishSlots: ' + ToStr(FishSlots), True);
+  CurFish := FishSlots.Len();
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  // deposit our stuff
+  for i in Pattern do
+  begin
+    if IsBank then
+    begin
+      if Inventory.IsSlotUsed(i) then
+      begin
+        // TODO randomize using deposit buttons
+        Bank.DepositSlot([i, BANK_DEPOSIT_ALL], False);
+        Wait(750, 1250);
+      end;
+    end
+    else
+    begin
+      if DepositBox.IsSlotUsed(i) then
+      begin
+        // TODO randomize using deposit buttons
+        Mouse.Move(DepositBox.GetSlotBox(i));
+        ChooseOption.Select('Deposit-All');
+        Wait(750, 1250);
+      end;
+    end;
+  end;
+
+  // query how many logs we actually depositted
+  FishSlots.Clear();
+
+  if IsBank then
+  begin
+    Inventory.FindItems(Self.BurntFish, FishSlots);
+    Inventory.FindItems(Self.CookedFish, FishSlots);
+    Inventory.FindItems(Self.RawFish, FishSlots);
+  end
+  else
+  begin
+    DepositBox.FindItems(Self.BurntFish, FishSlots);
+    DepositBox.FindItems(Self.CookedFish, FishSlots);
+    DepositBox.FindItems(Self.RawFish, FishSlots);
+  end;
+
+  // update how many we did
+  Self.FishDone += CurFish - FishSlots.Len();
+
+  Script.WriteMsg('DepositItems: FishSlots (after bank): ' + ToStr(FishSlots), True);
+
+  Script.SetStatus('Fish depositted!');
+  Script.WriteMsg('Banked fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
+
+  Script.AntiBan.AfterBankAntiBan(30);
+
+  // randomly close the bank
+  if (Random() > 0.75) or Self.RSW.ScreenWalk then
+  begin
+    if IsBank then
+      Bank.Close()
+    else
+      DepositBox.Close();
+  end;
+end;
+
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
+function TBot.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+begin
+  // we only wait a finite amount of time...
+  BankOpenCountDown.Init(5000);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Bank.IsOpen(True) or DepositBox.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      exit(True);
+    end
+    // fix a bug where the uptext makes bank.isopen fail SRL TODO FIX
+    else if not Minimap.HasFlag() and not Minimap.IsPlayerMoving() and (MainScreen.GetUpText() <> '') then
+      Mouse.Move(Minimap.Bounds());
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end;
+
+    // enter pin if needed
+    if BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      BankOpenCountDown.Restart();
+    end;
+
+    if BankOpenCountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+
+  Script.WriteMsg('WaitBankOpen: Timed out...', True);
+  // bank didnt open... failed.
+end;
+
+{
+  Returns true if bank is visible, B is bounds of it
+}
+function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
+var
+  Tile: TRectangle;
+  TPA: TPointArray;
+begin
+  Tile := Self.RSW.GetTileMSEx(OurTile, BankTile, 4);
+  B := Tile.Expand(Round(Tile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+  B.LimitTo(MainScreen.Bounds());
+
+  // check the bank's colors within the tile
+  TPA := Self.FindBankColor(B).Biggest();
+
+  if Length(TPA) <= 0 then
+    B := Tile.Bounds()
+  else
+    B := TPA.Bounds();
+end;
+
+{
+  Returns true if we clicked any bank
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  BankTiles: TPointArray;
+  BankTile: TPoint;
+  B: TBox;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+  begin
+    Script.WriteMsg('ClickBank: Bank already opened', True);
+    WasClicked := True;
+    exit(True);
+  end;
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  BankTiles := Copy(Self.BankTiles);
+  BankTiles.Sort(OurTile);
+  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  Script.SetStatus('Finding bank...');
+
+  // search for every bank
+  for BankTile in BankTiles do
+  begin
+    // try see if we can find this bank
+    if not Self.FindBank(OurTile, BankTile, B) then
+      continue;
+
+    // apply velocity
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+        continue;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    // hover over the banktile and see if it is actually a bank
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
+
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    begin
+      Script.SetStatus('Bad uptext for bank');
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    Result := True;
+
+    Script.SetStatus('Confirmed bank! Opening bank...');
+
+    // open the bank
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    break;
+  end;
+end;
+
+{
+  While we walk to the bank
+}
+procedure WalkingToBank(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickBank(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the bank while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+
+  if Bank.IsOpen() then
+    Walker^.Enabled := False;
+end;
+
+{
+  Walks to the bank,
+  Returns true if we clicked the bank while walking
+}
+function TBot.GoToBank(Force: Boolean = False): Boolean;
+var
+  OurPos: TPoint;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to bank spot....', True);
+  OurPos := Self.RSW.GetMyPos();
+
+  if (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) or
+    Force then
+  begin
+    Script.SetStatus('Going to bank spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    Self.RSW.OnWalkingEvent := @WalkingToBank;
+    try
+      Walked := Self.RSW.WebWalk(Self.BankWalkTile.Random(-8, 8, True), 0, BioRandomFixed());
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to bank spot');
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+end;
+
+{
+  Does banking
+}
+procedure TBot.DoBank();
+var
+  WasClicked: Boolean;
+begin
+  if (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank()
+    or (Self.ClickBank(WasClicked) and WasClicked)
+    or Self.GoToBank(True) then
+  begin
+    if Self.WaitBankOpen() then
+    begin
+      Self.DoBanking();
+      Self.UpdateWalkedFish(True);
+    end;
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_BVF_BANK

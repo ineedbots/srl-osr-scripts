@@ -1,0 +1,253 @@
+{
+  Barbarian Village Fisher
+  Author: ineedbot
+  Date: 7/6/2022
+
+  Utils
+}
+
+{$IFNDEF INEEDBOT_BVF_UTILS}
+{$DEFINE INEEDBOT_BVF_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{
+  Updates which fish tile we are at
+}
+procedure TBot.UpdateWalkedFish(Here: Boolean = True);
+var
+  CFishTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CFishTiles := Copy(Self.FishTiles);
+    CFishTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedFish := Self.WalkedFish;
+    Self.WalkedFish := Self.FishTiles.Find(CFishTiles[0]);
+    if Self.LastWalkedFish <> Self.WalkedFish then
+      Self.WalkedFishForward := Self.LastWalkedFish < Self.WalkedFish;
+  end
+  else
+  begin
+    if (Self.FishTiles.Len() > 1) then
+    begin
+      if Self.WalkedFishForward then
+      begin
+        Self.WalkedFish += 1;
+        if Self.WalkedFish > High(Self.FishTiles) then
+        begin
+          Self.WalkedFish -= 2;
+          Self.WalkedFishForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedFish -= 1;
+        if Self.WalkedFish < Low(Self.FishTiles) then
+        begin
+          Self.WalkedFish += 2;
+          Self.WalkedFishForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.FISHING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.COOKING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  // check if we gained xp, failsafe
+  Script.CheckActivity();
+
+  if MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  if (Gametabs.GetCurrentTab() = ERSGametab.INVENTORY) and not Inventory.FindItem(Self.BaitItem) then
+  begin
+    Script.Stop('Ran out of bait.');
+  end;
+
+  // TODO detect clues
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban();
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  OurTile, TP: TPoint;
+  CompAng: Double;
+  TileRect: TRectangle;
+  B: TBox;
+  Text: String;
+  RF, CF, BF, F, R: TIntegerArray;
+  i: Int32;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  {ATPA := Self.FindFishSpotColor(MainScreen.Bounds());
+  RSClient.Image.DrawATPA(ATPA);
+
+  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+  RSClient.Image.DrawBox(B, clBlue);
+  ATPA := Self.FindFireColor(B);
+  RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+  RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.FireTile, CompAng), 4, clOrange);
+  RSClient.Image.DrawRect(TileRect, clGreen);
+
+  for TP in Self.FishTiles do
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+
+  for TP in Self.BankTiles do
+  begin
+    TileRect := Self.RSW.GetTileMSEx(OurTile, TP, 4);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+    RSClient.Image.DrawBox(B, clBlue);
+    ATPA := Self.FindBankColor(B);
+    RSClient.Image.DrawTPA(ATPA.Biggest(), clOrange);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clGreen);
+    RSClient.Image.DrawRect(TileRect, clGreen);
+  end;
+
+  Text := 'Pos: ' + ToStr(OurTile) + LineEnding
+    + 'Fishing: ' + ToStr(Self.IsFishing());
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.RawFish, RF);
+    Inventory.FindItems(Self.CookedFish, CF);
+    Inventory.FindItems(Self.BurntFish, BF);
+    Inventory.FindItem(Self.BaitItem, F);
+    Inventory.FindItem(Self.RodItem, R);
+
+    for i := 0 to 27 do
+    begin
+      if RF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if CF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if BF.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+      else if F.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+      else if R.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray);
+    end;
+  end; }
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Banking: ' + ToStr(Self.Banking) + LineEnding;
+  WriteOut += 'Cooking: ' + ToStr(Self.Cooking) + LineEnding;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Fished: ' + IntToStr(Self.FishDone) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  Wait(Script.MainLoopWaitAmount(False));
+end;
+
+{$ENDIF} // INEEDBOT_BVF_UTILS

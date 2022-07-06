@@ -1,0 +1,35 @@
+{
+  Barbarian Village Fisher
+  Author: ineedbot
+  Date: 7/6/2022
+
+  Types
+}
+
+{$IFNDEF INEEDBOT_BVF_TYPES}
+{$DEFINE INEEDBOT_BVF_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  TBot = record
+    WalkedFishForward, ShiftDropping, Banking, Cooking        : Boolean;
+    FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
+    LastWalkedFish, FishDone                                  : Int32;
+    FishSpotUpText, FireUpText                                : TStringArray;
+    RSW                                                       : TRSWalker;
+    RawFish, BurntFish, CookedFish                            : TRSItemArray;
+    BaitItem, RodItem, CurrentCookingItem                     : TRSItem;
+    FishSpotColor, RodColor, FireColor, BankColor             : TScriptColor;
+    FireTile, BankWalkTile, FishWalkTile                      : TPoint;
+    BankTiles, FishTiles                                      : TPointArray;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_BVF_TYPES
