@@ -126,7 +126,7 @@ var
 begin
   if Chat.IsOpen() then
   begin
-    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]);
+    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, CHAT_COLOR_LIGHT_RED]);
 
     if S.IsInString(Self.BirdNestText) then
     begin
@@ -141,11 +141,10 @@ begin
           Minimap.WaitFlag();
           Minimap.WaitPlayerMoving();
           Wait(750, 1500, wdLeft);
-
         end;
-      end;
 
-      Script.ExamineRandomItem();
+        Script.ExamineRandomItem();
+      end;
     end;
   end;
 end;
