@@ -122,20 +122,30 @@ end;
 procedure TBot.CheckBirdnest();
 var
   B: TBox;
+  S: String;
 begin
-  if Chat.IsOpen() and Chat.FindMessage(Self.BirdNestText, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]) then
-  begin      
-    // TODO check cluescroll
-    if Self.FoundBirdsNest(B) then
+  if Chat.IsOpen() then
+  begin
+    S := Chat.GetMessage(7, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, $0000FF]);
+
+    if S.IsInString(Self.BirdNestText) then
     begin
-      if Inventory.IsFull() then
-        Self.DropAThing();
-      Script.WriteMsg('Picking up bird nest');
-      if Self.ClickBirdsNest(B) then
+      // TODO check cluescroll
+      if Self.FoundBirdsNest(B) then
       begin
-        Minimap.WaitFlag();
-        Minimap.WaitPlayerMoving();
+        if Inventory.IsFull() then
+          Self.DropAThing();
+        Script.WriteMsg('Picking up bird nest');
+        if Self.ClickBirdsNest(B) then
+        begin
+          Minimap.WaitFlag();
+          Minimap.WaitPlayerMoving();
+          Wait(750, 1500, wdLeft);
+
+        end;
       end;
+
+      Script.ExamineRandomItem();
     end;
   end;
 end;
@@ -326,7 +336,6 @@ end;
 function TBot.WaitPlaceLog(InvCount: Int32): Boolean;
 var
   S: String;
-  TinderBoxSlot: Int32;
   InvCountTimeout: TCountdown;
 begin
   Script.SetStatus('Waiting for the log to place...');
@@ -350,10 +359,7 @@ begin
       begin
         Script.WriteMsg('WaitPlaceLog: Cannot light a fire here text', True);
         // Push the GAME chat so it doesnt false positive next time
-        Inventory.FindItem(Self.TinderItem, TinderBoxSlot);
-        Mouse.Move(Inventory.GetSlotBox(TinderBoxSlot));
-        Script.RareSmallWait();
-        ChooseOption.Select('Examine');
+        Script.ExamineRandomItem();
         exit(False);
       end;
     end;

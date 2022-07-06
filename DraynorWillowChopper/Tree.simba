@@ -102,7 +102,7 @@ begin
 
       if not MainScreen.IsVisible(B.Middle()) then
       begin
-        Script.WriteMsg('ClickBank: Tile velocity no visible', True);
+        Script.WriteMsg('ClickTree: Tile velocity no visible', True);
         break;
       end;
 
@@ -253,6 +253,33 @@ begin
 end;
 
 {
+  Checks for runelite plugin
+  Returns true if using runelite plugin
+  Sets Chopping to true or false.
+}
+function TBot.CheckRuneliteWoodcuttingPlugin(out Chopping: Boolean): Boolean;
+var
+  B: TBox;
+  FColor: TOCRColorRule;
+begin
+  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+
+  FColor := TOCRColorRule.Create([65280, 10]);
+  if OCR.LocateText(B, 'Woodcutting', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Chopping := True;
+  end;
+
+  FColor := TOCRColorRule.Create([255, 10]);
+  if OCR.LocateText(B, 'NOT woodcutting', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Chopping := False;
+  end;
+end;
+
+{
   Waits while we are chopping the tree
 }
 procedure TBot.WhileChopping(TreeTile: TPoint);
@@ -261,6 +288,7 @@ var
   OurPos: TPoint;
   _: TBox;
   InvCount: Int32;
+  Chopping: Boolean;
 begin
   // wait for us to stop moving before we start monitoring the tree tile.
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
@@ -275,30 +303,44 @@ begin
   TimeoutCounter.Init(Self.ChopWaitTime);
   while RSClient.IsLoggedIn() do
   begin
-    if not Self.FindTree(OurPos, TreeTile, _) then
+    if Self.CheckRuneliteWoodcuttingPlugin(Chopping) then
     begin
-      Script.WriteMsg('WhileChopping: Tree not found', True);
-      break;
+      if Chopping then
+        Script.WriteMsg('WhileChopping: Runelite says we are chopping!', True)
+      else
+      begin
+        Script.WriteMsg('WhileChopping: Runelite says we are not chopping', True);
+        break;
+      end;
+    end
+    else
+    begin
+      if not Self.FindTree(OurPos, TreeTile, _) then
+      begin
+        Script.WriteMsg('WhileChopping: Tree not found', True);
+        break;
+      end;
+
+      if Inventory.IsFull() then
+      begin
+        Script.WriteMsg('WhileChopping: Inventory full', True);
+        break;
+      end;
+
+      if Inventory.Count() > InvCount then
+      begin
+        Script.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
+        TimeoutCounter.Restart();
+      end;
+      InvCount := Inventory.Count();
+
+      if TimeoutCounter.IsFinished() then
+      begin
+        Script.WriteMsg('WhileChopping: Timed out', True);
+        break;
+      end;
     end;
 
-    if Inventory.IsFull() then
-    begin
-      Script.WriteMsg('WhileChopping: Inventory full', True);
-      break;
-    end;
-
-    if Inventory.Count() > InvCount then
-    begin
-      Script.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
-      TimeoutCounter.Restart();
-    end;
-    InvCount := Inventory.Count();
-
-    if TimeoutCounter.IsFinished() then
-    begin
-      Script.WriteMsg('WhileChopping: Timed out', True);
-      break;
-    end;
     Self.DoMainLoopStuff('Chopping tree...');
   end;
 

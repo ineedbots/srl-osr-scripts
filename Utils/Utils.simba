@@ -1026,5 +1026,24 @@ begin
     Done := True;
 end;
 
+{
+  examines a random item in our inv
+}
+function TScript.ExamineRandomItem(): Boolean;
+var
+  i: Int32;
+begin
+  while RSClient.IsLoggedIn() and (Inventory.Count() > 0) do
+  begin
+    i := Random(Inventory.LOW_SLOT, Inventory.HIGH_SLOT);
+
+    if not Inventory.IsSlotUsed(i) then
+      continue;
+
+    Result := Inventory.ClickSlot(i, 'Examine');
+    break;
+  end;
+end;
+
 {$ENDIF} // INEEDBOT_UTILS
 
