@@ -43,7 +43,7 @@ end;
 function TBot.FindDispenserColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.DispenserColor.RSObject, Area);
-  Result.FilterSize(Self.DispenserColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.DispenserColor.FilterSize), __GT__);
 end;
 
 {
@@ -52,7 +52,7 @@ end;
 function TBot.FindHotDispenserColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.HotDispenserColor.RSObject, Area);
-  Result.FilterSize(Self.HotDispenserColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.HotDispenserColor.FilterSize), __GT__);
 end;
 
 {
@@ -61,7 +61,7 @@ end;
 function TBot.FindCoolDispenserColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.CoolDispenserColor.RSObject, Area);
-  Result.FilterSize(Self.CoolDispenserColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.CoolDispenserColor.FilterSize), __GT__);
 end;
 
 {

@@ -42,7 +42,7 @@ end;
 function TBot.FindCofferColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.CofferColor.RSObject, Area);
-  Result.FilterSize(Self.CofferColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.CofferColor.FilterSize), __GT__);
 end;
 
 {

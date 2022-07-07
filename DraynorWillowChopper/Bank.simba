@@ -42,7 +42,7 @@ end;
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
-  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.BankColor.FilterSize), __GT__);
 end;
 
 {

@@ -43,7 +43,7 @@ end;
 function TBot.FindConveyorColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.ConveyorBeltColor.RSObject, Area);
-  Result.FilterSize(Self.ConveyorBeltColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.ConveyorBeltColor.FilterSize), __GT__);
 end;
 
 {

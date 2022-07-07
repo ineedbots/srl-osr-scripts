@@ -40,7 +40,7 @@ end;
 function TBot.FindMeltingPotColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.MeltingPotColor.RSObject, Area);
-  Result.FilterSize(Self.MeltingPotColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.MeltingPotColor.FilterSize), __GT__);
 end;
 
 {

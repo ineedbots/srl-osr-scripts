@@ -40,7 +40,7 @@ end;
 function TBot.FindBirdNestColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.BirdNestColor.RSObject, Area);
-  Result.FilterSize(Self.BirdNestColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.BirdNestColor.FilterSize), __GT__);
 end;
 
 {
@@ -171,7 +171,7 @@ end;
 function TBot.FindFireColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
-  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.FireColor.FilterSize), __GT__);
 end;
 
 {

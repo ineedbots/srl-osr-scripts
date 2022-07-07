@@ -27,7 +27,7 @@
 function TBot.FindForemanColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.ForemanColor.RSObject, Area);
-  Result.FilterSize(Self.ForemanColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.ForemanColor.FilterSize), __GT__);
 end;
 
 {

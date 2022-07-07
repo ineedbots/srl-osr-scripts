@@ -41,7 +41,7 @@ end;
 function TBot.FindLitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.LitBrazColor.RSObject, Area);
-  Result.FilterSize(Self.LitBrazColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.LitBrazColor.FilterSize), __GT__);
 end;
 
 {
@@ -50,7 +50,7 @@ end;
 function TBot.FindUnlitBrazierColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.UnlitBrazColor.RSObject, Area);
-  Result.FilterSize(Self.UnlitBrazColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.UnlitBrazColor.FilterSize), __GT__);
 end;
 
 {

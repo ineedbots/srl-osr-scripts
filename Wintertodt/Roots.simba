@@ -44,7 +44,7 @@ var
   i: Int32;
 begin
   ATPA := MainScreen.FindObject(Self.RootsColor.RSObject, Area);
-  ATPA.FilterSize(Self.RootsColor.FilterSize, __GT__);
+  ATPA.FilterSize(MainScreen.ConvertDistance(Self.RootsColor.FilterSize), __GT__);
 
   for TPA in ATPA do
   begin

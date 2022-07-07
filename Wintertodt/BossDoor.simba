@@ -40,7 +40,7 @@ end;
 function TBot.FindEntraceColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.EntranceColor.RSObject, Area);
-  Result.FilterSize(Self.EntranceColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.EntranceColor.FilterSize), __GT__);
 end;
 
 {
@@ -310,7 +310,7 @@ end;
 function TBot.FindExitColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.ExitColor.RSObject, Area);
-  Result.FilterSize(Self.ExitColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.ExitColor.FilterSize), __GT__);
 end;
 
 {

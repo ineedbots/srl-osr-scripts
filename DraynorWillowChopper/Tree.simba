@@ -40,7 +40,7 @@ end;
 function TBot.FindTreeColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.TreeColor.RSObject, Area);
-  Result.FilterSize(Self.TreeColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.TreeColor.FilterSize), __GT__);
 end;
 
 {

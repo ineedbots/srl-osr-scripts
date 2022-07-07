@@ -42,7 +42,7 @@ end;
 function TBot.FindSinkColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.SinkColor.RSObject, Area);
-  Result.FilterSize(Self.SinkColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.SinkColor.FilterSize), __GT__);
 end;
 
 {
