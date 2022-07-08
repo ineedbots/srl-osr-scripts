@@ -16,6 +16,7 @@
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
+{$include_once Utils.simba}
 
 {
   Finds the color
@@ -23,7 +24,34 @@
 function TBot.FindRodColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.RodColor.RSObject, Area);
-  Result.FilterSize(Self.RodColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.RodColor.FilterSize), __GT__);
+end;
+
+{
+  Finds the color
+}
+function TBot.FindFishSpotColor(Area: TBox; SearchTime: Int32=0; Interval: Int32=-1): T2DPointArray;
+var
+  T: TCountDown;
+  TPA: TPointArray;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  T.Init(SearchTime);
+  while not T.IsFinished() or (SearchTime = 0) do
+  begin
+    Result += MainScreen.FindObject(Self.FishSpotColor.RSObject, Area);
+
+    if SearchTime = 0 then
+      break;
+
+    Wait(Interval);
+  end;
+
+  TPA := Result.Merge();
+  Result := TPA.Cluster(MainScreen.ConvertDistance(Self.FishSpotColor.RSObject.ClusterDistance));
+  Result.FilterSize(MainScreen.ConvertDistance(Self.FishSpotColor.FilterSize), __GT__);
 end;
 
 {
@@ -64,13 +92,16 @@ begin
   end;
 
   if not FishInAdjTile then
+  begin
+    Script.WriteMsg('No fish spots found in adj tiles', True);
     exit(False);
+  end;
 
   if Script.Debug and Script.Drawing then
     RSClient.Image.DrawRect(Rect, clOrange);
 
   // check if there is a rod over the fish tile
-  B := Rect.Expand(MainScreen.ConvertDistance(5)).Bounds();
+  B := Rect.Expand(MainScreen.ConvertDistance(Self.RodColor.NoColorTileExpand)).Bounds();
 
   if Script.Debug and Script.Drawing then
     RSClient.Image.DrawBox(B, clGreen);
@@ -78,91 +109,15 @@ begin
   ATPA := Self.FindRodColor(B);
 
   if Length(ATPA) <= 0 then
+  begin
+    Script.WriteMsg('No rod found over the fish spot tile', True);
     exit(False);
+  end;
 
   if Script.Debug and Script.Drawing then
     RSClient.Image.DrawATPA(ATPA);
 
   Result := True;
-end;
-
-{
-  Finds the color
-}
-function TBot.FindFishSpotColor(Area: TBox; SearchTime: Int32=0; Interval: Int32=-1): T2DPointArray;
-var
-  T: TCountDown;
-  TPA: TPointArray;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 1500);
-
-  T.Init(SearchTime);
-  while not T.IsFinished() or (SearchTime = 0) do
-  begin
-    Result += MainScreen.FindObject(Self.FishSpotColor.RSObject, Area);
-
-    if SearchTime = 0 then
-      break;
-
-    Wait(Interval);
-  end;
-
-  TPA := Result.Merge();
-  Result := TPA.Cluster(Self.FishSpotColor.RSObject.ClusterDistance);
-  Result.FilterSize(Self.FishSpotColor.FilterSize, __GT__);
-end;
-
-{
-  Waits while fishing
-}
-procedure TBot.WhileFishing();
-var
-  CountDown: TCountDown;
-  InvCount, IC: Int32;
-begin
-  while RSClient.IsLoggedIn() and Minimap.HasFlag(1000) and Minimap.IsPlayerMoving() do
-    Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
-
-  // update WalkedFish
-  Self.UpdateWalkedFish(True);
-
-  Wait(1000, 2000);
-
-  Script.WriteMsg('We are fishing...', True);
-  InvCount := Inventory.Count();
-  CountDown.Init(Self.FishWaitTime);
-
-  while RSClient.IsLoggedIn() do
-  begin
-    if not Self.IsFishing(Self.FishSpotColorWait) then
-    begin
-      Script.WriteMsg('We are not fishing anymore...', True);
-      break;
-    end;
-
-    IC := Inventory.Count();
-    if IC >= 28 then
-    begin
-      Script.WriteMsg('Inv is full, we stopped fishing', True);
-      break;
-    end;
-
-    if IC <> InvCount then
-    begin
-      Script.WriteMsg('Our inventory changed, restart the timeout timer', True);
-      CountDown.Restart();
-    end;
-    InvCount := IC;
-
-    if CountDown.IsFinished() then
-    begin
-      Script.WriteMsg('No fish caught in time, we are not fishing anymore', True);
-      break;
-    end;
-
-    Self.DoMainLoopStuff('Fishing...', True);
-  end;
 end;
 
 {
@@ -184,7 +139,7 @@ begin
     exit(False);
   end;
 
-  Script.WriteMsg('Fish spot color found, checking uptext', True);
+  Script.WriteMsg('Fish spot color found, checking uptexts', True);
   FishSpots.SortByMiddle(SortByPnt);
 
   // check each of the spots for the uptext, then click
@@ -192,13 +147,19 @@ begin
   begin
     B := TPA.Bounds();
 
+    if not MainScreen.IsVisible(B.Middle()) then
+      continue;
+
     // check if we need apply velocity
     if Velocity <> Point(0, 0) then
     begin
       B := B.Offset(Script.GetOffsetForVel(B, Velocity));
 
       if not MainScreen.IsVisible(B.Middle()) then
+      begin
+        Script.WriteMsg('ClickFish: Tile velocity no visible', True);
         continue;
+      end;
 
       B.LimitTo(MainScreen.Bounds());
 
@@ -217,6 +178,7 @@ begin
     if not MainScreen.IsUpText(Self.FishSpotUpText, Random(100, 250)) then
     begin
       Script.WriteMsg('Bad uptext for fish spot', True);
+
       if Velocity = Point(0, 0) then
         continue // things are moving, we took up time by moving mouse, colors are innaccurate
       else
@@ -227,12 +189,22 @@ begin
     Result := True;
 
     // uptext found, click it!
-    if Random() < 0.1 then
-      WasClicked := ChooseOption.Select(Self.FishSpotUpText)
+    if not MainScreen.IsUpText(Self.FishSpotOptions, Random(100, 250)) or (Random() < 0.10) then
+      WasClicked := ChooseOption.Select(Self.FishSpotOptions)
     else
     begin
       Mouse.Click(MOUSE_LEFT);
       WasClicked := Mouse.DidClick(True);
+    end;
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickFish: Didnt click', True);
+
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
     end;
 
     break;
@@ -272,17 +244,18 @@ begin
   end;
 
   // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and Bank.IsOpen() then
-    Bank.Close();
+  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
   Walks to the fish,
   Returns true if we clicked the fishing spot while walking
 }
-function TBot.GoToFish(Force: Boolean = False): Boolean;
+function TBot.GoToFish(Force: Boolean = False; Click: Boolean = True): Boolean;
 var
   Where, OurPos: TPoint;
+  PathIdx: Int32;
   Walked: Boolean;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
@@ -292,16 +265,29 @@ begin
   if Force then
     Where := Self.FishWalkTile;
 
-  if (OurPos.DistanceTo(Where) > 30) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) or
-    Force then
+  if Force or (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
   begin
     Script.SetStatus('Going to fish spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
-    Self.RSW.OnWalkingEvent := @WalkingToFish;
+    if Click then
+      Self.RSW.OnWalkingEvent := @WalkingToFish;
     try
-      Walked := Self.RSW.WebWalk(Where.Random(-8, 8, True), 0, BioRandomFixed());
+      Walked := True;
+      Self.RSW.Enabled := True;
+
+      if (Length(Self.ToFishPaths) > 0) and Force then
+      begin
+        PathIdx := SRL.TruncatedGauss(Low(Self.ToFishPaths), High(Self.ToFishPaths));
+
+        if OurPos.DistanceTo(Self.ToFishPaths[PathIdx][Low(Self.ToFishPaths[PathIdx])]) <
+          OurPos.DistanceTo(Self.ToFishPaths[PathIdx][High(Self.ToFishPaths[PathIdx])]) then
+          Walked := Self.RSW.WalkPath(Self.ToFishPaths[PathIdx], 8);
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -309,9 +295,7 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to fish spot');
-
-      Bank.Close();
-
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
       exit();
     end;
 
@@ -326,6 +310,104 @@ begin
 end;
 
 {
+  Checks for runelite plugin
+  Returns true if using runelite plugin
+  Sets Fishing to true or false.
+}
+function TBot.CheckRuneliteFishingPlugin(out Fishing: Boolean): Boolean;
+var
+  B: TBox;
+  FColor: TOCRColorRule;
+begin
+  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+
+  FColor := TOCRColorRule.Create([65280, 10]);
+  if OCR.LocateText(B, 'Fishing', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Fishing := True;
+  end;
+
+  FColor := TOCRColorRule.Create([255, 10]);
+  if OCR.LocateText(B, 'NOT fishing', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Fishing := False;
+  end;
+end;
+
+{
+  Waits while fishing
+}
+procedure TBot.WhileFishing();
+var
+  CountDown: TCountDown;
+  InvCount, IC: Int32;
+  Fishing: Boolean;
+begin
+  // wait to stop moving
+  while RSClient.IsLoggedIn() and Minimap.HasFlag(1000) and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to the clicked fishing spot', True);
+
+  // update WalkedFish
+  Self.UpdateWalkedFish(True);
+
+  // it takes a bit of time for the rod to show
+  Wait(1000, 2000);
+
+  Script.WriteMsg('We are fishing...', True);
+  InvCount := Inventory.Count();
+  CountDown.Init(Self.FishWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.CheckRuneliteFishingPlugin(Fishing) then
+    begin
+      Script.WriteMsg('Detected runelite plugin!', True);
+      if not Fishing then
+      begin    
+        Script.WriteMsg('Runelite told us we are not fishing anymore!', True);
+        break;
+      end;
+    end
+    else
+    begin
+      // make sure we are fishing
+      if not Self.IsFishing(Self.FishSpotColorWait) then
+      begin
+        Script.WriteMsg('We are not fishing anymore...', True);
+        break;
+      end;
+
+      IC := Inventory.Count();
+      // check if we are full
+      if IC >= (Inventory.HIGH_SLOT + 1) then
+      begin
+        Script.WriteMsg('Inv is full, we stopped fishing', True);
+        break;
+      end;
+
+      // new inv count, we caught something
+      if IC <> InvCount then
+      begin
+        Script.WriteMsg('Our inventory changed, restart the timeout timer', True);
+        CountDown.Restart();
+      end;
+      InvCount := IC;
+
+      // watch for timeout
+      if CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('No fish caught in time, we are not fishing anymore', True);
+        break;
+      end;
+    end;
+
+    Self.DoMainLoopStuff('Fishing...', True);
+  end;
+end;
+
+{
   Returns true if clicked the fish
 }
 function TBot.TryClickFish(): Boolean;
@@ -333,8 +415,9 @@ var
   WasClicked: Boolean;
   i: Int32;
 begin
-  for i := 1 to 3 do
+  for i := 0 to 2 do
   begin
+    // make sure we stop moving before trying to click again
     Minimap.WaitPlayerMoving();
 
     if Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked then

@@ -17,16 +17,18 @@
 
 type
   TBot = record
-    WalkedFishForward, ShiftDropping, Banking, Cooking        : Boolean;
+    WalkedFishForward, Banking, Cooking                       : Boolean;
     FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
-    LastWalkedFish, FishDone                                  : Int32;
-    FishSpotUpText, FireUpText                                : TStringArray;
+      LastWalkedFish, FishDone                                : Int32;
+    FishSpotUpText, FireUpText, FishSpotOptions, FireOptions,
+      FireAltUpTexts, FireAltOptions                          : TStringArray;
     RSW                                                       : TRSWalker;
     RawFish, BurntFish, CookedFish                            : TRSItemArray;
     BaitItem, RodItem, CurrentCookingItem                     : TRSItem;
     FishSpotColor, RodColor, FireColor, BankColor             : TScriptColor;
     FireTile, BankWalkTile, FishWalkTile                      : TPoint;
     BankTiles, FishTiles                                      : TPointArray;
+    ToFishPaths, ToBankPaths                                  : T2DPointArray;
   end;
 
 var

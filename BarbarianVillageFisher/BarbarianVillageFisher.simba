@@ -38,6 +38,7 @@ begin
 
       Self.CookFish(RSItem);
     end;
+
     exit();
   end;
 
@@ -123,11 +124,14 @@ begin
   Script.Debug := DEBUGMODE;
   Script.Drawing := DRAWING;
   Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
   Script.Running := True;
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
-  Script.Activity.Countdown.Init(180000);
+  Script.Activity.Countdown.Init(180000);  
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
 
   Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
 
@@ -162,22 +166,26 @@ begin
     Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
     Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
-  end;
-
-  Self.ShiftDropping := SHIFTDROP;
-  Self.Cooking := COOKINGFISH;
-  Self.Banking := BANKFISH;
+  end;           
 
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
+
+  Self.Cooking := COOKINGFISH;
+  Self.Banking := BANKFISH;
+
   Self.FishSpotColorWait := 100;
   Self.FishWaitTime := 15000;
   Self.CookWaitTime := 5000;
   Self.FishSpotUpText := ['Lure Rod Fishing spot', 'Lure'];
+  Self.FishSpotOptions := ['Lure Rod Fishing spot', 'Lure'];
   Self.FireUpText := ['Use Raw salmon -> Fire', 'Use Raw trout -> Fire', 'Fire'];
+  Self.FireOptions := ['Use Raw salmon -> Fire', 'Use Raw trout -> Fire', 'Fire'];
+  Self.FireAltUpTexts := ['Cook', 'Cook Fire'];
+  Self.FireAltOptions := ['Cook', 'Cook Fire'];
 
-  Self.FireTile := [4229, 2719];
-  Self.BankWalkTile := WorldWeb.LOCATION_EDGEVILLE_BANK;
+  Self.FireTile := [4233, 2719];
+  Self.BankWalkTile := [4183, 2484];
 
   Self.BankTiles := [[4190, 2484], [4190, 2492]];
   Self.FishTiles := [[4248,2718], [4221,2751]];
@@ -188,6 +196,20 @@ begin
   Self.BurntFish := [343];
   Self.BaitItem := 'Feather';
   Self.RodItem := 'Fly fishing rod';
+
+  Self.ToFishPaths := [
+    [[4181, 2485], [4161, 2490], [4150, 2499], [4133, 2507], [4128, 2520], [4128, 2541], [4126, 2562], [4126, 2577], [4136, 2585], [4145, 2588], [4156, 2589], [4156, 2605], [4158, 2616], [4166, 2629], [4167, 2644], [4172, 2656], [4177, 2668], [4184, 2680], [4194, 2680], [4198, 2689], [4206, 2694], [4220, 2704], [4224, 2715]],
+    [[4181, 2486], [4168, 2487], [4153, 2496], [4138, 2508], [4128, 2521], [4128, 2554], [4127, 2576], [4145, 2587], [4154, 2591], [4156, 2612], [4151, 2625], [4163, 2638], [4170, 2654], [4173, 2669], [4180, 2691], [4190, 2691], [4207, 2694], [4220, 2704], [4228, 2719]],
+    [[4184, 2487], [4163, 2491], [4167, 2504], [4191, 2509], [4203, 2515], [4204, 2533], [4204, 2549], [4208, 2570], [4203, 2587], [4185, 2587], [4169, 2587], [4157, 2588], [4156, 2600], [4156, 2612], [4166, 2629], [4167, 2640], [4167, 2654], [4174, 2676], [4179, 2689], [4196, 2695], [4220, 2706], [4228, 2715]],
+    [[4182, 2485], [4169, 2489], [4148, 2483], [4144, 2505], [4123, 2508], [4128, 2538], [4127, 2570], [4137, 2586], [4156, 2591], [4157, 2608], [4149, 2624], [4152, 2639], [4156, 2652], [4162, 2679], [4182, 2699], [4205, 2706], [4227, 2716]]
+  ];
+
+  Self.ToBankPaths := [
+    [[4224, 2715], [4220, 2704], [4206, 2694], [4198, 2689], [4194, 2680], [4184, 2680], [4177, 2668], [4172, 2656], [4167, 2644], [4166, 2629], [4158, 2616], [4156, 2605], [4156, 2589], [4145, 2588], [4136, 2585], [4126, 2577], [4126, 2562], [4128, 2541], [4128, 2520], [4133, 2507], [4150, 2499], [4161, 2490], [4181, 2485]],
+    [[4228, 2719], [4220, 2704], [4207, 2694], [4190, 2691], [4180, 2691], [4173, 2669], [4170, 2654], [4163, 2638], [4151, 2625], [4156, 2612], [4154, 2591], [4145, 2587], [4127, 2576], [4128, 2554], [4128, 2521], [4138, 2508], [4153, 2496], [4168, 2487], [4181, 2486]],
+    [[4228, 2715], [4220, 2706], [4196, 2695], [4179, 2689], [4174, 2676], [4167, 2654], [4167, 2640], [4166, 2629], [4156, 2612], [4156, 2600], [4157, 2588], [4169, 2587], [4185, 2587], [4203, 2587], [4208, 2570], [4204, 2549], [4204, 2533], [4203, 2515], [4191, 2509], [4167, 2504], [4163, 2491], [4184, 2487]],
+    [[4227, 2716], [4205, 2706], [4182, 2699], [4162, 2679], [4156, 2652], [4152, 2639], [4149, 2624], [4157, 2608], [4156, 2591], [4137, 2586], [4127, 2570], [4128, 2538], [4123, 2508], [4144, 2505], [4148, 2483], [4169, 2489], [4182, 2485]]
+  ];
 
   with Self.FishSpotColor do
   begin
@@ -203,6 +225,7 @@ begin
     RSObject.Grow := 2;
     RSObject.ClusterDistance := 5;
     FilterSize := 50;
+    NoColorTileExpand := 5;
   end;
 
   with Self.BankColor do
@@ -215,7 +238,8 @@ begin
     RSObject.Grow := 1;
     RSObject.ClusterDistance := 3;
     FilterSize := 10;
-    RadiusExpand := 1.5;
+    RadiusExpand := 1.5;   
+    NoColorTileExpand := 5;
   end;
 
   with Self.FireColor do
@@ -226,7 +250,8 @@ begin
     RSObject.Erode := 2;
     FilterSize := 16;
 
-    RadiusExpand := 2;
+    RadiusExpand := 2;  
+    NoColorTileExpand := 5;
   end;
 
   // do login init stuff

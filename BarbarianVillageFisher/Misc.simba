@@ -16,6 +16,23 @@
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds the fire tile
+}
+function TBot.FindFireTile(OurPos: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.FireTile, 5);
+end;
+
+{
+  Gets the fire box
+}
+function TBot.GetFireSearchBox(TileRect: TRectangle): TBox;
+begin
+  Result := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+end;
 
 {
   Returns all fires in the area
@@ -23,7 +40,7 @@
 function TBot.FindFireColor(Area: TBox): T2DPointArray;
 begin
   Result := MainScreen.FindObject(Self.FireColor.RSObject, Area);
-  Result.FilterSize(Self.FireColor.FilterSize, __GT__);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.FireColor.FilterSize), __GT__);
 end;
 
 {
@@ -35,9 +52,9 @@ var
   ATPA: T2DPointArray;
 begin
   // get the colors and the tile boxes
-  TileRect := Self.RSW.GetTileMSEx(OurTile, Self.FireTile);
+  TileRect := Self.FindFireTile(OurTile);
 
-  B := TileRect.Expand(Round(TileRect.Radius() * Self.FireColor.RadiusExpand)).Bounds();
+  B := Self.GetFireSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -49,7 +66,7 @@ begin
   ATPA := Self.FindFireColor(B);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(5))
+    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.FireColor.NoColorTileExpand))
   else
     B := ATPA.Biggest().Bounds();
 end;
@@ -61,13 +78,6 @@ function TBot.ClickFire(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Vel
 var
   B: TBox;
 begin
-  // we only want to click the fire if we have an item selected
-  if Inventory.GetSelectedSlot() = -1 then
-  begin
-    Script.WriteMsg('ClickFire: No item selected', True);
-    exit();
-  end;
-
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
@@ -104,13 +114,13 @@ begin
 
   Script.RareSmallWait();
 
-  if MainScreen.IsUpText(Self.FireUpText, Random(100, 250)) and (Random() < 10) then
+  if MainScreen.IsUpText(Self.FireOptions, Random(100, 250)) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
     WasClicked := Mouse.DidClick(True);
   end
   else if MainScreen.IsUpText('options') then
-    WasClicked := ChooseOption.Select(Self.FireUpText);
+    WasClicked := ChooseOption.Select(Self.FireOptions);
 
   if not WasClicked then
   begin
@@ -139,7 +149,7 @@ begin
   end;
 
   Inventory.FindItem(RSItem, RawSlots);
-  if RawSlots.Len() <= 0 then
+  if Length(RawSlots) <= 0 then
   begin
     Script.WriteMsg('TryClickFire: No raw fish', True);
     exit();
@@ -149,6 +159,9 @@ begin
   Wait(0, 1500, wdLeft);
   if Self.ClickFire(WasClicked, OurTile) then
     Result := WasClicked;
+
+  if not WasClicked then
+    Inventory.SetSelectedSlot(-1);
 end;
 
 {
@@ -167,17 +180,8 @@ begin
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if (Destination = Walker^.Path[High(Walker^.Path)]) {and Bot.FindFire(Position, _)} then
+  if (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
-    if Inventory.GetSelectedSlot() = -1 then
-    begin
-      if not Inventory.FindItem(Bot.CurrentCookingItem, RawSlots) then
-        exit();
-
-      Inventory.SetSelectedSlot(RawSlots[Random(Low(RawSlots), High(RawSlots))]);
-      exit(); // try again next go, we moved our mouse, velocity, position is out of date
-    end;
-
     // make the mouse fast, because we are moving, its harder to keep up with objs
     S := Mouse.Speed;
     Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
@@ -193,44 +197,94 @@ begin
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  // make sure we can walk...
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
   Walks to the fire, return true if we clicked it early
 }
-function TBot.GoToFire(RSItem: TRSItem; Force: Boolean = False): Boolean;
+function TBot.GoToFire(RSItem: TRSItem; Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
   Walked: Boolean;
   OurPos: TPoint;
+  B: TBox;
   BeforeCallback: TRSWalker_OnWalkEvent;
+  OldUpTexts, OldOptions: TStringArray;
 begin
   Script.WriteMsg('Going to fire....', True);
   OurPos := Self.RSW.GetMyPos();
 
-  if (OurPos.DistanceTo(Self.FireTile) > 30) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.FireTile).Mean()) or
-    Force then
+  if Force or (OurPos.DistanceTo(Self.FireTile) > 30) or
+    not Self.FindFire(OurPos, B) then
   begin
     Script.SetStatus('Going to fire spot...');
 
+    OldUpTexts := Self.FireUpText;
+    OldOptions := Self.FireOptions;
     BeforeCallback := @Self.RSW.OnWalkingEvent;
+
+    Self.FireOptions := Self.FireAltOptions;
+    Self.FireUpText := Self.FireAltUpTexts;
+
     Bot.CurrentCookingItem := RSItem;
-    Self.RSW.OnWalkingEvent := @WalkingToFire;
+
+    if Clicking then
+      Self.RSW.OnWalkingEvent := @WalkingToFire;
     try
-      Walked := Self.RSW.WebWalk(Self.FireTile.Random(-8, 8, True), 0, BioRandomFixed());
+      Walked := Self.RSW.WalkBlind(Self.FireTile.Random(-6, 6, True), 0);
     except
     end;
+
     Self.RSW.OnWalkingEvent := @BeforeCallback;
+    Self.FireUpText := OldUpTexts;
+    Self.FireOptions := OldOptions;
 
     if not Walked then
     begin
-      Script.WriteMsg('Failed to go to fire!');
+      Script.WriteMsg('Failed to go to fire!'); 
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
       Result := True;
+  end;
+end;
+
+{
+  Checks for runelite plugin
+  Returns true if using runelite plugin
+  Sets Cooking to true or false.
+}
+function TBot.CheckRuneliteCookingPlugin(out Cooking: Boolean): Boolean;
+var
+  B: TBox;
+  FColor: TOCRColorRule;
+begin
+  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+
+  FColor := TOCRColorRule.Create([65280, 10]);
+  if OCR.LocateText(B, 'Cooking', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Cooking := True;
+  end;
+
+  FColor := TOCRColorRule.Create([255, 10]);
+  if OCR.LocateText(B, 'NOT cooking', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Cooking := False;
   end;
 end;
 
@@ -242,24 +296,48 @@ var
   RawSlots: TIntegerArray;
   C: Int32;
   CountDown: TCountDown;
+  Cooking: Boolean;
 begin
   Inventory.FindItem(RSItem, RawSlots);
   C := Length(RawSlots);
   CountDown.Init(Self.CookWaitTime);
 
-  while RSClient.IsLoggedIn() and RawSlots.Clear() and Inventory.FindItem(RSItem, RawSlots) do
-  begin
-    if C <> Length(RawSlots) then
-    begin
-      Script.WriteMsg('WhileCooking: Restarting timer', True);
-      CountDown.Restart();
-    end;
-    C := Length(RawSlots);
+  // wait a bit
+  Wait(1000, 2000);
 
-    if CountDown.IsFinished() then
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.CheckRuneliteCookingPlugin(Cooking) then
+    begin      
+        Script.WriteMsg('WhileCooking: Found runelite plugin!', True);
+      if not Cooking then
+      begin    
+        Script.WriteMsg('WhileCooking: Runelite told us not cooking!!', True);
+        break;
+      end;
+    end
+    else
     begin
-      Script.WriteMsg('WhileCooking: Timed out.', True);
-      break;
+      RawSlots.Clear();
+
+      if not Inventory.FindItem(RSItem, RawSlots) then
+      begin
+        Script.WriteMsg('WhileCooking: No more food in inv!', True);
+        break;
+      end;
+
+      if C <> Length(RawSlots) then
+      begin
+        Script.WriteMsg('WhileCooking: Restarting timer', True);
+        CountDown.Restart();
+      end;
+      C := Length(RawSlots);
+
+      if CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('WhileCooking: Timed out.', True);
+        break;
+      end;
     end;
 
     Self.DoMainLoopStuff('Cooking the food', True);
@@ -281,9 +359,9 @@ begin
     exit();
   end;
 
-  Wait(0, 1000, wdLeft);
+  Wait(250, 1500, wdLeft);
 
-  Result := Make.Select(0, MAKE_QUANTITY_ALL, BioRandomCoinFlip());
+  Result := Make.Select(0, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard());
 end;
 
 {
@@ -294,7 +372,8 @@ begin
   if Self.TryClickFire(RSItem) or
     Self.GoToFire(RSItem) or
     Self.TryClickFire(RSItem) or
-    Self.GoToFire(RSItem, True) then
+    Self.GoToFire(RSItem, True) or
+    Self.TryClickFire(RSItem) then
   begin
     if Self.StartCooking() then
     begin
@@ -311,7 +390,6 @@ end;
 }
 procedure TBot.DropItems();
 var
-  R: Extended;
   Pattern, FishSlots: TIntegerArray;
   CurFish, i, S: Int32;
 begin
@@ -321,17 +399,11 @@ begin
   Inventory.FindItems(Self.RawFish, FishSlots);
   Inventory.FindItems(Self.CookedFish, FishSlots);
   Inventory.FindItems(Self.BurntFish, FishSlots);
-  CurFish := FishSlots.Len();
+  CurFish := Length(FishSlots);
   Script.WriteMsg('DropItems: Fish slots (before drop): ' + ToStr(FishSlots), True);
 
   // choose a random drop pattern
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // possibly not drop all logs, for antiban
   if SRL.Dice(20) then
@@ -339,6 +411,7 @@ begin
   if SRL.Dice(20) then
     Pattern := Copy(Pattern, Random(Length(Pattern)));
 
+  // only drop logs...
   for i := High(Pattern) downto Low(Pattern) do
     if FishSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
@@ -346,7 +419,7 @@ begin
   S := Mouse.Speed;
   Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
   // drop
-  if Self.ShiftDropping then
+  if Script.ShiftClicking then
     Inventory.ShiftDrop(Pattern)
   else
   begin
@@ -369,7 +442,7 @@ begin
   Inventory.FindItems(Self.RawFish, FishSlots);
   Inventory.FindItems(Self.CookedFish, FishSlots);
   Inventory.FindItems(Self.BurntFish, FishSlots);
-  Self.FishDone += CurFish - FishSlots.Len();
+  Self.FishDone += CurFish - Length(FishSlots);
   Script.WriteMsg('DropItems: Fish slots (after drop): ' + ToStr(FishSlots), True);
 
   Script.SetStatus('Fish dropped!');
