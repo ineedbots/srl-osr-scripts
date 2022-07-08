@@ -420,7 +420,7 @@ begin
     // make sure we stop moving before trying to click again
     Minimap.WaitPlayerMoving();
 
-    if Self.ClickFish(WasClicked, MainScreen.Center(), Self.FishSpotColorWait) and WasClicked then
+    if Self.ClickFish(WasClicked, MainScreen.GetPlayerBox().Middle(), Self.FishSpotColorWait) and WasClicked then
       exit(True);
   end;
 end;
