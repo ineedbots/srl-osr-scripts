@@ -711,8 +711,6 @@ begin
     exit();
   end;
 
-  Self.AfterActionAntiBan(True, False);
-
   // count values for bank
   Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
   Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);

@@ -440,8 +440,6 @@ begin
     or Self.GoToBank(True)
     or (Self.ClickBank(WasClicked) and WasClicked) then
   begin
-    Self.AfterActionAntiBan(True, False);
-    
     if Self.WaitBankOpen() then
     begin
       Self.DoBanking();
