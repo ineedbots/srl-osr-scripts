@@ -173,8 +173,6 @@ var
   S: Int32;
   Velocity: TDoubleArray;
   MSVel: TPoint;
-  //_: TBox;
-  RawSlots: TIntegerArray;
 begin
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
