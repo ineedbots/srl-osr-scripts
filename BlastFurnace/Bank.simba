@@ -708,7 +708,6 @@ begin
     or Self.GoToBank(True)
     or (Self.ClickBank(ClickedBank) and ClickedBank)) then
   begin
-    Self.DoAntiBan();
     exit();
   end;
 

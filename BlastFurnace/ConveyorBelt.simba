@@ -507,7 +507,6 @@ begin
   if not Self.PlaceOnTheBelt(Fatal, HasCoalBag) then
   begin
     Script.WriteMsg('Failed to place stuff on the belt');
-    Self.DoAntiBan();
     exit();
   end;
 

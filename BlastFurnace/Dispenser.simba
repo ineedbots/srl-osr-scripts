@@ -672,7 +672,7 @@ begin
   Script.WriteMsg('Num bars: ' + ToStr(Self.RBars));
 
 go_exit:
-  Self.DoAntiBan();
+  Self.AfterActionAntiBan(True);
 
   // make sure gold gloves are back on
   if Inventory.FindItem(Self.GoldGlovesItem, GoldGlovesSlot) then

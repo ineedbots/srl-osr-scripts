@@ -190,7 +190,6 @@ begin
   if not Inventory.FindItem(Self.CoinsItem) then
   begin
     Script.WriteMsg('no coins');
-    Self.DoAntiBan();
     exit();
   end;
 

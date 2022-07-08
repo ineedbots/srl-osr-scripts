@@ -281,7 +281,6 @@ begin
   if not Inventory.FindItem(Self.CoinsItem) then
   begin
     Script.WriteMsg('no coins');
-    Self.DoAntiBan();
     exit();
   end;
 
@@ -321,9 +320,7 @@ begin
     end
     else
       Script.WriteMsg('Coffer option didn''t appear');
-  end
-  else
-    Self.DoAntiBan();
+  end;
 
   // withdraw the item again if needed
   if (Item <> '') or Inventory.FindItem(Self.CoinsItem) then
