@@ -67,10 +67,7 @@ begin
     begin
       // TODO randomize
       if Inventory.IsFull() then
-      begin
-        Self.DoFullInventory();
-        Self.DoAntiBan();
-      end
+        Self.DoFullInventory()
       else
         Self.DoGathering();
     end

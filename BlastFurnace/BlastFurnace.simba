@@ -229,7 +229,7 @@ begin
   Script.SleepRate := 75;
   Script.DrawRate := 2500;
   Script.ReportRate := 2500;
-  Script.Activity.Countdown.Init(ONE_MINUTE*5);
+  Script.Activity.Countdown.Init(ONE_MINUTE*3);
   Script.KeyboardMenuButtons := MENUKEYBOARD;
 
   Script.ShutdownTime := (TOTALRUNTIME * ONE_MINUTE) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));

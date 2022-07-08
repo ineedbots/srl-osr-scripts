@@ -438,9 +438,7 @@ begin
       Self.WhileOffering()
     else
       Self.WhileUnlitBrazier();
-  end
-  else
-    Self.DoAntiBan();
+  end;
 end;
 
 {
@@ -454,8 +452,6 @@ var
   OurPos: TPoint;
 begin
   Script.WriteMsg('Waitting for boss start...', True);
-
-  Self.DoAntiBan();
 
   // go to it
   Self.GoToBrazier(True, False);

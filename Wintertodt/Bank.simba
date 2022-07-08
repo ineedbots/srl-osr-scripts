@@ -441,9 +441,7 @@ begin
 
     if Self.WaitBankOpen() then
       Self.DoBanking();
-  end
-  else
-    Self.DoAntiBan();
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_WINTERTODT_BANK

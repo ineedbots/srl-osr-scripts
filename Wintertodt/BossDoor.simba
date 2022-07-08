@@ -283,9 +283,7 @@ begin
 
       Self.DoMainLoopStuff('Going inside arena', False);
     end;
-  end
-  else
-    Self.DoAntiBan();
+  end;
 end;
 
 {
@@ -582,9 +580,7 @@ begin
 
       Self.DoMainLoopStuff('Going outside arena', False);
     end;
-  end
-  else
-    Self.DoAntiBan();
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_WINTERTODT_BOSSDOOR

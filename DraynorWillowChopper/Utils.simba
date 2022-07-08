@@ -135,9 +135,6 @@ begin
       Wait(75, 500);
   end;
 
-  // check if we gained xp, failsafe
-  Script.CheckActivity();
-
   Self.CheckSpec();
 
   if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
@@ -324,6 +321,10 @@ begin
 
   Self.ReportConsole();
   Self.Draw();
+
+  // check if we gained xp, failsafe
+  if RSClient.IsLoggedIn() then
+    Script.CheckActivity();
 
   Wait(Script.MainLoopWaitAmount(True));
 end;

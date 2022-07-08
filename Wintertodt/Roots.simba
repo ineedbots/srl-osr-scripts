@@ -354,9 +354,7 @@ begin
 
         continue;
       end;
-    end
-    else
-      Self.DoAntiBan();
+    end;
 
     break;
   end;
@@ -382,8 +380,6 @@ begin
     Script.WriteMsg('No knife...', True);
     exit();
   end;
-
-  Self.DoAntiBan();
 
   // its safe here
   if Self.RSW.GetMyPos().DistanceTo(Self.RootsTile.Offset(Self.GetRootsTileWalkOffset())) > 4 then

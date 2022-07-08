@@ -438,9 +438,7 @@ begin
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileFishing();
-  end
-  else
-    Self.DoAntiBan();
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_BVF_FISH
