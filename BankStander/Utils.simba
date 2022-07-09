@@ -81,6 +81,7 @@ procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
   OurTile, TP: TPoint;
+  TPA: TPointArray;
   CompAng: Double;
   TileRect: TRectangle;
   B: TBox;
@@ -88,6 +89,7 @@ var
   T, M, P: TIntegerArray;
   i: Int32;
   Item: TRSItem;
+  BtnArr: TRSButtonArray;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -108,35 +110,41 @@ begin
   end
   else
   begin
-    if Self.BankLocations[0].X = -1 then
+    for TP in Self.BankLocations do
     begin
-      B := MainScreen.GetPlayerBox();
-      B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
-      RSClient.Image.DrawBox(B, clGreen);
+      TileRect := Self.FindBankTile(OurTile, TP);
+      B := Self.GetBankSearchBox(TileRect); 
       ATPA := Self.FindBankColor(B);
-      RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
 
-      B := ATPA.Biggest().Bounds();
-      RSClient.Image.DrawBox(B, clYellow);
-    end
-    else
-    begin
-      for TP in Self.BankLocations do
+      RSClient.Image.DrawBox(B, clGreen);  
+      RSClient.Image.DrawRect(TileRect, clBlue);
+      RSClient.Image.DrawATPA(ATPA);
+
+      if TP.X <> -1 then
       begin
-        TileRect := Self.RSW.GetTileMSEx(OurTile, TP, 4);
-
-        B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
-        RSClient.Image.DrawBox(B, clGreen);
-        ATPA := Self.FindBankColor(B);
-        RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
-
-        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
-        RSClient.Image.DrawRect(TileRect, clBlue);
-
         RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
 
-        B := ATPA.Biggest().Bounds();
-        RSClient.Image.DrawBox(B, clYellow);
+        if Self.FindBank(OurTile, TP, B, ATPA) then
+          RSClient.Image.DrawBox(B, clYellow);
+      end
+      else
+      begin
+        if Self.FindBank(OurTile, TP, B, ATPA) then
+        begin
+          for TPA in ATPA do
+            RSClient.Image.DrawBox(TPA.Bounds(), clYellow);
+        end;
+      end;
+    end;
+
+    if Make.IsOpen() then
+    begin
+      BtnArr := Make.GetItemButtons();
+
+      if (Self.MakeNum >= 0) and (Length(BtnArr) > Self.MakeNum) then
+      begin
+        B := BtnArr[Self.MakeNum].Bounds;
+        RSClient.Image.DrawBox(B, clBlue);
       end;
     end;
   end;

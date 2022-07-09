@@ -24,37 +24,22 @@
 procedure TBot.DoTransformBanking(DepositPattern: TIntegerArray);
 var
   ProductSlots: TIntegerArray;
-  CurProducts, i, IC, QuantityAmount: Int32;
-  Withdrew, Depod, UsingButton: Boolean;
-  R: Double;
+  CurProducts: Int32;
+  Found: Boolean;
   Item: TRSItem;
-  B: TBox;
+  MBox: TBox;
 begin
   // search for materials
-  for i := 0 to 5 do
+  for Item in Self.MaterialItems do
   begin
-    for Item in Self.MaterialItems do
-    begin
-      if Bank.FindItem(Item, B) then
-      begin
-        Withdrew := True;
-        break;
-      end;
+    if not Bank.FindBankItem(Item, MBox) then
+      continue;
 
-      Bank.FixUpText();
-
-      if Bank.FindItem(Item, B) then
-      begin
-        Withdrew := True;
-        break;
-      end;
-    end;
-
-    if Withdrew then
-      break;
+    Found := True;
+    break;
   end;
 
-  if not Withdrew then
+  if not Found then
   begin
     Script.Stop('No materials left in bank!');
     exit();
@@ -67,86 +52,23 @@ begin
 
   // deposit our stuff
   Script.WriteMsg('Depositting our produce.', True);
-  IC := Inventory.Count();
-  for i in DepositPattern do
+  if not Bank.DepositItemsIntoBank(DepositPattern) then
   begin
-    if Inventory.IsSlotUsed(Inventory.GetSlotBox(i)) then
-    begin
-      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
-
-      R := SRL.TruncatedGauss(0.0, 1.0);
-      case R of
-        0.0..0.5: QuantityAmount := BANK_DEPOSIT_ALL;
-        0.5..0.6: QuantityAmount := CurProducts;
-        0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
-        0.7..0.8: QuantityAmount := 10;
-        0.8..0.9: QuantityAmount := 5;
-        else QuantityAmount := 1;
-      end;
-
-      if Bank.DepositSlot([i, QuantityAmount], UsingButton) then
-      begin
-        Depod := True;
-        Wait(SRL.SkewedRand(1000, 500, 2500));
-      end
-      else
-      begin
-        Bank.FixUpText();
-        Bank.DepositSlot([i, QuantityAmount], UsingButton);
-      end;
-    end;
-  end;
-
-  if Depod then
-    Inventory.WaitChange(IC, 2500);
-
-  Wait(0, 2500, wdLeft);
-
-  if Inventory.IsFull() and Depod then
-  begin
-    Script.Stop('Inv is full after depositting');
+    Script.WriteMsg('Failed to deposit items');
+    Bank.Close(Script.ShouldPressKeyboard());
     exit();
   end;
 
-  Script.AntiBan.AfterBankAntiBan(15);
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(7);
 
   // withdraw our crap
-  Script.WriteMsg('Withdrawing our materials.', True);
-  IC := Inventory.Count();
-  for i := 0 to 5 do
+  if not Bank.WithdrawItemFromBank(MBox) then
   begin
-    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
-
-    R := SRL.TruncatedGauss(0.0, 1.0);
-    if not UsingButton and inRange(R, 0.4, 0.6) then
-      QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
-    else
-    begin
-      case R of
-        0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
-        0.6..0.8: QuantityAmount := 27;
-        else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
-      end;
-    end;
-
-    if Bank.WithdrawHelper(B, QuantityAmount, False, UsingButton) then
-    begin
-      Withdrew := True;
-      Wait(SRL.SkewedRand(1000, 500, 2500));
-      break;
-    end
-    else
-      Bank.FixUpText();
-  end;
-
-  if not Withdrew then
-  begin
-    Script.Stop('Failed to withdraw materials!');
+    Script.WriteMsg('Failed to withdraw materials');
+    Bank.Close(Script.ShouldPressKeyboard());
     exit();
   end;
-
-  Inventory.WaitChange(IC, 2500);
-  Wait(0, 3000, wdLeft);
 
   ProductSlots.Clear();
   Inventory.FindItems(Self.ProductItems, ProductSlots);
@@ -193,7 +115,7 @@ begin
   if Self.MakeNum = -1 then
     Made := True;
 
-  if not Made and Make.IsOpen(SRL.SkewedRand(1500, 500, 2500)) then
+  if not Made and Make.IsOpen(SRL.SkewedRand(1500, 1250, 2500)) then
   begin
     Wait(0, 3333, wdLeft);
     if Length(Make.GetItemButtons()) > Self.MakeNum then
@@ -279,8 +201,6 @@ begin
   end;
 
   Script.WriteMsg('DoTransform: ToolSlots: ' + ToStr(ToolSlots), True);
-
-  Self.DoAntiBan();
 
   Script.WriteMsg('Transforming items...', True);
 

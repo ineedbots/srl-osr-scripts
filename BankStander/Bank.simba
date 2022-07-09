@@ -21,6 +21,35 @@
 {$include_once Transform.simba}
 
 {
+  Finds the bank tile
+}
+function TBot.FindBankTile(OurPos: TPoint; BankTile: TPoint): TRectangle;
+begin
+  if BankTile.X = -1 then
+  begin
+    Result := [Point(-1, -1), Point(-1, -1), Point(-1, -1), Point(-1, -1)];
+    exit();
+  end;
+
+  Result := Self.RSW.GetTileMSEx(OurPos, BankTile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetBankSearchBox(BankTile: TRectangle): TBox;
+begin
+  if BankTile.Top.X = -1 then
+  begin
+    Result := MainScreen.GetPlayerBox();
+    Result := Result.Expand(Round(Result.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+    exit();
+  end;
+
+  Result := BankTile.Expand(Round(BankTile.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+end;
+
+{
   Returns all the found banks
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
@@ -30,12 +59,169 @@ begin
 end;
 
 {
+  Returns true if bank is visible, B is bounds of it
+}
+function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox; out ATPA: T2DPointArray): Boolean;
+var
+  Tile: TRectangle;
+begin
+  Tile := Self.FindBankTile(OurTile, BankTile);
+
+  B := Self.GetBankSearchBox(Tile);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+
+  // check the bank's colors within the tile
+  ATPA := Self.FindBankColor(B);
+
+  if Length(ATPA) <= 0 then
+  begin
+    if BankTile.X <> -1 then
+    begin
+      B := Tile.Bounds().Expand(-MainScreen.ConvertDistance(Self.BankColor.NoColorTileExpand)); // couldnt find color... use the fixd tile
+      Result := True;
+    end;
+  end
+  else
+  begin  
+    B := ATPA.Biggest().Bounds();
+    Result := True;
+  end;
+end;
+
+{
+  Returns true if we clicked any bank
+}
+function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]): Boolean;
+var
+  BankTiles, TPA: TPointArray;
+  BankTile: TPoint;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  // bank might be already opened, lets return true
+  if Bank.IsOpen() or BankPin.IsOpen() then
+  begin
+    WasClicked := True;
+    exit(True);
+  end;
+
+  if OurTile = Point(-1, -1) then
+    OurTile := Self.RSW.GetMyPos();
+
+  // randomize the tiles a bit, shake em up
+  BankTiles := Copy(Self.BankLocations);
+  BankTiles.Sort(OurTile);
+  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  Script.SetStatus('Finding bank...');
+
+  // search for every bank
+  for BankTile in BankTiles do
+  begin
+    // try see if we can find this bank
+    if not Self.FindBank(OurTile, BankTile, B, ATPA) then
+      continue;
+
+    // look for the bank for each blob of color
+    if BankTile.X = -1 then
+    begin
+      ATPA.SortBySize();
+      for TPA in ATPA do
+      begin
+        Mouse.Move(TPA.Bounds());
+        Script.RareSmallWait();
+
+        if MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+          break;
+      end;
+    end
+    else
+    begin
+      Mouse.Move(B);
+      Script.RareSmallWait();
+    end;
+
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    begin
+      Script.SetStatus('Bad uptext for bank');
+      continue;
+    end;
+
+    Result := True;
+
+    Script.SetStatus('Confirmed bank! Opening bank...');
+
+    // open the bank
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickBank: Didnt click', True);
+      continue;
+    end;
+
+    break;
+  end;
+end;
+
+{
+  Waits for the bank to open, while doing so, it will input bankpin
+  Returns if the bank or depositbox was opened.
+}
+function TBot.WaitBankOpen(): Boolean;
+var
+  BankOpenCountDown: TCountdown;
+begin
+  // we only wait a finite amount of time...
+  BankOpenCountDown.Init(SRL.SkewedRand(5000, 4000, 6000));
+  while RSClient.IsLoggedIn() do
+  begin
+    // is the bank open?
+    if Bank.IsOpen(True) or BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Bank opened!', True);
+      exit(True);
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Still moving...', True);
+      BankOpenCountDown.Restart();
+    end
+    else if BankOpenCountDown.TimeRemaining() < 3500 then
+      Bank.FixUpText();
+
+    // timed out?
+    if BankOpenCountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to clicked bank...', False);
+  end;
+
+  Script.WriteMsg('WaitBankOpen: Timed out...', True);
+  // bank didnt open... failed.
+end;
+
+{
   Banks
 }
 procedure TBot.DoBanking();
 var
   ToolSlots, Pattern: TIntegerArray;
-  R: Double;
   i: Int32;
 begin
   if not Bank.IsOpen(True) then
@@ -58,13 +244,7 @@ begin
   Script.WriteMsg('DoBanking: ToolSlots: ' + ToStr(ToolSlots), True);
 
   // randomize the deposit pattern
-  R := Random();
-  if R < 0.1 then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+  Pattern := Bank.GetGoodPattern();
 
   // randomly chop it off for extra antiban
   if SRL.Dice(20) then
@@ -79,7 +259,8 @@ begin
   Script.WriteMsg('DoBanking: Pattern: ' + ToStr(Pattern), True);
 
   Script.SetStatus('Banking...');
-  Script.AntiBan.AfterBankAntiBan(20);
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(10);
 
   case Self.CreationType of
     ERSCreationType.TRANSFORM: Self.DoTransformBanking(Pattern);
@@ -88,7 +269,7 @@ begin
     //ERSCreationType.SUPERCOMBAT: Self.DoSupercombatBanking();
   end;
 
-  Script.AntiBan.AfterBankAntiBan(30);
+  Script.AntiBan.AfterBankAntiBan(15);
 
   Bank.Close(Script.ShouldPressKeyboard());
   Script.WriteMsg('Finished banking...', True);
@@ -99,11 +280,7 @@ end;
 }
 function TBot.OpenBank(): Boolean;
 var
-  B: TBox;
-  TileRect: TRectangle;
-  ATPA: T2DPointArray;
-  TPA: TPointArray;
-  TP: TPoint;
+  WasClicked: Boolean;
 begin
   if Bank.IsOpen() or BankPin.IsOpen() then
   begin
@@ -112,56 +289,8 @@ begin
   end;
 
   Script.WriteMsg('Searching for bank', True);
-  if Self.BankLocations[0].X = -1 then
-  begin
-    B := MainScreen.GetPlayerBox();
-    B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
-  end
-  else
-  begin
-    TP := Self.BankLocations[Random(High(Self.BankLocations))];
-    TileRect := Self.RSW.GetTileMSEx(Self.RSW.GetMyPos(), TP, 4);
-    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
-  end;
-
-  ATPA := Self.FindBankColor(B);
-  TPA := ATPA.Biggest();
-
-  if Length(TPA) <= 0 then
-  begin
-    if Self.BankLocations[0].X = -1 then
-      exit(False);
-  end
-  else
-    B := TPA.Bounds();
-
-  Script.WriteMsg('Testing uptext for bank', True);
-
-  Mouse.Move(B);
-  Script.RareSmallWait();
-
-  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
-    exit(False);
-
-  Script.SetStatus('Confirmed bank! Opening bank...');
-
-  // open the bank
-  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
-    Result := ChooseOption.Select(Bank.FINDER_OPTION)
-  else
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    Result := Mouse.DidClick(True);
-  end;
-
-  if Result then
-    Result := Bank.IsOpen(SRL.SkewedRand(2500, 50, 5000));
-
-  if not Result then
-    Result := BankPin.IsOpen();
-
-  if Result then
-    Script.WriteMsg('Bank opened', True);
+  if Self.ClickBank(WasClicked) and WasClicked then
+    exit(True);
 end;
 
 {
@@ -176,11 +305,14 @@ begin
   for i := 0 to 5 do
   begin
     if Self.OpenBank() then
+    begin
+      Self.WaitBankOpen();
       exit();
+    end;
 
     Script.WriteMsg('Failed to open bank');
     Minimap.SetCompassAngle(Random() * 360.0);
-    Wait(2500, 10000, wdLeft);
+    Wait(1000, 2500, wdLeft);
   end;
 
   Script.Stop('Failed to open bank..');

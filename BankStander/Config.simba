@@ -18,24 +18,24 @@
 {$include_once Types.simba}
 
 const
-  DEBUGMODE      = True;  // For debugging purposes
+  DEBUGMODE      = False;  // For debugging purposes
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
-  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  SHIFTCLICK     = True;  // Use shift key?
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
-  CREATION_TYPE = ERSCreationType.TRANSFORM;
-  MAKE_NUM = 1;
-  TOOLS = ['Chisel'];
-  MATERIALS = ['Amethyst'];
-  PRODUCTS = ['Amethyst arrowtips'];
-                
-  BANK_COLOR_TYPE = ERSBankColorType.BLAST_FURNACE_CHEST;
+  BANK_COLOR_TYPE = ERSBankColorType.GRAND_EXCHANGE_BANKER;
   MAP = 'zeah'; // 'zeah' or 'world'
   BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
+
+  CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 3;
+  TOOLS = ['Chisel'];
+  MATERIALS = ['Amethyst'];
+  PRODUCTS = ['Amethyst dart tip'];
 
   // Account details
   _USERNAME       = '';
@@ -46,14 +46,12 @@ const
 
   {CREATION_TYPE = ERSCreationType.TRANSFORM;
   MAKE_NUM = 5;
-
   TOOLS = ['Glassblowing pipe'];
   MATERIALS = ['Molten glass'];
   PRODUCTS = ['Unpowered orb'];}
 
   {CREATION_TYPE = ERSCreationType.TRANSFORM;
   MAKE_NUM = 2;
-
   TOOLS = ['Knife'];
   MATERIALS = ['Maple logs'];
   PRODUCTS = ['Maple longbow (u)'];}
