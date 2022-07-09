@@ -158,7 +158,10 @@ begin
 
   Script.TrueRunTime.Resume();
   T := Task;
+
+  // restart activity watcher
   Script.Activity.Countdown.Restart();
+  Script.Activity.NoXPCount := 0;
 end;
 
 {

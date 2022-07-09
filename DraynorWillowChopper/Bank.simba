@@ -445,6 +445,9 @@ begin
       Self.DoBanking();
       Self.UpdateWalkedTree(True);
 
+      if Inventory.IsFull() then
+        exit();
+
       // meme!
       if Self.GoToTrees(True) then
       begin

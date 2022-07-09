@@ -494,17 +494,21 @@ var
 begin
   XP := XPBar.ReadXPBar();
 
-  if XP = -1 then
-    exit();
-
-  if XP <> Self.Activity.XP then
+  if (XP <> -1) and (XP <> Self.Activity.XP) then
   begin
+    Self.Activity.NoXPCount := 0;
     Self.Activity.XP := XP;
     Self.Activity.Countdown.Restart();
     Result := True;
   end
   else if Self.Activity.Countdown.IsFinished() then
-    Self.Stop('No XP gained in a while!');
+  begin
+    Self.Activity.Countdown.Restart();
+    Inc(Self.Activity.NoXPCount);
+
+    if Self.Activity.NoXPCount > Self.Activity.NoXPCountMax then
+      Self.Stop('No XP gained in a while!');
+  end;
 end;
 
 {

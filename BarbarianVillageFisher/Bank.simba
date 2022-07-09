@@ -451,6 +451,9 @@ begin
       Self.DoBanking();
       Self.UpdateWalkedFish(True);
 
+      if Inventory.IsFull() then
+        exit();
+
       // meme!
       if Self.GoToFish(True) then
       begin

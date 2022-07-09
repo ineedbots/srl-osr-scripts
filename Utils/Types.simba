@@ -34,7 +34,7 @@ type
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
       MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
     Activity: record
-      XP                                                      : Int32;
+      XP, NoXPCountMax, NoXPCount                             : Int32;
       Countdown                                               : TCountDown;
     end;
     ShutdownTime                                              : Int64;
