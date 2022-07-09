@@ -309,7 +309,7 @@ begin
 
   with Self.MeltingPotMMColor do
   begin
-    RSObject.Colors += CTS2(875989, 8, 0.16, 1.55);
+    RSObject.Colors += CTS2(875477, 8, 0.18, 1.55);
     RSObject.ClusterDistance := 1;
   end;
 
