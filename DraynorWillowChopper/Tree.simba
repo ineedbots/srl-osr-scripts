@@ -296,6 +296,9 @@ begin
 
   Self.UpdateWalkedTree(True);
 
+  // wait a bit to start chopping
+  Wait(1000, 2000);
+
   OurPos := Self.RSW.GetMyPos();
   InvCount := Inventory.Count();
 
