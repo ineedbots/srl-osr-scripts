@@ -1,0 +1,189 @@
+{
+  BankStander bank
+  Author: ineedbot
+  Date: 7/9/2022
+
+  Bank
+}
+
+{$IFNDEF INEEDBOT_BANKSTANDER_BANK}
+{$DEFINE INEEDBOT_BANKSTANDER_BANK}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{$include_once Transform.simba}
+
+{
+  Returns all the found banks
+}
+function TBot.FindBankColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
+  Result.FilterSize(Self.BankColor.FilterSize, __GT__);
+end;
+
+{
+  Banks
+}
+procedure TBot.DoBanking();
+var
+  ToolSlots, Pattern: TIntegerArray;
+  R: Double;
+  i: Int32;
+begin
+  if not Bank.IsOpen(True) then
+  begin
+    if BankPin.IsOpen() then
+    begin
+      Script.WriteMsg('DoBanking: Entering pin...', True);
+      BankPin.Enter(Login.GetPlayer().Pin);
+      Wait(0, 5000, wdLeft);
+      exit();
+    end;
+
+    Bank.FixUpText();
+    exit();
+  end;
+
+  Self.StoppedShort := False;
+
+  Inventory.FindItems(Self.ToolItems, ToolSlots);
+  Script.WriteMsg('DoBanking: ToolSlots: ' + ToStr(ToolSlots), True);
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Pattern := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+
+  // randomly chop it off for extra antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // make sure we do not deposit our tools
+  for i in ToolSlots do
+    Pattern.Remove(i);
+
+  Script.WriteMsg('DoBanking: Pattern: ' + ToStr(Pattern), True);
+
+  Script.SetStatus('Banking...');
+  Script.AntiBan.AfterBankAntiBan(20);
+
+  case Self.CreationType of
+    ERSCreationType.TRANSFORM: Self.DoTransformBanking(Pattern);
+    //ERSCreationType.COMBINE: Self.DoCombineBanking();
+    //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransformBanking();
+    //ERSCreationType.SUPERCOMBAT: Self.DoSupercombatBanking();
+  end;
+
+  Script.AntiBan.AfterBankAntiBan(30);
+
+  Bank.Close(Script.ShouldPressKeyboard());
+  Script.WriteMsg('Finished banking...', True);
+end;
+
+{
+  Returns true if it opened the bank
+}
+function TBot.OpenBank(): Boolean;
+var
+  B: TBox;
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  TP: TPoint;
+begin
+  if Bank.IsOpen() or BankPin.IsOpen() then
+  begin
+    Script.WriteMsg('Bank is opened', True);
+    exit(True);
+  end;
+
+  Script.WriteMsg('Searching for bank', True);
+  if Self.BankLocations[0].X = -1 then
+  begin
+    B := MainScreen.GetPlayerBox();
+    B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+  end
+  else
+  begin
+    TP := Self.BankLocations[Random(High(Self.BankLocations))];
+    TileRect := Self.RSW.GetTileMSEx(Self.RSW.GetMyPos(), TP, 4);
+    B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+  end;
+
+  ATPA := Self.FindBankColor(B);
+  TPA := ATPA.Biggest();
+
+  if Length(TPA) <= 0 then
+  begin
+    if Self.BankLocations[0].X = -1 then
+      exit(False);
+  end
+  else
+    B := TPA.Bounds();
+
+  Script.WriteMsg('Testing uptext for bank', True);
+
+  Mouse.Move(B);
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    exit(False);
+
+  Script.SetStatus('Confirmed bank! Opening bank...');
+
+  // open the bank
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    Result := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := Mouse.DidClick(True);
+  end;
+
+  if Result then
+    Result := Bank.IsOpen(SRL.SkewedRand(2500, 50, 5000));
+
+  if not Result then
+    Result := BankPin.IsOpen();
+
+  if Result then
+    Script.WriteMsg('Bank opened', True);
+end;
+
+{
+  Trys to open the bank
+}
+procedure TBot.DoOpenBank();
+var
+  i: Int32;
+begin
+  Script.WriteMsg('Opening bank..', True);
+  // attempt to open the bank 5 times
+  for i := 0 to 5 do
+  begin
+    if Self.OpenBank() then
+      exit();
+
+    Script.WriteMsg('Failed to open bank');
+    Minimap.SetCompassAngle(Random() * 360.0);
+    Wait(2500, 10000, wdLeft);
+  end;
+
+  Script.Stop('Failed to open bank..');
+end;
+
+{$ENDIF} // INEEDBOT_BANKSTANDER_BANK

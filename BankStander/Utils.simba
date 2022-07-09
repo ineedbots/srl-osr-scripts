@@ -1,0 +1,220 @@
+{
+  BankStander utils
+  Author: ineedbot
+  Date: 7/9/2022
+
+  utils
+}
+
+{$IFNDEF INEEDBOT_BANKSTANDER_UTILS}
+{$DEFINE INEEDBOT_BANKSTANDER_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once Bank.simba}
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.CRAFTING, Random(1700, 3200), True);
+    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.HERBLORE, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(DoInterfaceClose: Boolean = True): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True);
+begin
+  WaitEx(450,70);
+
+  if DoAB then
+    Self.DoAntiban(DoInterfaceClose);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  OurTile, TP: TPoint;
+  CompAng: Double;
+  TileRect: TRectangle;
+  B: TBox;
+  Text: String;
+  T, M, P: TIntegerArray;
+  i: Int32;
+  Item: TRSItem;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if MainScreen.AnyInterfaceOpen() then
+  begin
+    if Bank.IsOpen() then
+    begin
+      for Item in Self.MaterialItems do
+      begin
+        if Bank.FindItem(Item, B) then
+          RSClient.Image.DrawBox(B, clWhite);
+      end;
+    end;
+  end
+  else
+  begin
+    if Self.BankLocations[0].X = -1 then
+    begin
+      B := MainScreen.GetPlayerBox();
+      B := B.Expand(Round(B.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+      RSClient.Image.DrawBox(B, clGreen);
+      ATPA := Self.FindBankColor(B);
+      RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
+
+      B := ATPA.Biggest().Bounds();
+      RSClient.Image.DrawBox(B, clYellow);
+    end
+    else
+    begin
+      for TP in Self.BankLocations do
+      begin
+        TileRect := Self.RSW.GetTileMSEx(OurTile, TP, 4);
+
+        B := TileRect.Expand(Round(TileRect.Radius() * Self.BankColor.RadiusExpand)).Bounds();
+        RSClient.Image.DrawBox(B, clGreen);
+        ATPA := Self.FindBankColor(B);
+        RSClient.Image.DrawTPA(ATPA.Biggest(), clRed);
+
+        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+        RSClient.Image.DrawRect(TileRect, clBlue);
+
+        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+
+        B := ATPA.Biggest().Bounds();
+        RSClient.Image.DrawBox(B, clYellow);
+      end;
+    end;
+  end;
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.MaterialItems, M);
+    Inventory.FindItems(Self.ProductItems, P);
+
+    for i := 0 to 27 do
+    begin
+      if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if M.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+      else if P.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+                                    
+  // check if we gained xp, failsafe
+  if RSClient.IsLoggedIn() then
+    Script.CheckActivity();
+
+  Wait(Script.MainLoopWaitAmount(False));
+end;
+
+{$ENDIF} // INEEDBOT_BANKSTANDER_UTILS

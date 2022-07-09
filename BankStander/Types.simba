@@ -1,0 +1,46 @@
+{
+  BankStander types
+  Author: ineedbot
+  Date: 7/9/2022
+
+  Declares all the types
+}
+
+{$IFNDEF INEEDBOT_BANKSTANDER_TYPES}
+{$DEFINE INEEDBOT_BANKSTANDER_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  ERSCreationType = (
+    TRANSFORM       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
+  );
+
+  ERSBankColorType = (
+    FARMING_GUILD_CHEST,
+    GRAND_EXCHANGE_BANKER,
+    DRAYNOR_BANK_BOOTH,
+    WINTERTODT_CHEST,
+    VARROCK_WEST_BANK_BOOTH,
+    BLAST_FURNACE_CHEST
+  );
+
+  TBot = record
+    ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
+    CreationType                                              : ERSCreationType;
+    MakeNum, Did, TransformWaitTime                           : Int32;
+    StoppedShort                                              : Boolean;
+    SelfBoxRadiusExpand                                       : Double;
+    BankLocations                                             : TPointArray;
+    RSW                                                       : TRSWalker;
+    BankColor                                                 : TScriptColor;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_BANKSTANDER_TYPES

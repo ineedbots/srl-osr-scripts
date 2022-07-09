@@ -1,0 +1,300 @@
+{
+  BankStander transform
+  Author: ineedbot
+  Date: 7/9/2022
+
+  Transform
+}
+
+{$IFNDEF INEEDBOT_BANKSTANDER_TRANSFORM}
+{$DEFINE INEEDBOT_BANKSTANDER_TRANSFORM}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Banks for transform type
+}
+procedure TBot.DoTransformBanking(DepositPattern: TIntegerArray);
+var
+  ProductSlots: TIntegerArray;
+  CurProducts, i, IC, QuantityAmount: Int32;
+  Withdrew, Depod, UsingButton: Boolean;
+  R: Double;
+  Item: TRSItem;
+  B: TBox;
+begin
+  // search for materials
+  for i := 0 to 5 do
+  begin
+    for Item in Self.MaterialItems do
+    begin
+      if Bank.FindItem(Item, B) then
+      begin
+        Withdrew := True;
+        break;
+      end;
+
+      Bank.FixUpText();
+
+      if Bank.FindItem(Item, B) then
+      begin
+        Withdrew := True;
+        break;
+      end;
+    end;
+
+    if Withdrew then
+      break;
+  end;
+
+  if not Withdrew then
+  begin
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
+  // remember how many produce we have, so we can count
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
+  CurProducts := Length(ProductSlots);
+  Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
+
+  // deposit our stuff
+  Script.WriteMsg('Depositting our produce.', True);
+  IC := Inventory.Count();
+  for i in DepositPattern do
+  begin
+    if Inventory.IsSlotUsed(Inventory.GetSlotBox(i)) then
+    begin
+      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+      R := SRL.TruncatedGauss(0.0, 1.0);
+      case R of
+        0.0..0.5: QuantityAmount := BANK_DEPOSIT_ALL;
+        0.5..0.6: QuantityAmount := CurProducts;
+        0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+        0.7..0.8: QuantityAmount := 10;
+        0.8..0.9: QuantityAmount := 5;
+        else QuantityAmount := 1;
+      end;
+
+      if Bank.DepositSlot([i, QuantityAmount], UsingButton) then
+      begin
+        Depod := True;
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+      end
+      else
+      begin
+        Bank.FixUpText();
+        Bank.DepositSlot([i, QuantityAmount], UsingButton);
+      end;
+    end;
+  end;
+
+  if Depod then
+    Inventory.WaitChange(IC, 2500);
+
+  Wait(0, 2500, wdLeft);
+
+  if Inventory.IsFull() and Depod then
+  begin
+    Script.Stop('Inv is full after depositting');
+    exit();
+  end;
+
+  Script.AntiBan.AfterBankAntiBan(15);
+
+  // withdraw our crap
+  Script.WriteMsg('Withdrawing our materials.', True);
+  IC := Inventory.Count();
+  for i := 0 to 5 do
+  begin
+    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+    R := SRL.TruncatedGauss(0.0, 1.0);
+    if not UsingButton and inRange(R, 0.4, 0.6) then
+      QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
+    else
+    begin
+      case R of
+        0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
+        0.6..0.8: QuantityAmount := 27;
+        else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+      end;
+    end;
+
+    if Bank.WithdrawHelper(B, QuantityAmount, False, UsingButton) then
+    begin
+      Withdrew := True;
+      Wait(SRL.SkewedRand(1000, 500, 2500));
+      break;
+    end
+    else
+      Bank.FixUpText();
+  end;
+
+  if not Withdrew then
+  begin
+    Script.Stop('Failed to withdraw materials!');
+    exit();
+  end;
+
+  Inventory.WaitChange(IC, 2500);
+  Wait(0, 3000, wdLeft);
+
+  ProductSlots.Clear();
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
+  Self.Did += CurProducts - Length(ProductSlots);
+
+  Script.SetStatus('Depositted!');
+  Script.WriteMsg('Banked... Currently did ' + IntToStr(Self.Did) + '!');
+end;
+
+{
+  Transforms the item with a tool
+}
+procedure TBot.Transform(Item: TRSItem; MaterialSlots, ToolSlots: TIntegerArray);
+var
+  ToolSlot, MaterialSlot, MCount, MC, StopShort, OGMCount: Int32;
+  Made: Boolean;
+  CountDown: TCountDown;
+begin
+  ToolSlot := ToolSlots[Random(High(ToolSlots))];
+  MaterialSlot := MaterialSlots[Random(High(MaterialSlots))];
+  MCount := Length(MaterialSlots);
+  OGMCount := MCount;
+
+  StopShort := MCount;
+  if Random() < 0.05 then
+    StopShort := SRL.SkewedRand(MCount, MCount, 0);
+
+  Script.WriteMsg('Starting the transformation', True);
+
+  // start transforming
+  if Random() < 0.5 then
+  begin
+    Inventory.SetSelectedSlot(ToolSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(MaterialSlot);
+  end
+  else
+  begin
+    Inventory.SetSelectedSlot(MaterialSlot);
+    Wait(0, 1000, wdLeft);
+    Inventory.ClickSlot(ToolSlot);
+  end;
+
+  if Self.MakeNum = -1 then
+    Made := True;
+
+  if not Made and Make.IsOpen(SRL.SkewedRand(1500, 500, 2500)) then
+  begin
+    Wait(0, 3333, wdLeft);
+    if Length(Make.GetItemButtons()) > Self.MakeNum then
+      Made := Make.Select(Self.MakeNum, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard());
+  end;
+
+  if not Made then
+  begin
+    Script.WriteMsg('Failed to open make', True);
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+  CountDown.Init(Self.TransformWaitTime);
+
+  Script.WriteMsg('Making...', True);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // check inv
+    MaterialSlots.Clear();
+    Inventory.FindItem(Item, MaterialSlots);
+    MC := Length(MaterialSlots);
+
+    if MC <= 0 then
+    begin
+      Script.WriteMsg('Transform: No more material', True);
+      break;
+    end;
+
+    if MC <> MCount then
+    begin
+      Script.WriteMsg('Transform: InvCount changed, restarting countdown', True);
+      CountDown.Restart();
+    end;
+
+    if (StopShort - (OGMCount - MC)) <= 0 then
+    begin
+      if Random() < 0.65 then
+        Self.StoppedShort := True;
+
+      Script.WriteMsg('Stopping short for antiban', True);
+      break;
+    end;
+
+    MCount := MC;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('Transform: Countdown expired', True);
+      break;
+    end;
+
+    if Chat.LeveledUp() then
+    begin
+      Script.WriteMsg('Transform: Leveld', True);
+      if Random() < 0.2 then
+      begin
+        Wait(0, 1500, wdLeft);
+        Chat.ChatToOption('doesnt matter');
+      end;
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Transforming items...', True);
+  end;
+
+  Wait(0, 5555, wdLeft);
+end;
+
+{
+  Does transform type
+}
+procedure TBot.DoTransform();
+var
+  MaterialSlots, ToolSlots: TIntegerArray;
+  Item: TRSItem;
+begin
+  if not Inventory.FindItems(Self.ToolItems, ToolSlots) then
+  begin
+    Script.WriteMsg('No tools', True);
+    exit();
+  end;
+
+  Script.WriteMsg('DoTransform: ToolSlots: ' + ToStr(ToolSlots), True);
+
+  Self.DoAntiBan();
+
+  Script.WriteMsg('Transforming items...', True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoTransform: MaterialSlots: ' + ToStr(MaterialSlots), True);
+      Self.Transform(Item, MaterialSlots, ToolSlots);
+      break;
+    end;
+  end;
+
+  Script.WriteMsg('No materials', True);
+end;
+
+{$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM

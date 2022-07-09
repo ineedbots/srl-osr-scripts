@@ -1,0 +1,61 @@
+{
+  BankStander config
+  Author: ineedbot
+  Date: 7/9/2022
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_BANKSTANDER_CONFIG}
+{$DEFINE INEEDBOT_BANKSTANDER_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = True;  // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 1;
+  TOOLS = ['Chisel'];
+  MATERIALS = ['Amethyst'];
+  PRODUCTS = ['Amethyst arrowtips'];
+                
+  BANK_COLOR_TYPE = ERSBankColorType.BLAST_FURNACE_CHEST;
+  MAP = 'zeah'; // 'zeah' or 'world'
+  BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+  {CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 5;
+
+  TOOLS = ['Glassblowing pipe'];
+  MATERIALS = ['Molten glass'];
+  PRODUCTS = ['Unpowered orb'];}
+
+  {CREATION_TYPE = ERSCreationType.TRANSFORM;
+  MAKE_NUM = 2;
+
+  TOOLS = ['Knife'];
+  MATERIALS = ['Maple logs'];
+  PRODUCTS = ['Maple longbow (u)'];}
+
+{$ENDIF} // INEEDBOT_BANKSTANDER_CONFIG
