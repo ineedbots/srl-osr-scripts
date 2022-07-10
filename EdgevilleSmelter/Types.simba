@@ -1,0 +1,42 @@
+{
+  Edgeville Smelter types
+  Author: ineedbot
+  Date: 7/4/2022
+
+  Types
+}
+
+{$IFNDEF INEEDBOT_EVS_TYPES}
+{$DEFINE INEEDBOT_EVS_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  TBot = record
+    WalkedTreeForward, Specing, Banking                       : Boolean;
+    ChopWaitTime, LogsDone,
+      WalkedTree, FireWaitTime,
+      LastWalkedTree, FiredTile, FletchWaitTime, MakeOption   : Int32;
+    RSW                                                       : TRSWalker;
+    TinderItem, KnifeItem                                     : TRSItem;
+    LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;
+    TreeOptions, NoLightText, NestUpText, BirdNestText,
+      TreeUptexts, NestOptions                                : TStringArray;
+    TreeTiles, BankTiles                                      : TPointArray;
+    TreeWalkTile, BankWalkTile, CurrentChoppingTreeTile       : TPoint;
+    FireStartTiles: array of record
+      Tile                                                    : TPoint;
+      NumFires                                                : Int32;
+    end;
+    BankColor, TreeColor, FireColor, BirdNestColor            : TScriptColor;
+    ToBankPaths, ToTreesPaths                                 : T2DPointArray;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_EVS_TYPES

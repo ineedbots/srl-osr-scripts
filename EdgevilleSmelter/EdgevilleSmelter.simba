@@ -1,0 +1,282 @@
+{
+  EdgevilleSmelter
+  Author: ineedbot
+  Date: 7/9/2022
+
+  Smelts stuff at edgeville
+}
+
+program EdgevilleSmelter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+{$include_once Utils.simba}
+                           
+{$include_once Bank.simba}
+{$include_once Smelter.simba}
+
+{
+  Executes when we should do something about our full inventory
+}
+procedure TBot.DoFullInventory();
+begin
+  if Inventory.FindItem(Self.TinderItem) then
+  begin
+    Self.FireItems();
+    exit();
+  end;
+
+  if Inventory.FindItem(Self.KnifeItem) and Inventory.FindItems(Self.LogItems) then
+  begin
+    Self.FletchLogs();
+    exit();
+  end;
+
+  if Self.Banking then
+    Self.DoBank()
+  else
+    Self.DropItems();
+end;
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      // TODO randomize
+      if Inventory.IsFull() then
+        Self.DoFullInventory()
+      else
+        Self.DoGathering();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+    
+    Self.DoMainLoopStuff('', False);
+  end;
+  
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+      
+    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+  end;
+  
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(ONE_MINUTE);
+  Script.Activity.NoXPCountMax := 4;
+  
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+  
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := 0.99;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+
+  Script.AllowBreaks := True;
+  
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := @PauseRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+  
+  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
+  
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup('world');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+  Self.Specing := USESPEC;
+  Self.Banking := BANKLOGS;
+  
+  // location specific stuff
+  Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
+  Self.TreeUptexts := ['Chop down Willow', 'Chop', 'down', 'Willow'];
+  Self.LogItems := ['Willow logs'];
+  Self.TinderItem := 'Tinderbox';
+  Self.KnifeItem := 'Knife';
+  Self.KnifedLogItems := ['Willow longbow (u)'];
+  Self.FletchWaitTime := 3000;
+  Self.NestUpText := ['Take'];
+  Self.NestOptions := ['Take'];
+  Self.NoLightText := ['You can''t light a fire here.'];
+  Self.BirdNestText := ['A bird''s nest falls out of the tree.'];
+  Self.ToolItems := [Self.TinderItem, Self.KnifeItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
+    'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
+    'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
+  Self.ChopWaitTime := 10000;
+  Self.FireWaitTime := 10000;
+  Self.FireStartTiles := [[Point(4216, 3492), 23], [Point(4216, 3496), 18],
+    [Point(4216, 3500), 18], [Point(4252, 3508), 22], [Point(4274, 3512), 27]];
+  Self.TreeTiles := [Point(4144, 3498), Point(4152, 3504), Point(4164, 3508),
+    Point(4158, 3520), Point(4162, 3536)];
+  Self.TreeWalkTile := Point(4148, 3496);
+
+  Self.ToBankPaths := [
+    [[4148, 3498], [4150, 3493], [4155, 3484], [4157, 3472], [4157, 3467], [4165, 3461], [4178, 3461], [4178, 3466]],
+    [[4146, 3493], [4142, 3489], [4153, 3473], [4152, 3468], [4147, 3458], [4154, 3456], [4166, 3456], [4179, 3459], [4179, 3469]],
+    [[4149, 3498], [4148, 3488], [4142, 3483], [4143, 3472], [4145, 3466], [4150, 3461], [4156, 3458], [4170, 3458], [4178, 3459], [4179, 3467]],
+    [[4149, 3498], [4153, 3499], [4170, 3499], [4183, 3499], [4203, 3491], [4205, 3482], [4205, 3473], [4200, 3459], [4189, 3457], [4180, 3460], [4180, 3467]]
+  ];
+
+  Self.ToTreesPaths := [
+    [[4178, 3466], [4178, 3461], [4165, 3461], [4157, 3467], [4157, 3472], [4155, 3484], [4150, 3493], [4148, 3498]],
+    [[4179, 3469], [4179, 3459], [4166, 3456], [4154, 3456], [4147, 3458], [4152, 3468], [4153, 3473], [4142, 3489], [4146, 3493]],
+    [[4179, 3467], [4178, 3459], [4170, 3458], [4156, 3458], [4150, 3461], [4145, 3466], [4143, 3472], [4142, 3483], [4148, 3488], [4149, 3498]],
+    [[4180, 3467], [4180, 3460], [4189, 3457], [4200, 3459], [4205, 3473], [4205, 3482], [4203, 3491], [4183, 3499], [4170, 3499], [4153, 3499], [4149, 3498]]
+  ];
+
+  // 2 is willow longbow
+  Self.MakeOption := 2;
+
+  with Self.TreeColor do
+  begin
+    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
+    RSObject.Colors += CTS2(3306343, 2, 0.19, 7.62);
+    RSObject.Colors += CTS2(3713943, 4, 0.07, 0.85);
+    RSObject.Colors += CTS2(462606, 2, 1.04, 5.68);  // dark side
+    RSObject.Grow := 10;
+    RSObject.Erode := 5;
+    RSObject.ClusterDistance := 3;
+    FilterSize := 30;
+
+    RadiusExpand := 1.15;
+  end;
+  
+  Self.BankTiles := [Point(4174, 3468)];
+  Self.BankWalkTile := Point(4178, 3468);
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+    RSObject.ColorClusters += [
+      CTS2(6120041, 4, 1.11, 1.12), // Grey
+      CTS2(1069929, 2, 0.15, 1.05), // Brown
+      3];
+    RSObject.Grow := 1;
+    RSObject.ClusterDistance := 3;
+    FilterSize := 10;
+    RadiusExpand := 0.25;
+    NoColorTileExpand := 5;
+  end;
+  
+  with Self.FireColor do
+  begin
+    RSObject.Colors += CTS2(16204, 2);
+    RSObject.ClusterDistance := 5;
+    RSObject.Grow := 2;
+    RSObject.Erode := 2;
+    FilterSize := 16;
+
+    RadiusExpand := 0.5;
+  end;
+
+  with Self.BirdNestColor do
+  begin
+    RSObject.Colors += CTS2(4149849, 6, 0.11, 0.27);
+    RSObject.Colors += CTS2(2437686, 7, 0.25, 0.76);
+    RSObject.Colors += CTS2(5661544, 4, 0.13, 0.23);
+    RSObject.Erode := 3;
+    RSObject.Grow := 2;
+    RSObject.ClusterDistance := 1;
+
+    FilterSize := 5;
+    RadiusExpand := 1;
+  end;
+  
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+  
+  // start the timers  
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+  
+  AddOnTerminate(@Self.Free);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
