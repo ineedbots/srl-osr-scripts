@@ -21,9 +21,9 @@
 {
   Finds the bank tile
 }
-function TBot.FindBankTile(OurPos: TPoint; BankTile: TPoint): TRectangle;
+function TBot.FindBankTile(OurPos: TPoint): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, BankTile);
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 4);
 end;
 
 {
@@ -46,12 +46,12 @@ end;
 {
   Returns true if bank is visible, B is bounds of it
 }
-function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
+function TBot.FindBank(OurTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
   ATPA: T2DPointArray;
 begin
-  Tile := Self.FindBankTile(OurTile, BankTile);
+  Tile := Self.FindBankTile(OurTile);
 
   B := Self.GetBankSearchBox(Tile);
 
@@ -128,39 +128,38 @@ end;
 }
 procedure TBot.DoBanking();
 var
-  ToolSlots, LogSlots, Pattern: TIntegerArray;
-  CurLogs, i: Int32;
-  IsBank: Boolean;
+  ToolSlots, ProductSlots, Pattern: TIntegerArray;
+  CurProducts, i: Int32;
+  MBox: TBox;
+  Found: Boolean;
+  Item: TRSItem;
 begin
-  if not Bank.IsOpen() and not DepositBox.IsOpen() then
+  // make sure bank is open
+  if DepositBox.IsOpen() then
+  begin
+    DepositBox.Close(Script.ShouldPressKeyboard());
+    exit();
+  end;
+
+  if not Bank.IsOpen(True) then
   begin
     Bank.FixUpText();
 
-    if not Bank.IsOpen() and not DepositBox.IsOpen() then
+    if not Bank.IsOpen(True) then
       exit();
   end;
 
-  IsBank := Bank.IsOpen();
   Script.SetStatus('Depositing items...');
-  Script.AntiBan.AfterBankAntiBan(20);
+  Self.StoppedShort := False;
+  Script.AntiBan.AfterBankAntiBan(10);
 
   // query the items in our inventory
-  if IsBank then
-  begin
-    Inventory.FindItems(Self.ToolItems, ToolSlots);
-    Inventory.FindItems(Self.LogItems, LogSlots);
-    Inventory.FindItems(Self.KnifedLogItems, LogSlots);
-  end
-  else
-  begin
-    DepositBox.FindItems(Self.ToolItems, ToolSlots);
-    DepositBox.FindItems(Self.LogItems, LogSlots);
-    DepositBox.FindItems(Self.KnifedLogItems, LogSlots);
-  end;
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
+  Inventory.FindItems(Self.ToolItems, ToolSlots);
 
   Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
-  Script.WriteMsg('DepositItems: LogSlots: ' + ToStr(LogSlots), True);
-  CurLogs := Length(LogSlots);
+  Script.WriteMsg('DepositItems: ProductSlots: ' + ToStr(ProductSlots), True);
+  CurProducts := Length(ProductSlots);
 
   // randomize the deposit pattern
   Pattern := Bank.GetGoodPattern();
@@ -175,73 +174,66 @@ begin
   for i in ToolSlots do
     Pattern.Remove(i);
 
+  // search for materials
+  for Item in Self.MaterialItems do
+  begin
+    if not Bank.FindBankItem(Item, MBox) then
+      continue;
+
+    Found := True;
+    break;
+  end;
+
+  if not Found then
+  begin
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
   // deposit our stuff
-  if IsBank then
+  if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+    Bank.DepositAll()
+  else if not Bank.DepositItemsIntoBank(Pattern, CurProducts) then
   begin
-    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
-      Bank.DepositAll()
-    else if not Bank.DepositItemsIntoBank(Pattern, CurLogs) then
-    begin
-      Script.WriteMsg('DepositItems: Failed to deposit items into bank');
-      exit();
-    end;
-  end
-  else
+    Script.WriteMsg('DepositItems: Failed to deposit items into bank');
+    exit();
+  end;
+
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(7);
+
+  // withdraw our crap
+  if not Bank.WithdrawItemFromBank(MBox) then
   begin
-    // TODO better
-    for i in Pattern do
-    begin
-      if DepositBox.IsSlotUsed(i) then
-      begin
-        // TODO randomize using deposit buttons
-        Mouse.Move(DepositBox.GetSlotBox(i));
-        ChooseOption.Select('Deposit-All');
-        Wait(750, 1250);
-      end;
-    end;
+    Script.WriteMsg('Failed to withdraw materials');
+    Bank.Close(Script.ShouldPressKeyboard());
+    exit();
   end;
 
   // query how many logs we actually depositted
-  LogSlots.Clear();
-
-  if IsBank then
-  begin
-    Inventory.FindItems(Self.LogItems, LogSlots);
-    Inventory.FindItems(Self.KnifedLogItems, LogSlots);
-  end
-  else
-  begin
-    DepositBox.FindItems(Self.LogItems, LogSlots);
-    DepositBox.FindItems(Self.KnifedLogItems, LogSlots);
-  end;
+  ProductSlots.Clear();
+  Inventory.FindItems(Self.ProductItems, ProductSlots);
 
   // update how many we did
-  Self.LogsDone += CurLogs - Length(LogSlots);
+  Self.Did += CurProducts - Length(ProductSlots);
 
-  Script.WriteMsg('DepositItems: LogSlots (after bank): ' + ToStr(LogSlots), True);
+  Script.WriteMsg('DepositItems: ProductSlots (after bank): ' + ToStr(ProductSlots), True);
 
-  Script.SetStatus('Logs depositted!');
-  Script.WriteMsg('Banked log... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+  Script.SetStatus('Banked!');
+  Script.WriteMsg('Banked... Currently did ' + IntToStr(Self.Did) + '!');
 
-  Script.AntiBan.AfterBankAntiBan(30);
+  Script.AntiBan.AfterBankAntiBan(15);
 
   // randomly close the bank
   if (Random() > 0.75) or Self.RSW.ScreenWalk then
-  begin
-    if IsBank then
-      Bank.Close(Script.ShouldPressKeyboard())
-    else
-      DepositBox.Close(Script.ShouldPressKeyboard());
-  end;
+    Bank.Close(Script.ShouldPressKeyboard())
 end;
 
 {
-  Returns true if we clicked any bank
+  Returns true if found the bank, WasClicked true if clicked it
 }
 function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  BankTiles: TPointArray;
-  BankTile: TPoint;
   B: TBox;
 begin
   // bank might be already opened, lets return true
@@ -254,83 +246,65 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
-  // randomize the tiles a bit, shake em up
-  BankTiles := Copy(Self.BankTiles);
-  BankTiles.Sort(OurTile);
-  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
-
-  Script.SetStatus('Finding bank...');
-
-  // search for every bank
-  for BankTile in BankTiles do
+  // find the bank
+  if not Self.FindBank(OurTile, B) then
   begin
-    // try see if we can find this bank
-    if not Self.FindBank(OurTile, BankTile, B) then
-      continue;
-
-    // apply velocity
-    if Velocity <> Point(0, 0) then
-    begin
-      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
-
-      if not MainScreen.IsVisible(B.Middle()) then
-      begin
-        Script.WriteMsg('ClickBank: Tile velocity no visible', True);
-        break;
-      end;
-
-      B.LimitTo(MainScreen.Bounds());
-
-      if Script.Debug and Script.Drawing then
-        RSClient.Image.DrawBox(B, clMoneyGreen);
-    end;
-
-    // hover over the banktile and see if it is actually a bank
-    if Velocity <> Point(0, 0) then
-      Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
-    Mouse.Move(B);
-    Script.MouseLooksForUpText := [];
-
-    Script.RareSmallWait();
-
-    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
-    begin
-      Script.SetStatus('Bad uptext for bank');
-      if Velocity = Point(0, 0) then
-        continue
-      else
-        break;
-    end;
-
-    Result := True;
-
-    Script.SetStatus('Confirmed bank! Opening bank...');
-
-    // banker can make us stuck
-    if (Velocity <> Point(0, 0)) and ('Banker' in MainScreen.GetUpText()) then
-      break;
-
-    // open the bank
-    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
-      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
-    else
-    begin
-      Mouse.Click(MOUSE_LEFT);
-      WasClicked := Mouse.DidClick(True);
-    end;
-
-    if not WasClicked then
-    begin
-      Script.WriteMsg('ClickBank: Didnt click', True);
-
-      if Velocity = Point(0, 0) then
-        continue
-      else
-        break;
-    end;
-
-    break;
+    Script.WriteMsg('ClickBank: Bank not visible', True);
+    exit();
   end;
+
+  Script.WriteMsg('ClickBank: Found bank, checking uptext', True);
+
+  Result := True;
+
+  // now apply velocity and check uptext
+  if Velocity <> Point(0, 0) then
+  begin
+    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+    if not MainScreen.IsVisible(B.Middle()) then
+    begin
+      Script.WriteMsg('ClickBank: Tile velocity no visible', True);
+      exit();
+    end;
+
+    B.LimitTo(MainScreen.Bounds());
+
+    if Script.Debug and Script.Drawing then
+      RSClient.Image.DrawBox(B, clMoneyGreen);
+  end;
+
+  if Velocity <> Point(0, 0) then
+    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+  Mouse.Move(B);
+  Script.MouseLooksForUpText := [];
+
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+  begin
+    Script.WriteMsg('ClickBank: Bad uptext', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickBank: Good bank uptext, clicking', True);
+
+  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+    WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+  else
+  begin
+    Mouse.Click(MOUSE_LEFT);
+
+    WasClicked := Mouse.DidClick(True);
+  end;
+
+  if not WasClicked then
+  begin
+    Script.WriteMsg('ClickBank: Didnt click', True);
+    exit();
+  end;
+
+  Script.WriteMsg('ClickBank: Clicked the bank', True);
 end;
 
 {
@@ -439,20 +413,7 @@ begin
     or (Self.ClickBank(WasClicked) and WasClicked) then
   begin
     if Self.WaitBankOpen() then
-    begin
       Self.DoBanking();
-      Self.UpdateWalkedTree(True);
-
-      if Inventory.IsFull() then
-        exit();
-
-      // meme!
-      if Self.GoToTrees(True) then
-      begin
-        Self.AfterActionAntiBan(True);
-        Self.WhileChopping(Self.CurrentChoppingTreeTile);
-      end;
-    end;
   end;
 end;
 

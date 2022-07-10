@@ -19,50 +19,7 @@
 {$include_once Config.simba}
 
 {$include_once Bank.simba}
-{$include_once Smelter.simba}
-
-{
-  Updates which fish tile we are at
-}
-procedure TBot.UpdateWalkedTree(Here: Boolean = True);
-var
-  CTreeTiles: TPointArray;
-begin
-  if Here then
-  begin
-    CTreeTiles := Copy(Self.TreeTiles);
-    CTreeTiles.Sort(Self.RSW.GetMyPos());
-
-    Self.LastWalkedTree := Self.WalkedTree;
-    Self.WalkedTree := Self.TreeTiles.Find(CTreeTiles[0]);
-    if Self.LastWalkedTree <> Self.WalkedTree then
-      Self.WalkedTreeForward := Self.LastWalkedTree < Self.WalkedTree;
-  end
-  else
-  begin
-    if Length(Self.TreeTiles) > 1 then
-    begin
-      if Self.WalkedTreeForward then
-      begin
-        Self.WalkedTree += 1;
-        if Self.WalkedTree > High(Self.TreeTiles) then
-        begin
-          Self.WalkedTree -= 2;
-          Self.WalkedTreeForward := False;
-        end;
-      end
-      else
-      begin
-        Self.WalkedTree -= 1;
-        if Self.WalkedTree < Low(Self.TreeTiles) then
-        begin
-          Self.WalkedTree += 2;
-          Self.WalkedTreeForward := True;
-        end;
-      end;
-    end;
-  end;
-end;
+{$include_once Station.simba}
 
 {
   From Flight's AIOFisher
@@ -70,46 +27,8 @@ end;
 procedure TBot.DoSkillHover();
 begin
   case Random() of
-    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.WOODCUTTING, Random(1700, 3200), True);
-    0.6..0.8: Script.Antiban.HoverSkill(ERSSKILL.FLETCHING, Random(1700, 3200), True);
-    else Script.Antiban.HoverSkill(ERSSKILL.FIREMAKING, Random(1700, 3200), True);
-  end;
-end;
-
-{
-  Enables special attack
-}
-function TBot.CheckSpec(): Boolean;
-begin
-  if not Self.Specing then
-    exit();
-
-  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle()) >= 100 then
-  begin
-    Script.WriteMsg('Special attack boosting');
-
-    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
-
-    Wait(1000, 2000, wdLeft);
-    Result := True;
-  end;
-end;
-
-{
-  Checks if we are under attack
-}
-function TBot.CheckUnderAttack(): Boolean;
-begin
-  if Script.CheckUnderAttack() then
-  begin
-    Result := True;
-
-    Self.GoToBank(True);
-
-    if Script.HPAmount < 5 then
-      Script.Stop('Critical HP!')
-    else
-      Wait(5000, 15000);
+    0.0..0.6: Script.Antiban.HoverSkill(ERSSKILL.CRAFTING, Random(1700, 3200), True);
+    else Script.Antiban.HoverSkill(ERSSKILL.SMITHING, Random(1700, 3200), True);
   end;
 end;
 
@@ -123,9 +42,6 @@ begin
   if not RSClient.IsLoggedIn() then
     exit();
 
-  // are we under attack?
-  Self.CheckUnderAttack();
-
   // check we we leveled up
   if Chat.LeveledUp() then
   begin
@@ -133,8 +49,6 @@ begin
     while Chat.ClickContinue() do
       Wait(75, 500);
   end;
-
-  Self.CheckSpec();
 
   if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
     MainScreen.CloseInterface();
@@ -144,9 +58,6 @@ begin
 
   if MainScreen.IsUpText('->') then
     Mouse.Click(MOUSE_LEFT);
-
-  // check for birdnest
-  Self.CheckBirdnest();
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -169,14 +80,15 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  TPA: TPointArray;
-  TreeTile, OurTile, BankTile, FireTile, TP: TPoint;
+  OurTile: TPoint;
   TileRect: TRectangle;
   i: Int32;
   CompAng: Double;
   Text: String;
   B: TBox;
-  T, L, K: TIntegerArray;
+  T, M, P: TIntegerArray;
+  Item: TRSItem;     
+  BtnArr: TRSButtonArray;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -186,82 +98,67 @@ begin
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
-    for TreeTile in Self.TreeTiles do
+    TileRect := Self.FindBankTile(OurTile);
+    B := Self.GetBankSearchBox(TileRect);
+    ATPA := Self.FindBankColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clWhite);
+
+    if Self.FindBank(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+
+    TileRect := Self.FindStationTile(OurTile);
+    B := Self.GetStationSearchBox(TileRect);
+    ATPA := Self.FindStationColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.StationTile, CompAng), 4, clWhite);
+
+    if Self.FindStation(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+    if Make.IsOpen() then
     begin
-      TileRect := Self.FindTreeTile(OurTile, TreeTile);
-      B := Self.GetTreeSearchBox(TileRect); 
-      ATPA := Self.FindTreeColor(B);
+      BtnArr := Make.GetItemButtons();
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TreeTile, CompAng), 4, clBlue);
-
-      if Self.FindTree(OurTile, TreeTile, B) then
+      if (Self.MakeOption >= 0) and (Length(BtnArr) > Self.MakeOption) then
+      begin
+        B := BtnArr[Self.MakeOption].Bounds;
         RSClient.Image.DrawBox(B, clBlue);
+      end;
     end;
-
-    for BankTile in Self.BankTiles do
+  end
+  else
+  begin
+    if Bank.IsOpen() then
     begin
-      TileRect := Self.FindBankTile(OurTile, BankTile);
-      B := Self.GetBankSearchBox(TileRect);
-      ATPA := Self.FindBankColor(B);
-
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clBlue);
-
-      if Self.FindBank(OurTile, BankTile, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+      for Item in Self.MaterialItems do
+      begin
+        if Bank.FindItem(Item, B) then
+          RSClient.Image.DrawBox(B, clPurple);
+      end;
     end;
-
-    for i := Low(Self.FireStartTiles) to High(Self.FireStartTiles) do
-    begin
-      FireTile := Self.FireStartTiles[i].Tile;
-
-      TileRect := Self.FindFireTile(OurTile, FireTile);
-      B := Self.GetFireSearchBox(TileRect);  
-      ATPA := Self.FindFireColor(B);
-
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, FireTile, CompAng), 4, clBlue);
-
-      if Self.FindFire(OurTile, FireTile, B) then
-        RSClient.Image.DrawBox(B, clBlue);
-    end;
-
-    TPA := Self.GetNestItemDots();
-    for TP in TPA do
-    begin
-      TileRect := Self.FindNestTile(TP, CompAng);
-      B := Self.GetNestSearchBox(TileRect);
-      ATPA := Self.FindBirdNestColor(B);
-
-      RSClient.Image.DrawBox(B, clOrange);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clPurple);
-    end;
-
-    if Self.FoundBirdsNest(B) then
-      RSClient.Image.DrawBox(B, clBlack);
   end;
 
   if Inventory.IsOpen() then
   begin
-    Inventory.FindItems(Self.LogItems, L);
+    Inventory.FindItems(Self.ProductItems, P);
     Inventory.FindItems(Self.ToolItems, T);
-    Inventory.FindItems(Self.KnifedLogItems, K);
+    Inventory.FindItems(Self.MaterialItems, M);
 
     for i := 0 to 27 do
     begin
-      if L.Find(i) <> -1 then
+      if P.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if T.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
-      else if K.Find(i) <> -1 then
+      else if M.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple);
     end;
   end;
@@ -292,13 +189,10 @@ begin
   if not Script.CanReportConsole() then
     exit();
 
-  WriteOut += 'Banking: ' + ToStr(Self.Banking) + LineEnding;
-  WriteOut += 'Firemaking: ' + ToStr(Inventory.FindItem(Self.TinderItem)) + LineEnding;
-  WriteOut += 'Fletching: ' + ToStr(Inventory.FindItem(Self.KnifeItem)) + LineEnding;
   WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
   WriteOut += 'Status: ' + Script.Status + LineEnding;
   WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
-  WriteOut += 'Chopped: ' + IntToStr(Self.LogsDone) + LineEnding;
+  WriteOut += 'Did: ' + IntToStr(Self.Did) + LineEnding;
   WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
   WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
   WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;

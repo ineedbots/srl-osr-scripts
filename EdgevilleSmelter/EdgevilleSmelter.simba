@@ -17,30 +17,7 @@ program EdgevilleSmelter;
 {$include_once Utils.simba}
                            
 {$include_once Bank.simba}
-{$include_once Smelter.simba}
-
-{
-  Executes when we should do something about our full inventory
-}
-procedure TBot.DoFullInventory();
-begin
-  if Inventory.FindItem(Self.TinderItem) then
-  begin
-    Self.FireItems();
-    exit();
-  end;
-
-  if Inventory.FindItem(Self.KnifeItem) and Inventory.FindItems(Self.LogItems) then
-  begin
-    Self.FletchLogs();
-    exit();
-  end;
-
-  if Self.Banking then
-    Self.DoBank()
-  else
-    Self.DropItems();
-end;
+{$include_once Station.simba}
 
 {
   Main loop of the script.
@@ -51,11 +28,14 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      // TODO randomize
-      if Inventory.IsFull() then
-        Self.DoFullInventory()
+      if Inventory.FindItems(Self.MaterialItems) and not Self.StoppedShort then
+      begin
+        Self.DoStation();
+      end
       else
-        Self.DoGathering();
+      begin
+        Self.DoBank();
+      end;
     end
     else
     begin
@@ -102,6 +82,7 @@ end;
 procedure TBot.Init();
 var
   Worlds: TIntegerArray;
+  Item: TRSItem;
 begin
   // init the player
   if _WORLDS[0] <> -1 then
@@ -163,65 +144,29 @@ begin
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
 
-  Self.Specing := USESPEC;
-  Self.Banking := BANKLOGS;
-  
-  // location specific stuff
-  Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];
-  Self.TreeUptexts := ['Chop down Willow', 'Chop', 'down', 'Willow'];
-  Self.LogItems := ['Willow logs'];
-  Self.TinderItem := 'Tinderbox';
-  Self.KnifeItem := 'Knife';
-  Self.KnifedLogItems := ['Willow longbow (u)'];
-  Self.FletchWaitTime := 3000;
-  Self.NestUpText := ['Take'];
-  Self.NestOptions := ['Take'];
-  Self.NoLightText := ['You can''t light a fire here.'];
-  Self.BirdNestText := ['A bird''s nest falls out of the tree.'];
-  Self.ToolItems := [Self.TinderItem, Self.KnifeItem, 'Rune axe', 'Dragon axe', 'Bronze axe',
-    'Iron axe', 'Steel axe', 'Black axe', 'Mithril axe', 'Adamant axe',
-    'Gilded axe', '3rd age axe', 'Infernal axe', 'Crystal axe'];
-  Self.ChopWaitTime := 10000;
-  Self.FireWaitTime := 10000;
-  Self.FireStartTiles := [[Point(4216, 3492), 23], [Point(4216, 3496), 18],
-    [Point(4216, 3500), 18], [Point(4252, 3508), 22], [Point(4274, 3512), 27]];
-  Self.TreeTiles := [Point(4144, 3498), Point(4152, 3504), Point(4164, 3508),
-    Point(4158, 3520), Point(4162, 3536)];
-  Self.TreeWalkTile := Point(4148, 3496);
+  Self.StationWaitTime := 6500;
 
-  Self.ToBankPaths := [
-    [[4148, 3498], [4150, 3493], [4155, 3484], [4157, 3472], [4157, 3467], [4165, 3461], [4178, 3461], [4178, 3466]],
-    [[4146, 3493], [4142, 3489], [4153, 3473], [4152, 3468], [4147, 3458], [4154, 3456], [4166, 3456], [4179, 3459], [4179, 3469]],
-    [[4149, 3498], [4148, 3488], [4142, 3483], [4143, 3472], [4145, 3466], [4150, 3461], [4156, 3458], [4170, 3458], [4178, 3459], [4179, 3467]],
-    [[4149, 3498], [4153, 3499], [4170, 3499], [4183, 3499], [4203, 3491], [4205, 3482], [4205, 3473], [4200, 3459], [4189, 3457], [4180, 3460], [4180, 3467]]
-  ];
+  Self.StationUptexts := ['Smelt'];
+  Self.StationOptions := ['Smelt'];
 
-  Self.ToTreesPaths := [
-    [[4178, 3466], [4178, 3461], [4165, 3461], [4157, 3467], [4157, 3472], [4155, 3484], [4150, 3493], [4148, 3498]],
-    [[4179, 3469], [4179, 3459], [4166, 3456], [4154, 3456], [4147, 3458], [4152, 3468], [4153, 3473], [4142, 3489], [4146, 3493]],
-    [[4179, 3467], [4178, 3459], [4170, 3458], [4156, 3458], [4150, 3461], [4145, 3466], [4143, 3472], [4142, 3483], [4148, 3488], [4149, 3498]],
-    [[4180, 3467], [4180, 3460], [4189, 3457], [4200, 3459], [4205, 3473], [4205, 3482], [4203, 3491], [4183, 3499], [4170, 3499], [4153, 3499], [4149, 3498]]
-  ];
+  Self.StationWalkTile := [4245, 2452];
+  Self.StationTile := [4248, 2452];
+  Self.BankTile := [4202, 2476];
+  Self.BankWalkTile := [4202, 2472];
 
-  // 2 is willow longbow
-  Self.MakeOption := 2;
+  Self.ToBankPaths := [];
+  Self.ToStationPaths := [];
 
-  with Self.TreeColor do
-  begin
-    RSObject.Colors += CTS2(3763042, 3, 0.05, 1.08);
-    RSObject.Colors += CTS2(3306343, 2, 0.19, 7.62);
-    RSObject.Colors += CTS2(3713943, 4, 0.07, 0.85);
-    RSObject.Colors += CTS2(462606, 2, 1.04, 5.68);  // dark side
-    RSObject.Grow := 10;
-    RSObject.Erode := 5;
-    RSObject.ClusterDistance := 3;
-    FilterSize := 30;
+  Self.MakeOption := MAKE_NUM;
 
-    RadiusExpand := 1.15;
-  end;
-  
-  Self.BankTiles := [Point(4174, 3468)];
-  Self.BankWalkTile := Point(4178, 3468);
+  for Item in TOOLS do
+    Self.ToolItems += Item;
+
+  for Item in MATERIALS do
+    Self.MaterialItems += Item;
+
+  for Item in PRODUCTS do
+    Self.ProductItems += Item;
 
   with Self.BankColor do
   begin
@@ -232,33 +177,22 @@ begin
       3];
     RSObject.Grow := 1;
     RSObject.ClusterDistance := 3;
+
     FilterSize := 10;
-    RadiusExpand := 0.25;
+    RadiusExpand := 1.5;
     NoColorTileExpand := 5;
   end;
-  
-  with Self.FireColor do
+
+  with Self.StationColor do
   begin
-    RSObject.Colors += CTS2(16204, 2);
-    RSObject.ClusterDistance := 5;
-    RSObject.Grow := 2;
+    RSObject.Colors += CTS2(4019575, 3, 0.15, 0.45);
+    RSObject.Grow := 3;
     RSObject.Erode := 2;
-    FilterSize := 16;
+    RSObject.ClusterDistance := 2;
 
-    RadiusExpand := 0.5;
-  end;
-
-  with Self.BirdNestColor do
-  begin
-    RSObject.Colors += CTS2(4149849, 6, 0.11, 0.27);
-    RSObject.Colors += CTS2(2437686, 7, 0.25, 0.76);
-    RSObject.Colors += CTS2(5661544, 4, 0.13, 0.23);
-    RSObject.Erode := 3;
-    RSObject.Grow := 2;
-    RSObject.ClusterDistance := 1;
-
-    FilterSize := 5;
-    RadiusExpand := 1;
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
   end;
   
   // do login init stuff

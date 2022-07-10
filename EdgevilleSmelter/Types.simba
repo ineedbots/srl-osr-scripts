@@ -17,23 +17,14 @@
 
 type
   TBot = record
-    WalkedTreeForward, Specing, Banking                       : Boolean;
-    ChopWaitTime, LogsDone,
-      WalkedTree, FireWaitTime,
-      LastWalkedTree, FiredTile, FletchWaitTime, MakeOption   : Int32;
+    StoppedShort                                              : Boolean;
+    StationWaitTime, MakeOption, Did                          : Int32;
     RSW                                                       : TRSWalker;
-    TinderItem, KnifeItem                                     : TRSItem;
-    LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;
-    TreeOptions, NoLightText, NestUpText, BirdNestText,
-      TreeUptexts, NestOptions                                : TStringArray;
-    TreeTiles, BankTiles                                      : TPointArray;
-    TreeWalkTile, BankWalkTile, CurrentChoppingTreeTile       : TPoint;
-    FireStartTiles: array of record
-      Tile                                                    : TPoint;
-      NumFires                                                : Int32;
-    end;
-    BankColor, TreeColor, FireColor, BirdNestColor            : TScriptColor;
-    ToBankPaths, ToTreesPaths                                 : T2DPointArray;
+    ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
+    StationUptexts, StationOptions                            : TStringArray;
+    StationWalkTile, BankWalkTile, StationTile, BankTile      : TPoint;
+    BankColor, StationColor                                   : TScriptColor;
+    ToBankPaths, ToStationPaths                               : T2DPointArray;
   end;
 
 var
