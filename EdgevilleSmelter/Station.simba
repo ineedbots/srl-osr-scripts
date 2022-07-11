@@ -21,9 +21,9 @@
 {
   Finds the tile
 }
-function TBot.FindStationTile(OurPos: TPoint): TRectangle;
+function TBot.FindStationTile(OurPos, StationTile: TPoint): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Self.StationTile, 3);
+  Result := Self.RSW.GetTileMSEx(OurPos, StationTile, 3);
 end;
 
 {
@@ -46,13 +46,13 @@ end;
 {
   Tries to find the station at the tile, returns true if it does, also the area of where it is
 }
-function TBot.FindStation(PlayerPos: TPoint; out B: TBox): Boolean;
+function TBot.FindStation(PlayerPos, StationTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
   ATPA: T2DPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
-  Tile := Self.FindStationTile(PlayerPos);
+  Tile := Self.FindStationTile(PlayerPos, StationTile);
 
   B := Self.GetStationSearchBox(Tile);
 
@@ -77,68 +77,86 @@ end;
 function TBot.ClickStation(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   B: TBox;
+  TP: TPoint;
+  StationTiles: TPointArray;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
-  // find the belt
-  if not Self.FindStation(OurTile, B) then
+  // randomize the tiles a bit, shake em up
+  StationTiles := Copy(Self.StationTiles);
+  StationTiles.Sort(OurTile);
+  StationTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  for TP in StationTiles do
   begin
-    Script.WriteMsg('ClickStation: not visible', True);
-    exit();
-  end;
-
-  Script.WriteMsg('ClickStation: Found, checking uptext', True);
-
-  Result := True;
-
-  // now apply velocity and check uptext
-  if Velocity <> Point(0, 0) then
-  begin
-    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
-
-    if not MainScreen.IsVisible(B.Middle()) then
+    // find the belt
+    if not Self.FindStation(OurTile, TP, B) then
     begin
-      Script.WriteMsg('ClickStation: Tile velocity no visible', True);
-      exit();
+      Script.WriteMsg('ClickStation: not visible', True);
+      continue;
     end;
 
-    B.LimitTo(MainScreen.Bounds());
+    Script.WriteMsg('ClickStation: Found, checking uptext', True);
 
-    if Script.Debug and Script.Drawing then
-      RSClient.Image.DrawBox(B, clMoneyGreen);
+    Result := True;
+
+    // now apply velocity and check uptext
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+      begin
+        Script.WriteMsg('ClickStation: Tile velocity no visible', True);
+        continue;
+      end;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Self.StationUptexts;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
+
+    if not MainScreen.IsUpText(Self.StationUptexts, Random(100, 250)) then
+    begin
+      Script.WriteMsg('ClickStation: Bad uptext', True);
+
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    Script.WriteMsg('ClickStation: Good uptext, clicking', True);
+
+    if MainScreen.IsUpText(Self.StationOptions, Random(100, 250)) and (Random() < 0.9) then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end
+    else if MainScreen.IsUpText('options') then
+      WasClicked := ChooseOption.Select(Self.StationOptions);
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickStation: Didnt click', True);
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    Script.WriteMsg('ClickStation: Clicked', True);
+    break;
   end;
-
-  if Velocity <> Point(0, 0) then
-    Script.MouseLooksForUpText := Self.StationUptexts;
-  Mouse.Move(B);
-  Script.MouseLooksForUpText := [];
-
-  Script.RareSmallWait();
-
-  if not MainScreen.IsUpText(Self.StationUptexts, Random(100, 250)) then
-  begin
-    Script.WriteMsg('ClickStation: Bad uptext', True);
-    exit();
-  end;
-
-  Script.WriteMsg('ClickStation: Good uptext, clicking', True);
-
-  if MainScreen.IsUpText(Self.StationOptions, Random(100, 250)) and (Random() < 0.9) then
-  begin
-    Mouse.Click(MOUSE_LEFT);
-    WasClicked := Mouse.DidClick(True);
-  end
-  else if MainScreen.IsUpText('options') then
-    WasClicked := ChooseOption.Select(Self.StationOptions);
-
-  if not WasClicked then
-  begin
-    Script.WriteMsg('ClickStation: Didnt click', True);
-    exit();
-  end;
-
-  Script.WriteMsg('ClickStation: Clicked', True);
 end;
 
 {
@@ -187,13 +205,13 @@ var
   OurPos: TPoint;
   PathIdx: Int32;
   Walked: Boolean;
-  B: TBox;
   BeforeCallback: TRSWalker_OnWalkEvent;
 begin
   Script.WriteMsg('Going to station...', True);
   OurPos := Self.RSW.GetMyPos();
 
-  if Force or not Self.FindStation(OurPos, B) then
+  if Force or (OurPos.DistanceTo(Self.StationWalkTile) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.StationWalkTile).Mean()) then
   begin
     Script.SetStatus('Going to station spot...');
 
@@ -204,7 +222,7 @@ begin
       Walked := True;
       Self.RSW.Enabled := True;
 
-      if (Length(Self.ToStationPaths) > 0) and Force then
+      if Length(Self.ToStationPaths) > 0 then
       begin
         PathIdx := SRL.TruncatedGauss(Low(Self.ToStationPaths), High(Self.ToStationPaths));
 

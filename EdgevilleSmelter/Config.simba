@@ -29,7 +29,7 @@ const
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
   MAKE_NUM = 0;
-  TOOLS = ['Ammo mould'{, 'Double ammo mould'}];
+  TOOLS = ['Ammo mould', 'Double ammo mould'];
   MATERIALS = ['Steel bar'];
   PRODUCTS = ['Cannonball'];
 

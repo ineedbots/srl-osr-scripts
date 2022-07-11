@@ -21,9 +21,9 @@
 {
   Finds the bank tile
 }
-function TBot.FindBankTile(OurPos: TPoint): TRectangle;
+function TBot.FindBankTile(OurPos: TPoint; BankTile: TPoint): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Self.BankTile, 4);
+  Result := Self.RSW.GetTileMSEx(OurPos, BankTile);
 end;
 
 {
@@ -46,12 +46,12 @@ end;
 {
   Returns true if bank is visible, B is bounds of it
 }
-function TBot.FindBank(OurTile: TPoint; out B: TBox): Boolean;
+function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
   ATPA: T2DPointArray;
 begin
-  Tile := Self.FindBankTile(OurTile);
+  Tile := Self.FindBankTile(OurTile, BankTile);
 
   B := Self.GetBankSearchBox(Tile);
 
@@ -174,11 +174,6 @@ begin
   for i in ToolSlots do
     Pattern.Remove(i);
 
-  // for until the items update!
-  for i := High(Pattern) downto Low(Pattern) do
-    if ProductSlots.Find(Pattern[i]) = -1 then
-      Pattern.Remove(Pattern[i]);
-
   // search for materials
   for Item in Self.MaterialItems do
   begin
@@ -235,10 +230,12 @@ begin
 end;
 
 {
-  Returns true if found the bank, WasClicked true if clicked it
+  Returns true if we clicked any bank
 }
 function TBot.ClickBank(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
+  BankTiles: TPointArray;
+  BankTile: TPoint;
   B: TBox;
 begin
   // bank might be already opened, lets return true
@@ -251,65 +248,83 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
-  // find the bank
-  if not Self.FindBank(OurTile, B) then
+  // randomize the tiles a bit, shake em up
+  BankTiles := Copy(Self.BankTiles);
+  BankTiles.Sort(OurTile);
+  BankTiles.RandomizeNearDists(OurTile, 12, 0.2);
+
+  Script.SetStatus('Finding bank...');
+
+  // search for every bank
+  for BankTile in BankTiles do
   begin
-    Script.WriteMsg('ClickBank: Bank not visible', True);
-    exit();
-  end;
+    // try see if we can find this bank
+    if not Self.FindBank(OurTile, BankTile, B) then
+      continue;
 
-  Script.WriteMsg('ClickBank: Found bank, checking uptext', True);
-
-  Result := True;
-
-  // now apply velocity and check uptext
-  if Velocity <> Point(0, 0) then
-  begin
-    B := B.Offset(Script.GetOffsetForVel(B, Velocity));
-
-    if not MainScreen.IsVisible(B.Middle()) then
+    // apply velocity
+    if Velocity <> Point(0, 0) then
     begin
-      Script.WriteMsg('ClickBank: Tile velocity no visible', True);
-      exit();
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+      begin
+        Script.WriteMsg('ClickBank: Tile velocity no visible', True);
+        break;
+      end;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
     end;
 
-    B.LimitTo(MainScreen.Bounds());
+    // hover over the banktile and see if it is actually a bank
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
 
-    if Script.Debug and Script.Drawing then
-      RSClient.Image.DrawBox(B, clMoneyGreen);
+    Script.RareSmallWait();
+
+    if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
+    begin
+      Script.SetStatus('Bad uptext for bank');
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    Result := True;
+
+    Script.SetStatus('Confirmed bank! Opening bank...');
+
+    // banker can make us stuck
+    if (Velocity <> Point(0, 0)) and ('Banker' in MainScreen.GetUpText()) then
+      break;
+
+    // open the bank
+    if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
+      WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickBank: Didnt click', True);
+
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    break;
   end;
-
-  if Velocity <> Point(0, 0) then
-    Script.MouseLooksForUpText := Bank.FINDER_UPTEXT;
-  Mouse.Move(B);
-  Script.MouseLooksForUpText := [];
-
-  Script.RareSmallWait();
-
-  if not MainScreen.IsUpText(Bank.FINDER_UPTEXT, Random(100, 250)) then
-  begin
-    Script.WriteMsg('ClickBank: Bad uptext', True);
-    exit();
-  end;
-
-  Script.WriteMsg('ClickBank: Good bank uptext, clicking', True);
-
-  if ('Banker' in MainScreen.GetUpText()) or (Random() < 0.20) then
-    WasClicked := ChooseOption.Select(Bank.FINDER_OPTION)
-  else
-  begin
-    Mouse.Click(MOUSE_LEFT);
-
-    WasClicked := Mouse.DidClick(True);
-  end;
-
-  if not WasClicked then
-  begin
-    Script.WriteMsg('ClickBank: Didnt click', True);
-    exit();
-  end;
-
-  Script.WriteMsg('ClickBank: Clicked the bank', True);
 end;
 
 {

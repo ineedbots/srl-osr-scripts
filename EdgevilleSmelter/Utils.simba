@@ -80,7 +80,7 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  OurTile: TPoint;
+  OurTile, TP: TPoint;
   TileRect: TRectangle;
   i: Int32;
   CompAng: Double;
@@ -98,30 +98,35 @@ begin
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
-    TileRect := Self.FindBankTile(OurTile);
-    B := Self.GetBankSearchBox(TileRect);
-    ATPA := Self.FindBankColor(B);
+    for TP in Self.BankTiles do
+    begin
+      TileRect := Self.FindBankTile(OurTile, TP);
+      B := Self.GetBankSearchBox(TileRect);
+      ATPA := Self.FindBankColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clWhite);
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
 
-    if Self.FindBank(OurTile, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      if Self.FindBank(OurTile, TP, B) then
+        RSClient.Image.DrawBox(B, clBlue);
+    end;
 
+    for TP in Self.StationTiles do
+    begin
+      TileRect := Self.FindStationTile(OurTile, TP);
+      B := Self.GetStationSearchBox(TileRect);
+      ATPA := Self.FindStationColor(B);
 
-    TileRect := Self.FindStationTile(OurTile);
-    B := Self.GetStationSearchBox(TileRect);
-    ATPA := Self.FindStationColor(B);
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.StationTile, CompAng), 4, clWhite);
-
-    if Self.FindStation(OurTile, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      if Self.FindStation(OurTile, TP, B) then
+        RSClient.Image.DrawBox(B, clBlue);
+    end;
 
     if Make.IsOpen() then
     begin

@@ -22,7 +22,8 @@ type
     RSW                                                       : TRSWalker;
     ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
     StationUptexts, StationOptions                            : TStringArray;
-    StationWalkTile, BankWalkTile, StationTile, BankTile      : TPoint;
+    StationTiles, BankTiles                                   : TPointArray;
+    StationWalkTile, BankWalkTile                             : TPoint;
     BankColor, StationColor                                   : TScriptColor;
     ToBankPaths, ToStationPaths                               : T2DPointArray;
   end;
