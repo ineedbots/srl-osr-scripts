@@ -218,6 +218,82 @@ begin
 end;
 
 {
+  Fix a problem where the walk event could change PlayerPoint
+}
+function TRSWalker.WalkFinalStep(PlayerPoint, WorldPoint: TPoint; WaitUntilDistance: Int32): Boolean; override;
+var
+  MinimapPoint: TPoint;
+begin
+  if (@Self.OnWalkEvent <> nil) then
+  begin
+    Self.OnWalkEvent(@Self, PlayerPoint, WorldPoint);
+    PlayerPoint := Self.GetMyPos();
+  end;
+
+  if (@Self.OnWalkEventEx <> nil) then
+  begin
+    Self.OnWalkEventEx(@Self, PlayerPoint, WorldPoint);
+    PlayerPoint := Self.GetMyPos();
+  end;
+
+  if not Self.Enabled then
+    Exit(True);
+
+  MinimapPoint := Self.WorldToMM(PlayerPoint, WorldPoint, Minimap.GetCompassAngle(False));
+  if (not Minimap.IsPointOn(MinimapPoint)) then
+    Exit(False);
+  if (Minimap.Center.DistanceTo(MinimapPoint) < 5) then
+    Exit(True);
+
+  Result := Self.Click(MinimapPoint, 0);
+  if Result then
+    Self.WaitMoving(WorldPoint, WaitUntilDistance);
+end;
+
+{
+  Fix a problem where the walk event could change PlayerPoint
+}
+function TRSWalker.WalkStep(PlayerPoint, WorldPoint: TPoint): Boolean; override;
+var
+  MinimapPoint: TPoint;
+  WaitUntilDistance: Int32;
+begin
+  if (@Self.OnWalkEvent <> nil) then
+  begin
+    Self.OnWalkEvent(@Self, PlayerPoint, WorldPoint);
+    PlayerPoint := Self.GetMyPos();
+  end;
+
+  if (@Self.OnWalkEventEx <> nil) then
+  begin
+    Self.OnWalkEventEx(@Self, PlayerPoint, WorldPoint);
+    PlayerPoint := Self.GetMyPos();
+  end;
+
+  if not Self.Enabled then
+    Exit(True);
+
+  PlayerPoint := Self.GetMyPos();
+  MinimapPoint := Self.WorldToMM(PlayerPoint, WorldPoint, Minimap.GetCompassAngle(False));
+  if (not Minimap.IsPointOn(MinimapPoint)) then
+    Exit(False);
+  if (Minimap.Center.DistanceTo(MinimapPoint) < 5) then
+    Exit(True);
+
+  Result := Self.Click(MinimapPoint, Self.ClickRandomness);
+
+  if Result then
+  begin
+    if (Random() < 0.15) then // 15% chance of randomness else mean
+      WaitUntilDistance := Random(Distance(Minimap.Center, MinimapPoint))
+    else
+      WaitUntilDistance := SRL.NormalRange(0, Distance(Minimap.Center, MinimapPoint) + 10);
+
+    Self.WaitMoving(WorldPoint, WaitUntilDistance);
+  end
+end;
+
+{
   Prevents array out of bounds
 }
 function TRSMake.Select(Index: Int32; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;
@@ -1045,6 +1121,21 @@ begin
 
     Result := Inventory.ClickSlot(i, 'Examine');
     break;
+  end;
+end;
+
+{
+  If the point is in any of the areas
+}
+function T2DPointArray.PointInAnyArea(PT: TPoint): Int32;
+var
+  i: Int32;
+begin       
+  Result := -1;
+  for Low(Self) to High(Self) do
+  begin
+    if SRL.PointInPoly(PT, Self[i]) then
+      exit(i);
   end;
 end;
 

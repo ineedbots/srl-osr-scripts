@@ -237,6 +237,7 @@ var
   BankTiles: TPointArray;
   BankTile: TPoint;
   B: TBox;
+  Clicked: Boolean;
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
@@ -258,6 +259,10 @@ begin
   // search for every bank
   for BankTile in BankTiles do
   begin
+    // make sure the door is opened if we need it to be
+    if Self.HandleDoors(OurTile, BankTile, Clicked) then
+      OurTile := Self.RSW.GetMyPos();
+
     // try see if we can find this bank
     if not Self.FindBank(OurTile, BankTile, B) then
       continue;
@@ -372,7 +377,7 @@ var
   OurPos: TPoint;
   PathIdx: Int32;
   Walked: Boolean;
-  BeforeCallback: TRSWalker_OnWalkEvent;
+  BeforeCallback, BeforeCallback2: TRSWalker_OnWalkEvent;
 begin
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
     exit(True);
@@ -386,6 +391,8 @@ begin
     Script.SetStatus('Going to bank spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
+    BeforeCallback2 := @Self.RSW.OnWalkEvent;
+    Self.RSW.OnWalkEvent := @WalkHandleDoor;
     if Banking then
       Self.RSW.OnWalkingEvent := @WalkingToBank;
     try
@@ -405,11 +412,13 @@ begin
         Walked := Self.RSW.WalkBlind(Self.BankWalkTile.Random(-6, 6, True), 0);
     except
     end;
+    Self.RSW.OnWalkEvent := @BeforeCallback2;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bank spot');
+      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, Walked, True);
       exit();
     end;
 
@@ -433,7 +442,9 @@ begin
     or (Self.ClickBank(WasClicked) and WasClicked) then
   begin
     if Self.WaitBankOpen() then
-      Self.DoBanking();
+      Self.DoBanking()
+    else
+      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, WasClicked, True);
   end;
 end;
 

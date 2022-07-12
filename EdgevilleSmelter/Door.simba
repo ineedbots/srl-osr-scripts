@@ -1,0 +1,193 @@
+{
+  Edgeville melter door
+  Author: ineedbot
+  Date: 7/11/2022
+
+  Handles everything door related
+}
+
+{$IFNDEF INEEDBOT_EVS_DOOR}
+{$DEFINE INEEDBOT_EVS_DOOR}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds the tile
+}
+function TBot.FindDoorTile(OurPos, Tile: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Tile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetDoorSearchBox(Tile: TRectangle; Color: TScriptColor): TBox;
+begin
+  Result := Tile.Expand(Round(Tile.Radius() * Color.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all colors
+}
+function TBot.FindDoorColor(Area: TBox; Color: TScriptColor): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Color.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Color.FilterSize), __GT__);
+end;
+
+{
+  Tries to find the door at the tile, returns true if it does, also the area of where it is
+}
+function TBot.FindDoor(PlayerPos, Tile: TPoint; Color: TScriptColor; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  TileRect := Self.FindDoorTile(PlayerPos, Tile);
+
+  B := Self.GetDoorSearchBox(TileRect, Color);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+  Result := True;
+
+  // find the tree's colors in this tile
+  ATPA := Self.FindDoorColor(B, Color);
+
+  if Length(ATPA) <= 0 then
+    Result := False
+  else
+    B := ATPA.Biggest().Bounds();
+end;
+
+{
+  Handles this door
+}
+function TBot.HandleDoor(Door: TDoor; OurTile: TPoint; out Clicked: Boolean; Force: Boolean = False): Boolean;
+var
+  B: TBox;
+  CountDown: TCountDown;
+  Walked: Boolean;
+begin
+  // check if we have opened door colors!
+  if not Force then
+  begin
+    // make sure we have a consistent angle to test the colors
+    if Door.HasOpenDoorData then
+      Minimap.SetCompassAngle(Door.CompAngle);
+
+    if Door.HasOpenDoorData and Self.FindDoor(OurTile, Door.OpenedTile, Door.OpenedColor, B) then
+    begin
+      Script.WriteMsg('Opened door color found! Ignoring opening this door!', True);
+      exit();
+    end;
+
+    // if cant find colors of a closed door? then we good
+    if not Self.FindDoor(OurTile, Door.ClosedTile, Door.ClosedColor, B) then
+    begin
+      Script.WriteMsg('No door color found!', True);
+      exit();
+    end;
+  end
+  else if OurTile.DistanceTo(Door.ClosedTile) > 8 then
+  begin
+    // walk to the door
+    try
+      Walked := Self.RSW.WalkBlind(Door.ClosedTile.Random(-3, -3, True), 0);
+    except
+    end;
+
+    if not Walked then
+      Script.WriteMsg('Failed to go to door!', True);
+  end;
+
+  Result := True;
+
+  Script.WriteMsg('Searching for door', True);
+
+  // wait to stop moving before we attempt to click
+  CountDown.Init(SRL.SkewedRand(6000, 5000, 7000));
+  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) and not CountDown.IsFinished() do
+    Self.DoMainLoopStuff('Waiting to stop moving for door', False);
+  Wait(500, 1250, wdLeft);
+
+  Script.WriteMsg('Searching for door after stopped', True);
+  // make sure we can still see it
+  OurTile := Self.RSW.GetMyPos();
+  if not Self.FindDoor(OurTile, Door.ClosedTile, Door.ClosedColor, B) then
+  begin
+    Script.WriteMsg('No door color found after finding it once?!', True);
+    exit();
+  end;
+
+  // check the uptext
+  Script.WriteMsg('Checking door uptext', True);
+  Mouse.Move(B);
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Door.UpTexts, Random(100, 250)) then
+  begin
+    // no closed door uptext, it must be open!
+    Script.WriteMsg('Bad closed door uptext, is it opened?', True);
+    exit();
+  end;
+
+  Script.WriteMsg('Door uptext good, opening', True);
+
+  // interact with the door!
+  if MainScreen.IsUpText(Door.Options, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Clicked := Mouse.DidClick(True);
+  end
+  else if MainScreen.IsUpText('options') then
+    Clicked := ChooseOption.Select(Door.Options);
+
+  if not Clicked then
+  begin
+    Script.WriteMsg('Didnt click the door', True);
+    exit();
+  end;
+
+  // make sure to stop moving, and assume it is now open!
+  CountDown.Restart(SRL.SkewedRand(5000, 4000, 6000));
+  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) and not CountDown.IsFinished() do
+    Self.DoMainLoopStuff('Waiting to stop moving for door after clicked', False);
+  Wait(750, 1750);
+end;
+
+{
+  Handles the doors
+}
+function TBot.HandleDoors(OurTile, DestTile: TPoint; out Clicked: Boolean; Force: Boolean = False): Boolean;
+var
+  Door: TDoor;
+  OurZone, DestZone: Int32;
+begin
+  Clicked := False;
+
+  for Door in Self.Doors do
+  begin
+    OurZone := Door.Zones.PointInAnyArea(OurTile);
+    DestZone := Door.Zones.PointInAnyArea(DestTile);
+
+    if OurZone = DestZone then
+      continue;
+
+    if Self.HandleDoor(Door, OurTile, Clicked, Force) then
+      exit(True);
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_EVS_DOOR

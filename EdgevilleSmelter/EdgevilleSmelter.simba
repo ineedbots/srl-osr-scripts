@@ -18,6 +18,7 @@ program EdgevilleSmelter;
                            
 {$include_once Bank.simba}
 {$include_once Station.simba}
+{$include_once Door.simba}
 
 {
   Main loop of the script.
@@ -113,7 +114,7 @@ begin
   Script.MaxTiredMouseSpeed := 10;
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
-  ItemFinder.Similarity   := 0.99;
+  ItemFinder.Similarity   := 0.999;
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;
@@ -144,33 +145,164 @@ begin
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
 
-  Self.StationWaitTime := 6500;
+  Self.StationType := STATION_TYPE; 
+  Self.MakeOption := MAKE_NUM
 
-  Self.StationUptexts := ['Smelt'];
-  Self.StationOptions := ['Smelt'];
+  case Self.StationType of
+    EStationType.AL_KHARID_RANGE:
+    begin
+      SetLength(Self.Doors, 1);
+      with Self.Doors[0] do
+      begin
+        Zones := [[[4892, 3714], [4912, 3715], [4912, 3734], [4892, 3733]]];
+        UpTexts := ['Open'];
+        Options := ['Open'];
 
-  Self.StationWalkTile := [4245, 2452];
-  Self.StationTiles := [[4248, 2452]];
-  Self.BankTiles := [[4202, 2476], [4198, 2476]];
-  Self.BankWalkTile := [4202, 2472];
+        with ClosedColor do
+        begin
+          RSObject.Colors += CTS2(2316912, 4, 0.09, 0.72);
+          RSObject.Colors += CTS2(3044754, 4, 0.06, 0.41);
+          RSObject.ClusterDistance := 2;
+          RSObject.Erode := 1;
+          RSObject.Grow := 2;
+          FilterSize := 10;
+          RadiusExpand := 1.1;
+          NoColorTileExpand := 5;
+        end;
 
-  Self.ToBankPaths := [
-    [[4243, 2455], [4232, 2455], [4226, 2455], [4207, 2463], [4198, 2463], [4198, 2471]],
-    [[4239, 2455], [4228, 2455], [4217, 2458], [4207, 2463], [4194, 2460], [4199, 2471]],
-    [[4242, 2456], [4233, 2456], [4221, 2453], [4211, 2471], [4198, 2464], [4199, 2472]],
-    [[4242, 2453], [4233, 2450], [4222, 2452], [4214, 2448], [4210, 2459], [4195, 2456], [4198, 2471]],
-    [[4238, 2453], [4216, 2453], [4208, 2439], [4190, 2441], [4179, 2443], [4182, 2462], [4198, 2472]]
-  ];
+        ClosedTile := [4911, 3728];
 
-  Self.ToStationPaths := [
-    [[4198, 2471], [4198, 2463], [4207, 2463], [4226, 2455], [4232, 2455], [4243, 2455]],
-    [[4199, 2471], [4194, 2460], [4207, 2463], [4217, 2458], [4228, 2455], [4239, 2455]],
-    [[4199, 2472], [4198, 2464], [4211, 2471], [4221, 2453], [4233, 2456], [4242, 2456]],
-    [[4198, 2471], [4195, 2456], [4210, 2459], [4214, 2448], [4222, 2452], [4233, 2450], [4242, 2453]],
-    [[4198, 2472], [4182, 2462], [4179, 2443], [4190, 2441], [4208, 2439], [4216, 2453], [4238, 2453]]
-  ];
+        HasOpenDoorData := True;
+        CompAngle := 0;
+        OpenedTile := [4911, 3725];
 
-  Self.MakeOption := MAKE_NUM;
+        with OpenedColor do
+        begin
+          RSObject.ColorClusters += [
+            CTS2(12700362, 1, 0.01, 0.01),
+            CTS2(5138796, 4, 0.23, 0.23),
+            3
+          ];
+          RSObject.ColorClusters += [
+            CTS2(12700362, 1, 0.01, 0.01),
+            CTS2(6131867, 6, 0.05, 0.44),
+            3
+          ];
+          RSObject.ClusterDistance := 1;
+          RSObject.Erode := 0;
+          RSObject.Grow := 0;
+          RSObject.MinShortSide := 2;
+          FilterSize := 5;
+          RadiusExpand := 1.1;
+        end;
+      end;
+
+      Self.StationWaitTime := 4000;
+
+      Self.StationTiles := [[4896, 3728]];
+      Self.StationWalkTile := [4899, 3728];
+      Self.StationUptexts := ['Cook'];
+      Self.StationOptions := ['Cook'];
+      with Self.StationColor do
+      begin
+        RSObject.Colors += CTS2(3158068, 6, 0.01, 0.45);
+        RSObject.Grow := 3;
+        RSObject.Erode := 2;
+        RSObject.ClusterDistance := 2;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+      Self.BankTiles := [[4882, 3772]];
+      Self.BankWalkTile := [4886, 3772];
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+        RSObject.ColorClusters += [
+          CTS2(6120041, 4, 1.11, 1.12), // Grey
+          CTS2(1069929, 2, 0.15, 1.05), // Brown
+          3];
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+      Self.ToStationPaths := [
+        [[4887, 3772], [4898, 3782], [4909, 3783], [4913, 3763], [4915, 3750], [4918, 3739], [4916, 3728], [4905, 3727], [4899, 3728]],
+        [[4886, 3771], [4896, 3781], [4907, 3781], [4912, 3766], [4912, 3748], [4920, 3731], [4917, 3728], [4907, 3728], [4900, 3728]],
+        [[4886, 3773], [4894, 3782], [4902, 3788], [4904, 3771], [4904, 3761], [4905, 3736], [4916, 3729], [4902, 3727]],
+        [[4884, 3773], [4888, 3792], [4891, 3781], [4907, 3776], [4911, 3757], [4927, 3747], [4929, 3723], [4917, 3727], [4906, 3727], [4899, 3726]]
+      ];
+
+      Self.ToBankPaths := [
+        [[4899, 3728], [4905, 3727], [4916, 3728], [4918, 3739], [4915, 3750], [4913, 3763], [4909, 3783], [4898, 3782], [4887, 3772]],
+        [[4900, 3728], [4907, 3728], [4917, 3728], [4920, 3731], [4912, 3748], [4912, 3766], [4907, 3781], [4896, 3781], [4886, 3771]],
+        [[4902, 3727], [4916, 3729], [4905, 3736], [4904, 3761], [4904, 3771], [4902, 3788], [4894, 3782], [4886, 3773]],
+        [[4899, 3726], [4906, 3727], [4917, 3727], [4929, 3723], [4927, 3747], [4911, 3757], [4907, 3776], [4891, 3781], [4888, 3792], [4884, 3773]]
+      ];
+    end;
+    EStationType.EDGEVILLE_SMELTER:
+    begin
+      Self.StationWaitTime := 6500;
+
+      Self.StationUptexts := ['Smelt'];
+      Self.StationOptions := ['Smelt'];
+      Self.StationWalkTile := [4245, 2452];
+      Self.StationTiles := [[4248, 2452]];
+
+      Self.ToStationPaths := [
+        [[4198, 2471], [4198, 2463], [4207, 2463], [4226, 2455], [4232, 2455], [4243, 2455]],
+        [[4199, 2471], [4194, 2460], [4207, 2463], [4217, 2458], [4228, 2455], [4239, 2455]],
+        [[4199, 2472], [4198, 2464], [4211, 2471], [4221, 2453], [4233, 2456], [4242, 2456]],
+        [[4198, 2471], [4195, 2456], [4210, 2459], [4214, 2448], [4222, 2452], [4233, 2450], [4242, 2453]],
+        [[4198, 2472], [4182, 2462], [4179, 2443], [4190, 2441], [4208, 2439], [4216, 2453], [4238, 2453]]
+      ];
+
+      with Self.StationColor do
+      begin
+        RSObject.Colors += CTS2(4019575, 3, 0.15, 0.45);
+        RSObject.Grow := 3;
+        RSObject.Erode := 2;
+        RSObject.ClusterDistance := 2;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+
+      Self.BankTiles := [[4202, 2476], [4198, 2476]];
+      Self.BankWalkTile := [4202, 2472];
+
+      Self.ToBankPaths := [
+        [[4243, 2455], [4232, 2455], [4226, 2455], [4207, 2463], [4198, 2463], [4198, 2471]],
+        [[4239, 2455], [4228, 2455], [4217, 2458], [4207, 2463], [4194, 2460], [4199, 2471]],
+        [[4242, 2456], [4233, 2456], [4221, 2453], [4211, 2471], [4198, 2464], [4199, 2472]],
+        [[4242, 2453], [4233, 2450], [4222, 2452], [4214, 2448], [4210, 2459], [4195, 2456], [4198, 2471]],
+        [[4238, 2453], [4216, 2453], [4208, 2439], [4190, 2441], [4179, 2443], [4182, 2462], [4198, 2472]]
+      ];
+
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
+        RSObject.ColorClusters += [
+          CTS2(6120041, 4, 1.11, 1.12), // Grey
+          CTS2(1069929, 2, 0.15, 1.05), // Brown
+          3];
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+    end;
+  end;
 
   for Item in TOOLS do
     Self.ToolItems += Item;
@@ -180,33 +312,6 @@ begin
 
   for Item in PRODUCTS do
     Self.ProductItems += Item;
-
-  with Self.BankColor do
-  begin
-    RSObject.Colors += CTS2(605780, 3, 0.10, 0.96);
-    RSObject.ColorClusters += [
-      CTS2(6120041, 4, 1.11, 1.12), // Grey
-      CTS2(1069929, 2, 0.15, 1.05), // Brown
-      3];
-    RSObject.Grow := 1;
-    RSObject.ClusterDistance := 3;
-
-    FilterSize := 10;
-    RadiusExpand := 1.5;
-    NoColorTileExpand := 5;
-  end;
-
-  with Self.StationColor do
-  begin
-    RSObject.Colors += CTS2(4019575, 3, 0.15, 0.45);
-    RSObject.Grow := 3;
-    RSObject.Erode := 2;
-    RSObject.ClusterDistance := 2;
-
-    FilterSize := 10;
-    RadiusExpand := 1.5;
-    NoColorTileExpand := 5;
-  end;
   
   // do login init stuff
   if RSClient.IsLoggedIn() then

@@ -16,7 +16,24 @@
 {$include_once ../Utils/Utils.simba}
 
 type
+  EStationType = (
+    EDGEVILLE_SMELTER,
+    AL_KHARID_RANGE
+  );
+
+  TDoor = record
+    HasOpenDoorData                                           : Boolean;
+    CompAngle                                                 : Double;
+    OpenedTile, ClosedTile                                    : TPoint;
+    OpenedColor, ClosedColor                                  : TScriptColor;
+    Zones                                                     : T2DPointArray;
+    UpTexts, Options                                          : TStringArray;
+  end;
+
+  TDoorArray = array of TDoor;
+
   TBot = record
+    StationType                                               : EStationType;
     StoppedShort                                              : Boolean;
     StationWaitTime, MakeOption, Did                          : Int32;
     RSW                                                       : TRSWalker;
@@ -26,6 +43,7 @@ type
     StationWalkTile, BankWalkTile                             : TPoint;
     BankColor, StationColor                                   : TScriptColor;
     ToBankPaths, ToStationPaths                               : T2DPointArray;
+    Doors                                                     : TDoorArray;
   end;
 
 var

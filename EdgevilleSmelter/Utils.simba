@@ -18,8 +18,16 @@
 {$include_once Types.simba}
 {$include_once Config.simba}
 
+{
+  Handles the doors while walking
+}
+procedure WalkHandleDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+begin
+end;
+
 {$include_once Bank.simba}
 {$include_once Station.simba}
+{$include_once Door.simba}
 
 {
   From Flight's AIOFisher
@@ -81,6 +89,7 @@ procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
   OurTile, TP: TPoint;
+  TPA, TPA2: TPointArray;
   TileRect: TRectangle;
   i: Int32;
   CompAng: Double;
@@ -89,6 +98,7 @@ var
   T, M, P: TIntegerArray;
   Item: TRSItem;     
   BtnArr: TRSButtonArray;
+  Door: TDoor;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -126,6 +136,45 @@ begin
 
       if Self.FindStation(OurTile, TP, B) then
         RSClient.Image.DrawBox(B, clBlue);
+    end;
+
+    for Door in Self.Doors do
+    begin
+      TileRect := Self.FindDoorTile(OurTile, Door.ClosedTile);
+      B := Self.GetDoorSearchBox(TileRect, Door.ClosedColor);
+      ATPA := Self.FindDoorColor(B, Door.ClosedColor);
+
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Door.ClosedTile, CompAng), 4, clWhite);
+
+      if Self.FindDoor(OurTile, Door.ClosedTile, Door.ClosedColor, B) then
+        RSClient.Image.DrawBox(B, clBlue);
+
+      for TPA in Door.Zones do
+      begin
+        TPA2 := Copy(TPA);
+        for i := Low(TPA2) to High(TPA2) do
+          TPA2[i] := Self.RSW.WorldToMM(OurTile, TPA2[i], CompAng);
+
+        RSClient.Image.DrawPoly(TPA2, clRed);
+      end;
+
+      if Door.HasOpenDoorData then
+      begin
+        TileRect := Self.FindDoorTile(OurTile, Door.OpenedTile);
+        B := Self.GetDoorSearchBox(TileRect, Door.OpenedColor);
+        ATPA := Self.FindDoorColor(B, Door.OpenedColor);
+
+        RSClient.Image.DrawBox(B, clRed);
+        RSClient.Image.DrawRect(TileRect, clGreen);
+        RSClient.Image.DrawATPA(ATPA);
+        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Door.OpenedTile, CompAng), 4, clBlack);
+
+        if Self.FindDoor(OurTile, Door.OpenedTile, Door.OpenedColor, B) then
+          RSClient.Image.DrawBox(B, clOrange);
+      end;
     end;
 
     if Make.IsOpen() then
@@ -225,6 +274,22 @@ begin
     Script.CheckActivity();
 
   Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{
+  Handles the doors while walking
+}
+procedure WalkHandleDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint); override;
+var
+  Clicked: Boolean;
+begin
+  while RSClient.IsLoggedIn() and Bot.HandleDoors(Position, Destination, Clicked) do
+  begin
+    Position := Walker^.GetMyPos();
+
+    if not Clicked then
+      break;
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_EVS_UTILS

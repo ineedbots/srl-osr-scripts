@@ -28,10 +28,11 @@ const
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
+  STATION_TYPE = EStationType.EDGEVILLE_SMELTER;
   MAKE_NUM = 0;
   TOOLS = ['Ammo mould', 'Double ammo mould'];
-  MATERIALS = ['Steel bar'];
-  PRODUCTS = ['Cannonball'];
+  MATERIALS = [{'Raw swordfish', }'Steel bar'];
+  PRODUCTS = [{'Swordfish', }'Cannonball'];
 
   // Account details
   _USERNAME       = '';

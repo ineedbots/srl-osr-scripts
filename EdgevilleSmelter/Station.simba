@@ -79,6 +79,7 @@ var
   B: TBox;
   TP: TPoint;
   StationTiles: TPointArray;
+  Clicked: Boolean;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
@@ -90,6 +91,10 @@ begin
 
   for TP in StationTiles do
   begin
+    // make sure the door is opened if we need it to be
+    if Self.HandleDoors(OurTile, TP, Clicked) then
+      OurTile := Self.RSW.GetMyPos();
+
     // find the belt
     if not Self.FindStation(OurTile, TP, B) then
     begin
@@ -205,7 +210,7 @@ var
   OurPos: TPoint;
   PathIdx: Int32;
   Walked: Boolean;
-  BeforeCallback: TRSWalker_OnWalkEvent;
+  BeforeCallback, BeforeCallback2: TRSWalker_OnWalkEvent;
 begin
   Script.WriteMsg('Going to station...', True);
   OurPos := Self.RSW.GetMyPos();
@@ -215,7 +220,9 @@ begin
   begin
     Script.SetStatus('Going to station spot...');
 
-    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    BeforeCallback := @Self.RSW.OnWalkingEvent;   
+    BeforeCallback2 := @Self.RSW.OnWalkEvent;
+    Self.RSW.OnWalkEvent := @WalkHandleDoor;
     if Click then
       Self.RSW.OnWalkingEvent := @WalkingToStation;
     try
@@ -234,13 +241,15 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Self.StationWalkTile.Random(-6, 6, True), 0);
     except
-    end;
+    end;                               
+    Self.RSW.OnWalkEvent := @BeforeCallback2;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to station spot');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      Self.HandleDoors(Self.RSW.GetMyPos(), Self.StationWalkTile, Walked, True);
       exit();
     end;
 
@@ -387,6 +396,7 @@ begin
   if not Self.WaitStationStart() then
   begin
     Script.WriteMsg('Failed to open make');
+    Self.HandleDoors(Self.RSW.GetMyPos(), Self.StationWalkTile, Clicked, True);
     exit();
   end;
 
