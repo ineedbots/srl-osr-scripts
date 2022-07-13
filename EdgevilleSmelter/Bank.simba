@@ -129,8 +129,8 @@ end;
 procedure TBot.DoBanking();
 var
   ToolSlots, ProductSlots, Pattern: TIntegerArray;
-  CurProducts, i: Int32;
-  MBox: TBox;
+  CurProducts, i, FreeSpace, MatsToWith: Int32;
+  MBox, SMBox: TBox;
   Found: Boolean;
   Item: TRSItem;
 begin
@@ -190,6 +190,26 @@ begin
     exit();
   end;
 
+  if Length(Self.SecondaryMaterialItems) > 0 then
+  begin
+    Found := False;
+
+    for Item in Self.SecondaryMaterialItems do
+    begin
+      if not Bank.FindBankItem(Item, SMBox) then
+        continue;
+
+      Found := True;
+      break;
+    end;
+
+    if not Found then
+    begin
+      Script.Stop('No secondary materials left in bank!');
+      exit();
+    end;
+  end;
+
   // deposit our stuff
   if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
     Bank.DepositAll()
@@ -203,11 +223,38 @@ begin
   Script.AntiBan.AfterBankAntiBan(7);
 
   // withdraw our crap
-  if not Bank.WithdrawItemFromBank(MBox) then
+  if Length(Self.SecondaryMaterialItems) > 0 then
   begin
-    Script.WriteMsg('Failed to withdraw materials');
-    Bank.Close(Script.ShouldPressKeyboard());
-    exit();
+    // get how much free space we have
+    FreeSpace := Inventory.Count() - (Inventory.HIGH_SLOT + 1);
+    MatsToWith := Floor(FreeSpace / (1 + Self.SecondaryMaterialRatio));
+
+    // lets withdraw our material
+    if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
+    begin
+      Script.WriteMsg('Failed to withdraw materials');
+      Bank.Close(Script.ShouldPressKeyboard());
+      exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(7);
+
+    if not Bank.WithdrawItemFromBank(SMBox, MatsToWith * Self.SecondaryMaterialRatio) then
+    begin
+      Script.WriteMsg('Failed to withdraw secondary materials');
+      Bank.Close(Script.ShouldPressKeyboard());
+      exit();
+    end;
+  end
+  else
+  begin
+    if not Bank.WithdrawItemFromBank(MBox) then
+    begin
+      Script.WriteMsg('Failed to withdraw materials');
+      Bank.Close(Script.ShouldPressKeyboard());
+      exit();
+    end;
   end;
 
   // query how many logs we actually depositted
@@ -260,7 +307,7 @@ begin
   for BankTile in BankTiles do
   begin
     // make sure the door is opened if we need it to be
-    if Self.HandleDoors(OurTile, BankTile, Clicked) then
+    if (Velocity = Point(0, 0)) and Self.HandleDoors(OurTile, BankTile, Clicked) then
       OurTile := Self.RSW.GetMyPos();
 
     // try see if we can find this bank

@@ -35,9 +35,10 @@ type
   TBot = record
     StationType                                               : EStationType;
     StoppedShort                                              : Boolean;
-    StationWaitTime, MakeOption, Did                          : Int32;
+    StationWaitTime, MakeOption, Did, SecondaryMaterialRatio  : Int32;
     RSW                                                       : TRSWalker;
-    ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
+    ToolItems, MaterialItems, ProductItems,
+      SecondaryMaterialItems                                  : TRSItemArray;
     StationUptexts, StationOptions                            : TStringArray;
     StationTiles, BankTiles                                   : TPointArray;
     StationWalkTile, BankWalkTile                             : TPoint;

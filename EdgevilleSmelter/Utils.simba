@@ -23,6 +23,9 @@
 }
 procedure WalkHandleDoor(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 begin
+  Walker := Walker;
+  Position := Position;
+  Destination := Destination;
 end;
 
 {$include_once Bank.simba}

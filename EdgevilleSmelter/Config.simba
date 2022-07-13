@@ -32,6 +32,8 @@ const
   MAKE_NUM = 0;
   TOOLS = ['Ammo mould', 'Double ammo mould'];
   MATERIALS = [{'Raw swordfish', }'Steel bar'];
+  SECONDARY_MATERIALS = []; // somthing like coal for bars, or emeralds for gold bars, etc etc
+  SECONDARY_MATERIAL_RATIO = 0; // how many secondary material is required for one product?
   PRODUCTS = [{'Swordfish', }'Cannonball'];
 
   // Account details

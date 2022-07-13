@@ -92,7 +92,7 @@ begin
   for TP in StationTiles do
   begin
     // make sure the door is opened if we need it to be
-    if Self.HandleDoors(OurTile, TP, Clicked) then
+    if (Velocity = Point(0, 0)) and Self.HandleDoors(OurTile, TP, Clicked) then
       OurTile := Self.RSW.GetMyPos();
 
     // find the belt

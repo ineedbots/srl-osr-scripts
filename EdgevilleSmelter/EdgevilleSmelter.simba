@@ -146,7 +146,7 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
 
   Self.StationType := STATION_TYPE; 
-  Self.MakeOption := MAKE_NUM
+  Self.MakeOption := MAKE_NUM;
 
   case Self.StationType of
     EStationType.AL_KHARID_RANGE:
@@ -312,6 +312,11 @@ begin
 
   for Item in PRODUCTS do
     Self.ProductItems += Item;
+
+  for Item in SECONDARY_MATERIALS do
+    Self.SecondaryMaterialItems += Item;
+
+  Self.SecondaryMaterialRatio := SECONDARY_MATERIAL_RATIO;
   
   // do login init stuff
   if RSClient.IsLoggedIn() then
