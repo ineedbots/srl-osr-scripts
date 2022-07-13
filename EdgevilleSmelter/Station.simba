@@ -277,6 +277,12 @@ begin
       exit(True);
     end;
 
+    if Self.UsingInterfaceMake and MainScreen.AnyInterfaceOpen() then
+    begin
+      Script.WriteMsg('WaitStationStart: make screen opened', True);
+      exit(True);
+    end;
+
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin
@@ -318,7 +324,7 @@ begin
   if Random() < 0.05 then
     StopShort := SRL.SkewedRand(MCount, MCount, 0);
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
 
   while RSClient.IsLoggedIn() do
   begin
@@ -391,7 +397,7 @@ begin
     exit();
   end;
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
 
   if not Self.WaitStationStart() then
   begin
@@ -400,7 +406,11 @@ begin
     exit();
   end;
 
-  if Make.IsOpen() and not Make.Select(Self.MakeOption, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard()) then
+  if Self.UsingInterfaceMake and MainScreen.AnyInterfaceOpen() then
+  begin
+    Mouse.Click(Self.InterfaceMakeBox, MOUSE_LEFT);
+  end
+  else if Make.IsOpen() and not Make.Select(Self.MakeOption, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard()) then
   begin
     Script.WriteMsg('Failed to select make');
     exit();

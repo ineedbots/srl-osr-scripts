@@ -31,6 +31,7 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
+      Slots.Clear();
       if Inventory.FindItems(Self.MaterialItems, Slots) and (Length(Slots) >= Self.MaterialRatio) and not Self.StoppedShort then
       begin
         Self.DoStation();
@@ -306,7 +307,6 @@ begin
     end;
     EStationType.VARROCK_WEST_ANVIL:
     begin
-      // SRL TODO smithscreen
       Self.ToStationPaths := [
         [[4550, 2704], [4542, 2709], [4543, 2724], [4555, 2735], [4561, 2740]],
         [[4548, 2704], [4538, 2704], [4538, 2712], [4540, 2722], [4547, 2723], [4554, 2723], [4555, 2731], [4555, 2743], [4561, 2742]],
@@ -349,6 +349,10 @@ begin
       end;
     end;
   end;
+
+  // SRL TODO  craftscreen and smithscreen
+  Self.UsingInterfaceMake := False;
+  Self.InterfaceMakeBox := [276, 528, 303, 556];
 
   for Item in TOOLS do
     Self.ToolItems += Item;
