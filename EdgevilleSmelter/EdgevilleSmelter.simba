@@ -24,12 +24,14 @@ program EdgevilleSmelter;
   Main loop of the script.
 }
 procedure TBot.Run();
+var
+  Slots: TIntegerArray;
 begin
   while Script.Running do
   begin
     if RSClient.IsLoggedIn() then
     begin
-      if Inventory.FindItems(Self.MaterialItems) and not Self.StoppedShort then
+      if Inventory.FindItems(Self.MaterialItems, Slots) and (Length(Slots) >= Self.MaterialRatio) and not Self.StoppedShort then
       begin
         Self.DoStation();
       end
@@ -302,6 +304,50 @@ begin
         NoColorTileExpand := 5;
       end;
     end;
+    EStationType.VARROCK_WEST_ANVIL:
+    begin
+      // SRL TODO smithscreen
+      Self.ToStationPaths := [
+        [[4550, 2704], [4542, 2709], [4543, 2724], [4555, 2735], [4561, 2740]],
+        [[4548, 2704], [4538, 2704], [4538, 2712], [4540, 2722], [4547, 2723], [4554, 2723], [4555, 2731], [4555, 2743], [4561, 2742]],
+        [[4547, 2703], [4537, 2706], [4542, 2711], [4535, 2724], [4554, 2730], [4557, 2741], [4565, 2744]]
+      ];
+      Self.StationWaitTime := 4000;
+      Self.StationWalkTile := [4562, 2740];
+      Self.StationTiles := [[4562, 2744]];
+      Self.StationUptexts := ['Smith'];
+      Self.StationOptions := ['Smith'];
+      with Self.StationColor do
+      begin
+        RSObject.Colors += CTS2(5855839, 6, 0.48, 0.09);
+        RSObject.Grow := 3;
+        RSObject.Erode := 2;
+        RSObject.ClusterDistance := 2;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+      Self.ToBankPaths := [
+        [[4561, 2740], [4555, 2735], [4543, 2724], [4542, 2709], [4550, 2704]],
+        [[4561, 2742], [4555, 2743], [4555, 2731], [4554, 2723], [4547, 2723], [4540, 2722], [4538, 2712], [4538, 2704], [4548, 2704]],
+        [[4565, 2744], [4557, 2741], [4554, 2730], [4535, 2724], [4542, 2711], [4537, 2706], [4547, 2703]]
+      ];
+      Self.BankTiles := [[4554, 2704]];
+      Self.BankWalkTile := [4551, 2704];
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(3432558, 3, 0.14, 2.26);
+        RSObject.Colors += CTS2(7309971, 6, 0.12, 0.82);
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+
+        FilterSize := 10;
+        RadiusExpand := 0.25;
+        NoColorTileExpand := 5;
+      end;
+    end;
   end;
 
   for Item in TOOLS do
@@ -317,6 +363,7 @@ begin
     Self.SecondaryMaterialItems += Item;
 
   Self.SecondaryMaterialRatio := SECONDARY_MATERIAL_RATIO;
+  Self.MaterialRatio := MATERIAL_RATIO;
   
   // do login init stuff
   if RSClient.IsLoggedIn() then

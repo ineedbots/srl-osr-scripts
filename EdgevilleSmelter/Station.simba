@@ -327,7 +327,7 @@ begin
     Inventory.FindItems(Self.MaterialItems, MaterialSlots);
     MC := Length(MaterialSlots);
 
-    if MC <= 0 then
+    if MC < Self.MaterialRatio then
     begin
       Script.WriteMsg('Transform: No more material', True);
       break;

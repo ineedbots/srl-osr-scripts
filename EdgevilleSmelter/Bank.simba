@@ -222,11 +222,11 @@ begin
   Wait(0, 1000, wdLeft);
   Script.AntiBan.AfterBankAntiBan(7);
 
+  FreeSpace := Inventory.Count() - (Inventory.HIGH_SLOT + 1);
+
   // withdraw our crap
   if Length(Self.SecondaryMaterialItems) > 0 then
   begin
-    // get how much free space we have
-    FreeSpace := Inventory.Count() - (Inventory.HIGH_SLOT + 1);
     MatsToWith := Floor(FreeSpace / (1 + Self.SecondaryMaterialRatio));
 
     // lets withdraw our material
@@ -249,7 +249,12 @@ begin
   end
   else
   begin
-    if not Bank.WithdrawItemFromBank(MBox) then
+    if Self.MaterialRatio = 1 then
+      MatsToWith := -3
+    else
+      MatsToWith := FreeSpace - (FreeSpace mod Self.MaterialRatio);
+
+    if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
     begin
       Script.WriteMsg('Failed to withdraw materials');
       Bank.Close(Script.ShouldPressKeyboard());

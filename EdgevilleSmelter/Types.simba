@@ -18,7 +18,8 @@
 type
   EStationType = (
     EDGEVILLE_SMELTER,
-    AL_KHARID_RANGE
+    AL_KHARID_RANGE,
+    VARROCK_WEST_ANVIL
   );
 
   TDoor = record
@@ -35,7 +36,8 @@ type
   TBot = record
     StationType                                               : EStationType;
     StoppedShort                                              : Boolean;
-    StationWaitTime, MakeOption, Did, SecondaryMaterialRatio  : Int32;
+    StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
+      MaterialRatio                                           : Int32;
     RSW                                                       : TRSWalker;
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;

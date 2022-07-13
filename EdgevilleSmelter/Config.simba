@@ -35,6 +35,7 @@ const
   SECONDARY_MATERIALS = []; // somthing like coal for bars, or emeralds for gold bars, etc etc
   SECONDARY_MATERIAL_RATIO = 0; // how many secondary material is required for one product?
   PRODUCTS = [{'Swordfish', }'Cannonball'];
+  MATERIAL_RATIO = 1; // how many material required for one product? r2h would be 3, cannonball would be 1
 
   // Account details
   _USERNAME       = '';
