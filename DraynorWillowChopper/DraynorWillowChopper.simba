@@ -40,7 +40,9 @@ procedure TBot.DoFullInventory();
 begin
   if Inventory.FindItem(Self.TinderItem) then
   begin
-    Self.FireItems();
+    if not Self.FireItems() then
+      Self.AfterActionAntiBan(True);
+
     exit();
   end;
 
@@ -51,7 +53,10 @@ begin
   end;
 
   if Self.Banking then
-    Self.DoBank()
+  begin
+    if not Self.DoBank() then
+      Self.AfterActionAntiBan(True);
+  end
   else
     Self.DropItems();
 end;
@@ -69,7 +74,10 @@ begin
       if Inventory.IsFull() then
         Self.DoFullInventory()
       else
-        Self.DoGathering();
+      begin
+        if not Self.DoGathering() then
+          Self.AfterActionAntiBan(True);
+      end;
     end
     else
     begin

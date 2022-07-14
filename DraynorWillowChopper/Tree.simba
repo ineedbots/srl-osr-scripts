@@ -356,7 +356,7 @@ end;
 {
   Executes when we need to gather items to fill our inventory
 }
-procedure TBot.DoGathering();
+function TBot.DoGathering(): Boolean;
 var
   Clicked: Boolean;
 begin
@@ -364,6 +364,7 @@ begin
     Self.GoToTrees() or
     (Self.ClickTree(Clicked) and Clicked) then
   begin
+    Result := True;
     Self.AfterActionAntiBan(True);
     Self.WhileChopping(Self.CurrentChoppingTreeTile);
   end;

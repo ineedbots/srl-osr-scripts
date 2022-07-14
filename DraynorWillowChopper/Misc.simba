@@ -227,6 +227,7 @@ var
   CurLogs, i, S: Int32;
 begin
   Script.SetStatus('Dropping logs...');
+  Self.AfterActionAntiBan(True);
 
   // query the fish
   Inventory.FindItems(Self.LogItems, LogSlots);
@@ -278,6 +279,8 @@ begin
 
   Script.SetStatus('Logs dropped!');
   Script.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
+  
+  Self.AfterActionAntiBan(True);
 end;
 
 {
@@ -687,14 +690,15 @@ end;
 {
   Will try to light logs on fire
 }
-procedure TBot.FireItems();
+function TBot.FireItems(): Boolean;
 var
   OurPos, FirePos: TPoint;
   FoundFire: Boolean;
 begin
   while RSClient.IsLoggedIn() do
   begin
-    Self.TryFireItems(FoundFire);
+    if Self.TryFireItems(FoundFire) then
+      Result := True;
 
     if FoundFire then
     begin
@@ -826,6 +830,8 @@ begin
 
     Self.DoMainLoopStuff('Fletching logs...', True);
   end;
+
+  Self.AfterActionAntiBan(True);
 end;
 
 {$ENDIF} // INEEDBOT_DVC_MISC
