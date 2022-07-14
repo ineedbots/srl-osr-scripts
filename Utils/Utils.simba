@@ -1132,7 +1132,7 @@ var
   i: Int32;
 begin       
   Result := -1;
-  for Low(Self) to High(Self) do
+  for i := Low(Self) to High(Self) do
   begin
     if SRL.PointInPoly(PT, Self[i]) then
       exit(i);
