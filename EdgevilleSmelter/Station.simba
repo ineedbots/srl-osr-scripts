@@ -382,7 +382,7 @@ end;
 {
   Does station stuff
 }
-procedure TBot.DoStation();
+function TBot.DoStation(): Boolean;
 var
   Clicked: Boolean;
 begin
@@ -417,6 +417,7 @@ begin
   end;
 
   Self.WhileDoingStation();
+  Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_EVS_SMELTER

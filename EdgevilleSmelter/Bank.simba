@@ -222,7 +222,7 @@ begin
   Wait(0, 1000, wdLeft);
   Script.AntiBan.AfterBankAntiBan(7);
 
-  FreeSpace := Inventory.Count() - (Inventory.HIGH_SLOT + 1);
+  FreeSpace := (Inventory.HIGH_SLOT + 1) - Inventory.Count();
 
   // withdraw our crap
   if Length(Self.SecondaryMaterialItems) > 0 then
@@ -483,7 +483,7 @@ end;
 {
   Does banking
 }
-procedure TBot.DoBank();
+function TBot.DoBank(): Boolean;
 var
   WasClicked: Boolean;
 begin
@@ -496,7 +496,10 @@ begin
     Self.AfterActionAntiBan(True, False);
 
     if Self.WaitBankOpen() then
-      Self.DoBanking()
+    begin
+      Self.DoBanking();
+      Result := True;
+    end
     else
       Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, WasClicked, True);
   end;

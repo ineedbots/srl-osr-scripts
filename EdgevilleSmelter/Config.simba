@@ -28,14 +28,23 @@ const
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
+
   STATION_TYPE = EStationType.EDGEVILLE_SMELTER;
-  MAKE_NUM = 0;
+
+  MAKE_NUM = 0;  // which make slot to use?
+  MAKE_INTERFACE = False; // is there an interface for the mkae screen?
+  MAKE_INTERFACE_BOX = [277, 400, 295, 412]; // the box to click
+
   TOOLS = ['Ammo mould', 'Double ammo mould'];
-  MATERIALS = [{'Raw swordfish', }'Steel bar'];
+
+  MATERIALS = ['Steel bar'];
+  MATERIAL_RATIO = 1; // how many material required for one product? r2h would be 3, cannonball would be 1
+
   SECONDARY_MATERIALS = []; // somthing like coal for bars, or emeralds for gold bars, etc etc
   SECONDARY_MATERIAL_RATIO = 0; // how many secondary material is required for one product?
-  PRODUCTS = [{'Swordfish', }'Cannonball'];
-  MATERIAL_RATIO = 1; // how many material required for one product? r2h would be 3, cannonball would be 1
+
+  PRODUCTS = ['Cannonball'];
+
 
   // Account details
   _USERNAME       = '';

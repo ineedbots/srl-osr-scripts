@@ -21,24 +21,52 @@ program EdgevilleSmelter;
 {$include_once Door.simba}
 
 {
+  Should do station?
+}
+function TBot.ShouldDoStation(): Boolean;  
+var
+  Slots: TIntegerArray;
+begin
+  if Self.StoppedShort then
+    exit();
+
+  if not Inventory.FindItems(Self.MaterialItems, Slots) then
+    exit();
+
+  if Length(Slots) < Self.MaterialRatio then
+    exit();
+
+  Slots.Clear();
+  if Length(Self.SecondaryMaterialItems) > 0 then
+  begin
+    if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
+      exit();
+
+    if Length(Slots) < Self.SecondaryMaterialRatio then
+      exit();
+  end;
+
+  exit(True);
+end;
+
+{
   Main loop of the script.
 }
 procedure TBot.Run();
-var
-  Slots: TIntegerArray;
 begin
   while Script.Running do
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Slots.Clear();
-      if Inventory.FindItems(Self.MaterialItems, Slots) and (Length(Slots) >= Self.MaterialRatio) and not Self.StoppedShort then
+      if Self.ShouldDoStation() then
       begin
-        Self.DoStation();
+        if not Self.DoStation() then
+          Self.AfterActionAntiBan(True);
       end
       else
       begin
-        Self.DoBank();
+        if not Self.DoBank() then
+          Self.AfterActionAntiBan(True);
       end;
     end
     else
@@ -87,6 +115,7 @@ procedure TBot.Init();
 var
   Worlds: TIntegerArray;
   Item: TRSItem;
+  i: Int32;
 begin
   // init the player
   if _WORLDS[0] <> -1 then
@@ -351,8 +380,18 @@ begin
   end;
 
   // SRL TODO  craftscreen and smithscreen
-  Self.UsingInterfaceMake := False;
-  Self.InterfaceMakeBox := [276, 528, 303, 556];
+  Self.UsingInterfaceMake := MAKE_INTERFACE;
+  for i := 0 to 3 do
+  begin
+    if i = 0 then
+      Self.InterfaceMakeBox.X1 := MAKE_INTERFACE_BOX[i]
+    else if i = 1 then
+      Self.InterfaceMakeBox.Y1 := MAKE_INTERFACE_BOX[i]
+    else if i = 2 then
+      Self.InterfaceMakeBox.X2 := MAKE_INTERFACE_BOX[i]
+    else
+      Self.InterfaceMakeBox.Y2 := MAKE_INTERFACE_BOX[i];
+  end;
 
   for Item in TOOLS do
     Self.ToolItems += Item;
