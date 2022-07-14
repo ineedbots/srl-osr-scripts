@@ -58,8 +58,11 @@ begin
   begin
     if (Self.RBars < 0) or (Self.RCoal < 0) or (Self.ROres < 0) then
     begin
-      Self.CheckTheDispenser();
-      Self.CheckThePot();
+      if not Self.CheckTheDispenser() then
+        Self.AfterActionAntiBan(True);
+
+      if not Self.CheckThePot() then
+        Self.AfterActionAntiBan(True);
     end;
   end;
 end;
@@ -99,11 +102,17 @@ begin
   begin
     // are there stuff in our inv? we should deposit it
     if ((Inventory.HIGH_SLOT + 1) - Inventory.Count()) < Self.WorkingInvCount then
-      Self.GoDoBank(False, False, Item, 0);
+    begin
+      if not Self.GoDoBank(False, False, Item, 0) then
+        Self.AfterActionAntiBan(True);
+    end;
 
     // collect
     Script.WriteMsg('Need to collect!', True);
-    Self.GoCollectBars();
+
+    if not Self.GoCollectBars() then
+      Self.AfterActionAntiBan(True);
+
     Self.NeedToCollect := False;
     exit();
   end;
@@ -112,7 +121,10 @@ begin
   if Self.PayingForeman and (Self.NeedToPayForeman or Self.ForemanTimer.IsFinished()) then
   begin
     Script.WriteMsg('Need to pay foreman!', True);
-    Self.GoPayForeman();
+
+    if not Self.GoPayForeman() then
+      Self.AfterActionAntiBan(True);
+
     exit();
   end;
 
@@ -120,7 +132,10 @@ begin
   if Self.RCoffer < 1500 then
   begin
     Script.WriteMsg('Need to refill coffer!', True);
-    Self.GoRefillCoffer();
+
+    if not Self.GoRefillCoffer() then
+      Self.AfterActionAntiBan(True);
+
     exit();
   end;
 
@@ -135,8 +150,12 @@ begin
       if ForceBelt or (not Inventory.FindItem(Self.CoalBagItem) or (Self.InCoalBag >= Self.WorkingInvCount)) then
       begin
         Script.WriteMsg('Need to put stuff on belt!', True);
-        Self.GoDoConveyor();
+
+        if not Self.GoDoConveyor() then
+          Self.AfterActionAntiBan(True);
+
         Self.NeedToDoBelt := False;
+
         exit();
       end;
     end;
@@ -144,7 +163,8 @@ begin
 
   // we should bank!
   Script.WriteMsg('Need to bank!', True);
-  Self.GoDoBank(True, False, Item, 0);
+  if not Self.GoDoBank(True, False, Item, 0) then
+    Self.AfterActionAntiBan(True);
 end;
 
 {

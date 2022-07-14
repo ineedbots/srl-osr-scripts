@@ -374,7 +374,7 @@ end;
 {
   Checks the dispenser
 }
-procedure TBot.CheckTheDispenser();
+function TBot.CheckTheDispenser(): Boolean;
 var
   ClickedDispenser: Boolean;
   RLP: Boolean;
@@ -397,6 +397,7 @@ begin
   end;
 
   Self.AfterActionAntiBan(True);
+  Result := True;
 
   // wait for the chat to open
   Self.WaitCheckDispenser();
@@ -489,7 +490,7 @@ end;
 {
   Does collection of the bars things
 }
-procedure TBot.GoCollectBars();
+function TBot.GoCollectBars(): Boolean;
 var
   RLP, ClickTheDispenser, ClickedDispenser: Boolean;
   BarSlots: TIntegerArray;
@@ -582,7 +583,9 @@ begin
             Script.WriteMsg('Need to throw water on the dispenser');
 
             if Self.ThrowWaterOnDispenser() then
-              CountDown.Restart();
+              CountDown.Restart()
+            else
+              Self.AfterActionAntiBan(True);
           end
           else
           begin
@@ -612,8 +615,11 @@ begin
       // read the values if we need to, miscounted somehow?
       if not RLP then
       begin
-        Self.CheckTheDispenser();
-        Self.CheckThePot();
+        if not Self.CheckTheDispenser() then
+          Self.AfterActionAntiBan(True);
+          
+        if not Self.CheckThePot() then
+          Self.AfterActionAntiBan(True);
       end;
 
       goto go_exit;
@@ -670,6 +676,7 @@ begin
   // assume the value got bigger
   Self.RBars -= (Length(BarSlots) - BarCount);
   Script.WriteMsg('Num bars: ' + ToStr(Self.RBars));
+  Result := True;
 
 go_exit:
   Self.AfterActionAntiBan(True);

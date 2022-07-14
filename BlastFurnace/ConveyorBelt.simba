@@ -444,8 +444,11 @@ begin
       // not using runelite, lets read the values from the things
       if not RLP then
       begin
-        Self.CheckTheDispenser();
-        Self.CheckThePot();
+        if not Self.CheckTheDispenser() then
+          Self.AfterActionAntiBan(True);
+
+        if not Self.CheckThePot() then
+          Self.AfterActionAntiBan(True);
       end;
 
       Fatal := True;
@@ -495,7 +498,7 @@ end;
 {
   Does conveyorbelt things
 }
-procedure TBot.GoDoConveyor();
+function TBot.GoDoConveyor(): Boolean;
 var
   HasCoalBag, Fatal: Boolean;
   CoalBagSlot, i: Int32;
@@ -509,6 +512,8 @@ begin
     Script.WriteMsg('Failed to place stuff on the belt');
     exit();
   end;
+
+  Result := True;
 
   // do coalbag
   if HasCoalBag then

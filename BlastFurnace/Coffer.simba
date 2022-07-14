@@ -264,7 +264,7 @@ end;
 {
   Does coffer things
 }
-procedure TBot.GoRefillCoffer();
+function TBot.GoRefillCoffer(): Boolean;
 var
   Item: TRSItem;
   ClickedCoffer: Boolean;
@@ -273,7 +273,8 @@ begin
   // get the coins if needed
   if not Inventory.FindItem(Self.CoinsItem) then
   begin
-    Self.GoDoBank(False, True, Item, Self.CofferAmount);
+    if not Self.GoDoBank(False, True, Item, Self.CofferAmount) then
+      Self.AfterActionAntiBan(True);
     Wait(0, 1500, wdLeft);
   end;
 
@@ -309,9 +310,12 @@ begin
           if Chat.GetChat().Strip().StartsWith(Self.CofferForemanTexts[0]) then
           begin
             Self.NeedToPayForeman := True;
+            Result := True;
             Script.WriteMsg('Need to pay foreman');
           end;
-        end;
+        end
+        else
+          Result := True;
 
         Wait(750, 1500, wdLeft);
       end
@@ -328,7 +332,8 @@ begin
     if Item = '' then
       Item := 'was bar';
 
-    Self.GoDoBank(False, True, Item, Self.CofferAmount);
+    if not Self.GoDoBank(False, True, Item, Self.CofferAmount) then
+      Self.AfterActionAntiBan(True);
   end;
 end;
 

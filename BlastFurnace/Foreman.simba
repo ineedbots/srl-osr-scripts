@@ -170,7 +170,7 @@ end;
 {
   Does pay foreman things
 }
-procedure TBot.GoPayForeman();
+function TBot.GoPayForeman(): Boolean;
 var
   Item: TRSItem;
   ClickedForeman: Boolean;
@@ -182,7 +182,9 @@ begin
   // get the coins if needed
   if not Inventory.FindItem(Self.CoinsItem) then
   begin
-    Self.GoDoBank(False, True, Item, 2500);
+    if not Self.GoDoBank(False, True, Item, 2500) then
+      Self.AfterActionAntiBan(True);
+
     Wait(0, 1500, wdLeft);
   end;
 
@@ -230,6 +232,7 @@ begin
         // set the vars
         Self.NeedToPayForeman := False;
         Self.ForemanTimer.Restart();
+        Result := True;
       end;
 
       Wait(0, 1000, wdLeft);
@@ -251,7 +254,8 @@ begin
     if Item = '' then
       Item := 'was bar';
 
-    Self.GoDoBank(False, True, Item, Self.CofferAmount);
+    if not Self.GoDoBank(False, True, Item, Self.CofferAmount) then
+      Self.AfterActionAntiBan(True);
   end;
 end;
 

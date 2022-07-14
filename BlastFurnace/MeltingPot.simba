@@ -261,7 +261,7 @@ end;
 {
   Checks the pot
 }
-procedure TBot.CheckThePot();
+function TBot.CheckThePot(): Boolean;
 var
   ClickedPot: Boolean;
   RLP: Boolean;
@@ -289,6 +289,8 @@ begin
     Script.WriteMsg('Failed to have chat open for pot');
     exit();
   end;
+
+  Result := True;
 
   Wait(0, 750, wdLeft);
 

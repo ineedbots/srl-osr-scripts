@@ -694,7 +694,7 @@ end;
 {
   Does banking
 }
-procedure TBot.GoDoBank(DoWithdrawal: Boolean; DoingCoinWithdrawal: Boolean; out TempItem: TRSItem; Amount: Int32);
+function TBot.GoDoBank(DoWithdrawal: Boolean; DoingCoinWithdrawal: Boolean; out TempItem: TRSItem; Amount: Int32): Boolean;
 var
   ClickedBank, RLP: Boolean;
   x, y: Int32;
@@ -708,6 +708,7 @@ begin
     or Self.GoToBank(True)
     or (Self.ClickBank(ClickedBank) and ClickedBank)) then
   begin
+    Script.WriteMsg('Failed to click bank!');
     exit();
   end;
 
@@ -716,9 +717,14 @@ begin
   Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
   Self.GetWorkingInvCount(Self.WorkingInvCount);
 
+  Self.AfterActionAntiBan(True, False);
+
   // if bank opened, then do it!
   if Self.WaitBankOpen() then
+  begin
+    Result := True;
     Self.DoBanking(DoWithdrawal, DoingCoinWithdrawal, TempItem, Amount);
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_BLASTFURANCE_BANK
