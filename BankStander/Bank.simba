@@ -296,7 +296,7 @@ end;
 {
   Trys to open the bank
 }
-procedure TBot.DoOpenBank();
+function TBot.DoOpenBank(): Boolean;
 var
   i: Int32;
 begin
@@ -306,7 +306,11 @@ begin
   begin
     if Self.OpenBank() then
     begin
-      Self.WaitBankOpen();
+      Self.AfterActionAntiBan(True, False);
+
+      if Self.WaitBankOpen() then
+        Result := True;
+
       exit();
     end;
 

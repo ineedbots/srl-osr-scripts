@@ -128,7 +128,7 @@ begin
     exit();
   end;
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
   CountDown.Init(Self.TransformWaitTime);
 
   Script.WriteMsg('Making...', True);
@@ -189,7 +189,7 @@ end;
 {
   Does transform type
 }
-procedure TBot.DoTransform();
+function TBot.DoTransform(): Boolean;
 var
   MaterialSlots, ToolSlots: TIntegerArray;
   Item: TRSItem;
@@ -210,6 +210,7 @@ begin
     begin
       Script.WriteMsg('DoTransform: MaterialSlots: ' + ToStr(MaterialSlots), True);
       Self.Transform(Item, MaterialSlots, ToolSlots);
+      Result := True;
       break;
     end;
   end;

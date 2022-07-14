@@ -23,6 +23,8 @@ program BankStander;
   Does logged in stuff
 }
 procedure TBot.DoLoggedInStuff();
+var
+  DidIt: Boolean;
 begin
   if Bank.IsOpen() or BankPin.IsOpen() then
   begin
@@ -35,16 +37,20 @@ begin
     begin
       // do production
       case Self.CreationType of
-        ERSCreationType.TRANSFORM: Self.DoTransform();
+        ERSCreationType.TRANSFORM: DidIt := Self.DoTransform();
         //ERSCreationType.COMBINE: Self.DoCombine();
         //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransform();
         //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
       end;
+
+      if not DidIt then
+        Self.AfterActionAntiBan(True);
     end
     else
     begin
       // open bank
-      Self.DoOpenBank();
+      if not Self.DoOpenBank() then
+        Self.AfterActionAntiBan(True);
     end;
   end;
 end;
