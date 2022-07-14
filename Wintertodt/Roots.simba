@@ -325,7 +325,7 @@ end;
 {
   Gathers logs
 }
-procedure TBot.GatherLogs();
+function TBot.GatherLogs(): Boolean;
 var
   WasClicked: Boolean;
   TheirHP: Int32;
@@ -341,6 +341,7 @@ begin
       Self.GoToLogs(True) or
       (Self.ClickRoots(WasClicked) and WasClicked) then
     begin
+      Result := True;
       Self.AfterActionAntiBan(True);
       Self.WhileChopping();
 

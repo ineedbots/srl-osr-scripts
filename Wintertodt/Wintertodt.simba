@@ -76,9 +76,15 @@ begin
 
     // not inside the boss arean
     if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
-      Self.GoDoBank()
+    begin
+      if not Self.GoDoBank() then
+        Self.AfterActionAntiBan(True);
+    end
     else
-      Self.GoInsideBossArea();
+    begin
+      if not Self.GoInsideBossArea() then
+        Self.AfterActionAntiBan(True);
+    end;
   end
   else
   begin
@@ -109,7 +115,9 @@ begin
       if not Inventory.FindItems(Self.FoodItems) and
           (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc)) then
       begin
-        Self.GoOutsideBossArea();
+        if not Self.GoOutsideBossArea() then 
+          Self.AfterActionAntiBan(True);
+
         exit();
       end;
 
@@ -132,15 +140,23 @@ begin
       // check if we need to do stuff at the braz
       if Inventory.FindItems([Self.LogItem, Self.KnifedLogItem]) then
       begin
-        Self.OfferStuffToBrazier();
+        if not Self.OfferStuffToBrazier() then
+          Self.AfterActionAntiBan(True);
+
         exit();
       end;
 
       // just gather logs
       if TheirHpPerc > 5 then
-        Self.GatherLogs()
+      begin
+        if not Self.GatherLogs() then
+          Self.AfterActionAntiBan(True);
+      end
       else if Self.ShouldBank then
-        Self.GoOutsideBossArea(True);
+      begin
+        if not Self.GoOutsideBossArea(True) then
+          Self.AfterActionAntiBan(True);
+      end;
     end
     else
     begin
@@ -148,7 +164,10 @@ begin
       Self.EndBossFight();
 
       if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
-        Self.GoOutsideBossArea()
+      begin
+        if not Self.GoOutsideBossArea() then
+          Self.AfterActionAntiBan(True);
+      end
       else
         Self.WaitForBossStart();
     end;

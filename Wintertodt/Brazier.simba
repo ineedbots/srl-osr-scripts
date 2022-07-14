@@ -419,7 +419,7 @@ end;
 {
   Does interactions with the brazier
 }
-procedure TBot.OfferStuffToBrazier();
+function TBot.OfferStuffToBrazier(): Boolean;
 var
   DidClick, IsLit: Boolean;
 begin
@@ -433,6 +433,8 @@ begin
   begin
     if DidClick then
       Self.BrazIsLit := IsLit;
+
+    Result := True;
 
     if Self.BrazIsLit then
       Self.WhileOffering()

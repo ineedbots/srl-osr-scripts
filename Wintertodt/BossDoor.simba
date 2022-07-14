@@ -239,7 +239,7 @@ end;
 {
   Goes inside the arena
 }
-procedure TBot.GoInsideBossArea();
+function TBot.GoInsideBossArea(): Boolean;
 var
   CountDown: TCountDown;
   WasClicked: Boolean;
@@ -278,6 +278,7 @@ begin
       begin
         Script.WriteMsg('GoInsideBossArea done', True);
         Wait(1000, 2000, wdLeft);
+        Result := True;
         break;
       end;
 
@@ -509,7 +510,7 @@ end;
 {
   Exits the arena
 }
-procedure TBot.GoOutsideBossArea(WaitForDeadBoss: Boolean = False);
+function TBot.GoOutsideBossArea(WaitForDeadBoss: Boolean = False): Boolean;
 var
   CountDown: TCountDown;
   OurPos: TPoint = [-1, -1];
@@ -575,6 +576,7 @@ begin
       begin
         Script.WriteMsg('GoOutsideBossArea: done', True);
         Wait(1000, 2000, wdLeft);
+        Result := True;
         break;
       end;
 
