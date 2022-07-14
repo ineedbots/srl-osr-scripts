@@ -365,7 +365,7 @@ end;
 {
   Cooks the food
 }
-procedure TBot.CookFish(RSItem: TRSItem);
+function TBot.CookFish(RSItem: TRSItem): Boolean;
 begin
   if Self.TryClickFire(RSItem) or
     Self.GoToFire(RSItem) or
@@ -373,10 +373,13 @@ begin
     Self.GoToFire(RSItem, True) or
     Self.TryClickFire(RSItem) then
   begin
+    Self.AfterActionAntiBan(True);
+
     if Self.StartCooking() then
     begin
       Self.AfterActionAntiBan(True);
       Self.WhileCooking(RSItem);
+      Result := True;
     end;
   end;
 end;
@@ -392,6 +395,7 @@ var
   CurFish, i, S: Int32;
 begin
   Script.SetStatus('Dropping fish...');
+  Self.AfterActionAntiBan(True);
 
   // query the fish
   Inventory.FindItems(Self.RawFish, FishSlots);
@@ -445,6 +449,8 @@ begin
 
   Script.SetStatus('Fish dropped!');
   Script.WriteMsg('Dropped fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
+
+  Self.AfterActionAntiBan(True);
 end;
 
 {$ENDIF} // INEEDBOT_BVF_MISC

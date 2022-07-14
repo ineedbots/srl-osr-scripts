@@ -36,14 +36,18 @@ begin
       if not Inventory.FindItem(RSItem) then
         continue;
 
-      Self.CookFish(RSItem);
+      if not Self.CookFish(RSItem) then
+        Self.AfterActionAntiBan(True);
     end;
 
     exit();
   end;
 
   if Self.Banking then
-    Self.DoBank()
+  begin
+    if not Self.DoBank() then
+      Self.AfterActionAntiBan(True);
+  end
   else
     Self.DropItems();
 end;
@@ -61,7 +65,10 @@ begin
       if Inventory.IsFull() then
         Self.DoFullInventory()
       else
-        Self.DoGathering();
+      begin
+        if not Self.DoGathering() then
+          Self.AfterActionAntiBan(True);
+      end;
     end
     else
     begin

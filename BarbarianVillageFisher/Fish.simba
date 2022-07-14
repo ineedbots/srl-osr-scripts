@@ -430,7 +430,7 @@ end;
 {
   Executes when we need to gather items to fill our inventory
 }
-procedure TBot.DoGathering();
+function TBot.DoGathering(): Boolean;
 begin
   if Self.TryClickFish() or
     Self.GoToFish() or
@@ -438,6 +438,7 @@ begin
   begin
     Self.AfterActionAntiBan(True);
     Self.WhileFishing();
+    Result := True;
   end;
 end;
 

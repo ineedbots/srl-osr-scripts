@@ -436,7 +436,7 @@ end;
 {
   Does banking
 }
-procedure TBot.DoBank();
+function TBot.DoBank(): Boolean;
 var
   WasClicked: Boolean;
 begin
@@ -446,8 +446,11 @@ begin
     or Self.GoToBank(True)
     or (Self.ClickBank(WasClicked) and WasClicked) then
   begin
+    Self.AfterActionAntiBan(True, False);
+
     if Self.WaitBankOpen() then
     begin
+      Result := True;
       Self.DoBanking();
       Self.UpdateWalkedFish(True);
 
