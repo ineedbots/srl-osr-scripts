@@ -294,6 +294,48 @@ begin
 end;
 
 {
+  Makes it so it works with items with non left click use
+}
+function Inventory.SetSelectedSlot(Slot: Int32): Boolean; override;
+var
+  Selected: Int32;
+begin
+  Selected := Self.GetSelectedSlot();
+  if (Selected = Slot) then
+    Exit(True);
+
+  if (Selected > -1) then
+    Mouse.Click(Self.GetSlotBox(Selected), MOUSE_LEFT);
+  if (Slot > -1) then
+  begin
+    Mouse.Move(Self.GetSlotBox(Slot));
+
+    if MainScreen.IsUpText('Use') and (Random() < 0.95) then
+      Mouse.Click(MOUSE_LEFT)
+    else
+      ChooseOption.Select('Use');
+  end;
+
+  Result := WaitUntil(Self.GetSelectedSlot() = Slot, 50, SRL.TruncatedGauss(1000, 2000));
+end;
+
+{
+  Stop the meme of closing the bank
+}
+function TRSGameTabs.Open(Tab: ERSGameTab): Boolean; override;
+begin
+  if Bank.IsOpen(False) then
+  begin
+    if (Tab = ERSGameTab.INVENTORY) then
+      Exit(True);
+
+    Exit(False);
+  end;
+
+  Result := inherited();
+end;
+
+{
   Prevents array out of bounds
 }
 function TRSMake.Select(Index: Int32; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;

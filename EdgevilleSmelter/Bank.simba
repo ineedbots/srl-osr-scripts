@@ -212,7 +212,7 @@ begin
 
   // deposit our stuff
   if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
-    Bank.DepositAll()
+    Bank.DepositAllItems()
   else if not Bank.DepositItemsIntoBank(Pattern, CurProducts) then
   begin
     Script.WriteMsg('DepositItems: Failed to deposit items into bank');

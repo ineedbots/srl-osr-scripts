@@ -181,7 +181,7 @@ begin
   if IsBank then
   begin
     if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
-      Bank.DepositAll()
+      Bank.DepositAllItems()
     else if not Bank.DepositItemsIntoBank(Pattern, CurLogs) then
     begin
       Script.WriteMsg('DepositItems: Failed to deposit items into bank');

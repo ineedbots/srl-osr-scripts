@@ -273,5 +273,21 @@ begin
   Result := True;
 end;
 
+{
+  Uses the deposit button
+}
+function TRSBank.DepositAllItems(): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Inventory.Count();
+
+  if not Self.DepositAll() then
+    exit();
+
+  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+  Result := True;
+end;
+
 {$ENDIF} // INEEDBOT_UTILS_BANK
 
