@@ -20,6 +20,36 @@ program BankStander;
 {$include_once Transform.simba}
 
 {
+  Should we create the product?
+}
+function TBot.ShouldMakeProduct(): Boolean;
+var
+  Slots: TIntegerArray;
+begin
+  if Self.StoppedShort then
+    exit();
+
+  if not Inventory.FindItems(Self.MaterialItems, Slots) then
+    exit();
+
+  if Length(Slots) < Self.MaterialRatio then
+    exit();
+
+  Slots.Clear();
+
+  if Length(Self.SecondaryMaterialItems) > 0 then
+  begin
+    if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
+      exit();
+
+    if Length(Slots) < Self.SecondaryMaterialRatio then
+      exit();
+  end;
+
+  exit(True);
+end;
+
+{
   Does logged in stuff
 }
 procedure TBot.DoLoggedInStuff();
@@ -33,12 +63,12 @@ begin
   end
   else
   begin
-    if Inventory.FindItems(Self.MaterialItems) and not Self.StoppedShort then
+    if Self.ShouldMakeProduct() then
     begin
       // do production
       case Self.CreationType of
         ERSCreationType.TRANSFORM: DidIt := Self.DoTransform();
-        //ERSCreationType.COMBINE: Self.DoCombine();
+        ERSCreationType.COMBINE: DidIt := Self.DoCombine();
         //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransform();
         //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
       end;
@@ -143,14 +173,14 @@ begin
   Script.MaxTiredMouseSpeed := 10;
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
-  ItemFinder.Similarity   := 0.99;
+  ItemFinder.Similarity   := 0.999;
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;
 
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
-  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+  Script.Antiban.OnFinishBreak   := @ResumeScript;
 
   Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
   Script.Antiban.AddTask(ONE_MINUTE*3, @Antiban.SetCompassNorth);
@@ -274,11 +304,22 @@ begin
   Self.CreationType := CREATION_TYPE;
   Self.MakeNum := MAKE_NUM;
 
+  Self.MaterialRatio := MATERIAL_RATIO;
+  Self.SecondaryMaterialRatio := SECONDARY_MATERIAL_RATIO;
+
+  Self.UsingAmuletOfChem := AMULET_OF_CHEM;
+  Self.AmuletCrumbledTexts := [' dust.', 'Your amulet of chemistry helps you create a 4-dose potion. It then crumbles to dust.'];
+  Self.AmuletOfChemCountdown.Init(ONE_MINUTE*5);
+  Self.AmuletOfChemItem := 'Amulet of chemistry';
+
   for Item in TOOLS do
     Self.ToolItems += Item;
 
   for Item in MATERIALS do
     Self.MaterialItems += Item;
+
+  for Item in SECONDARY_MATERIALS do
+    Self.SecondaryMaterialItems += Item;
 
   for Item in PRODUCTS do
     Self.ProductItems += Item;

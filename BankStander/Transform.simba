@@ -19,66 +19,6 @@
 {$include_once Utils.simba}
 
 {
-  Banks for transform type
-}
-procedure TBot.DoTransformBanking(DepositPattern: TIntegerArray);
-var
-  ProductSlots: TIntegerArray;
-  CurProducts: Int32;
-  Found: Boolean;
-  Item: TRSItem;
-  MBox: TBox;
-begin
-  // search for materials
-  for Item in Self.MaterialItems do
-  begin
-    if not Bank.FindBankItem(Item, MBox) then
-      continue;
-
-    Found := True;
-    break;
-  end;
-
-  if not Found then
-  begin
-    Script.Stop('No materials left in bank!');
-    exit();
-  end;
-
-  // remember how many produce we have, so we can count
-  Inventory.FindItems(Self.ProductItems, ProductSlots);
-  CurProducts := Length(ProductSlots);
-  Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
-
-  // deposit our stuff
-  Script.WriteMsg('Depositting our produce.', True);
-  if not Bank.DepositItemsIntoBank(DepositPattern) then
-  begin
-    Script.WriteMsg('Failed to deposit items');
-    Bank.Close(Script.ShouldPressKeyboard());
-    exit();
-  end;
-
-  Wait(0, 1000, wdLeft);
-  Script.AntiBan.AfterBankAntiBan(7);
-
-  // withdraw our crap
-  if not Bank.WithdrawItemFromBank(MBox) then
-  begin
-    Script.WriteMsg('Failed to withdraw materials');
-    Bank.Close(Script.ShouldPressKeyboard());
-    exit();
-  end;
-
-  ProductSlots.Clear();
-  Inventory.FindItems(Self.ProductItems, ProductSlots);
-  Self.Did += CurProducts - Length(ProductSlots);
-
-  Script.SetStatus('Depositted!');
-  Script.WriteMsg('Banked... Currently did ' + IntToStr(Self.Did) + '!');
-end;
-
-{
   Transforms the item with a tool
 }
 procedure TBot.Transform(Item: TRSItem; MaterialSlots, ToolSlots: TIntegerArray);
@@ -87,7 +27,9 @@ var
   Made: Boolean;
   CountDown: TCountDown;
 begin
+  // can be secondary material too!
   ToolSlot := ToolSlots[Random(High(ToolSlots))];
+
   MaterialSlot := MaterialSlots[Random(High(MaterialSlots))];
   MCount := Length(MaterialSlots);
   OGMCount := MCount;
@@ -135,12 +77,18 @@ begin
 
   while RSClient.IsLoggedIn() do
   begin
+    if Self.HandleAmuletOfChem() then
+    begin
+      Script.WriteMsg('Transform: HandleAmuletOfChem!', True);
+      break;
+    end;
+
     // check inv
     MaterialSlots.Clear();
     Inventory.FindItem(Item, MaterialSlots);
     MC := Length(MaterialSlots);
 
-    if MC <= 0 then
+    if MC < Self.MaterialRatio then
     begin
       Script.WriteMsg('Transform: No more material', True);
       break;
@@ -210,6 +158,38 @@ begin
     begin
       Script.WriteMsg('DoTransform: MaterialSlots: ' + ToStr(MaterialSlots), True);
       Self.Transform(Item, MaterialSlots, ToolSlots);
+      Result := True;
+      break;
+    end;
+  end;
+
+  Script.WriteMsg('No materials', True);
+end;
+
+{
+  Combines
+}
+function TBot.DoCombine(): Boolean;
+var
+  MaterialSlots, SecondaryMaterialSlots: TIntegerArray;
+  Item: TRSItem;
+begin
+  if not Inventory.FindItems(Self.SecondaryMaterialItems, SecondaryMaterialSlots) then
+  begin
+    Script.WriteMsg('No secondary materials', True);
+    exit();
+  end;
+
+  Script.WriteMsg('DoCombine: SecondaryMaterialSlots: ' + ToStr(SecondaryMaterialSlots), True);
+
+  Script.WriteMsg('Combining items...', True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoCombine: MaterialSlots: ' + ToStr(MaterialSlots), True);
+      Self.Transform(Item, MaterialSlots, SecondaryMaterialSlots);
       Result := True;
       break;
     end;

@@ -27,15 +27,26 @@ const
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
-  BANK_COLOR_TYPE = ERSBankColorType.GRAND_EXCHANGE_BANKER;
+
+  BANK_COLOR_TYPE = ERSBankColorType.VARROCK_WEST_BANK_BOOTH;
+
   MAP = 'zeah'; // 'zeah' or 'world'
   BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
 
-  CREATION_TYPE = ERSCreationType.TRANSFORM;
-  MAKE_NUM = 3;
-  TOOLS = ['Chisel'];
-  MATERIALS = ['Amethyst'];
-  PRODUCTS = ['Amethyst dart tip'];
+  CREATION_TYPE = ERSCreationType.COMBINE;
+  AMULET_OF_CHEM = True;
+
+  MAKE_NUM = 0;
+
+  TOOLS = [];
+
+  MATERIALS = ['Ranarr potion (unf)'];
+  MATERIAL_RATIO = 1; // how many material per product?
+
+  SECONDARY_MATERIALS = ['Snape grass']; // like eye of newts for unfinished guam potions
+  SECONDARY_MATERIAL_RATIO = 1; // how many secondary material is required for one product?
+
+  PRODUCTS = ['Prayer potion(3)', 'Prayer potion(4)'];
 
   // Account details
   _USERNAME       = '';
@@ -43,17 +54,5 @@ const
   _PIN            = '';
   _WORLDS         = [-1];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?
-
-  {CREATION_TYPE = ERSCreationType.TRANSFORM;
-  MAKE_NUM = 5;
-  TOOLS = ['Glassblowing pipe'];
-  MATERIALS = ['Molten glass'];
-  PRODUCTS = ['Unpowered orb'];}
-
-  {CREATION_TYPE = ERSCreationType.TRANSFORM;
-  MAKE_NUM = 2;
-  TOOLS = ['Knife'];
-  MATERIALS = ['Maple logs'];
-  PRODUCTS = ['Maple longbow (u)'];}
 
 {$ENDIF} // INEEDBOT_BANKSTANDER_CONFIG

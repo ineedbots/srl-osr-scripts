@@ -17,7 +17,8 @@
 
 type
   ERSCreationType = (
-    TRANSFORM       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
+    TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
+    COMBINE         // combine like potions
   );
 
   ERSBankColorType = (
@@ -30,14 +31,19 @@ type
   );
 
   TBot = record
-    ToolItems, MaterialItems, ProductItems                    : TRSItemArray;
+    ToolItems, MaterialItems, ProductItems,
+      SecondaryMaterialItems                                  : TRSItemArray;
+    AmuletOfChemItem                                          : TRSItem;
     CreationType                                              : ERSCreationType;
-    MakeNum, Did, TransformWaitTime                           : Int32;
-    StoppedShort                                              : Boolean;
+    MakeNum, Did, TransformWaitTime, MaterialRatio,
+      SecondaryMaterialRatio                                  : Int32;
+    StoppedShort, UsingAmuletOfChem, NeedToRefillAmuletOfChem : Boolean;
+    AmuletCrumbledTexts                                       : TStringArray;
     SelfBoxRadiusExpand                                       : Double;
     BankLocations                                             : TPointArray;
     RSW                                                       : TRSWalker;
     BankColor                                                 : TScriptColor;
+    AmuletOfChemCountdown                                     : TCountdown;
   end;
 
 var
