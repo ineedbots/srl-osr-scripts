@@ -316,6 +316,7 @@ begin
         Script.AntiBan.AfterBankAntiBan(2);
 
         // find it
+        Pattern.Clear();
         if Inventory.FindItems(Self.StaminaPotItems, Pattern) then
         begin
           // drink it

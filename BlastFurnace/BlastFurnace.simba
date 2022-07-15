@@ -80,6 +80,7 @@ begin
   if Self.RSW.GetMyPos().X = -10000 then
   begin
     Script.WriteMsg('Bad pos!');
+    Self.AfterActionAntiBan(True);
     exit();
   end;
 
