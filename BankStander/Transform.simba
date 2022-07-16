@@ -80,6 +80,7 @@ begin
     if Self.HandleAmuletOfChem() then
     begin
       Script.WriteMsg('Transform: HandleAmuletOfChem!', True);
+      Self.StoppedShort := True;
       break;
     end;
 

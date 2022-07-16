@@ -130,7 +130,7 @@ procedure TBot.DoBanking();
 var
   ToolSlots, ProductSlots, Pattern: TIntegerArray;
   CurProducts, i, FreeSpace, MatsToWith: Int32;
-  MBox, SMBox: TBox;
+  MBox, SMBox, RFBox: TBox;
   Found: Boolean;
   Item: TRSItem;
 begin
@@ -210,6 +210,15 @@ begin
     end;
   end;
 
+  if Self.UsingRingOfForging then
+  begin
+    if not Bank.FindBankItem(Self.RingOfForgingItem, RFBox) then
+    begin
+      Script.Stop('No ring of forging!!');
+      exit();
+    end;
+  end;
+
   // deposit our stuff
   if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
     Bank.DepositAllItems()
@@ -221,6 +230,41 @@ begin
 
   Wait(0, 1000, wdLeft);
   Script.AntiBan.AfterBankAntiBan(7);
+
+  // do ring
+  if Self.UsingRingOfForging and Self.NeedToRefillRingOfForging then
+  begin
+    Self.NeedToRefillRingOfForging := False;
+    Self.RingOfForgingCountdown.Restart();
+
+    // withdraw it
+    if not Bank.WithdrawItemFromBank(RFBox, 1) then
+    begin
+      Script.WriteMsg('Failed to withdraw ring');
+      exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(7);
+
+    // find it
+    Pattern.Clear();
+    if Inventory.FindItem(Self.RingOfForgingItem, Pattern) then
+    begin
+      // equip it
+      Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+      Wait(0, 750, wdLeft);
+      ChooseOption.Select('Wear');
+      Wait(0, 500, wdLeft);
+
+      Script.AntiBan.AfterBankAntiBan(2);
+    end
+    else
+      Script.WriteMsg('Couldn''t find amulet in inv');
+
+    Wait(444, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(7);
+  end;
 
   FreeSpace := (Inventory.HIGH_SLOT + 1) - Inventory.Count();
 

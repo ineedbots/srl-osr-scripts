@@ -35,19 +35,22 @@ type
 
   TBot = record
     StationType                                               : EStationType;
-    StoppedShort, UsingInterfaceMake                          : Boolean;
+    StoppedShort, UsingInterfaceMake, UsingRingOfForging,
+      NeedToRefillRingOfForging                               : Boolean;
     StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
       MaterialRatio                                           : Int32;
     RSW                                                       : TRSWalker;
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;
-    StationUptexts, StationOptions                            : TStringArray;
+    RingOfForgingItem                                         : TRSItem;
+    StationUptexts, StationOptions, RingOfForgingBrokeTexts   : TStringArray;
     StationTiles, BankTiles                                   : TPointArray;
     StationWalkTile, BankWalkTile                             : TPoint;
     BankColor, StationColor                                   : TScriptColor;
     ToBankPaths, ToStationPaths                               : T2DPointArray;
     Doors                                                     : TDoorArray;
     InterfaceMakeBox                                          : TBox;
+    RingOfForgingCountdown                                    : TCountdown;
   end;
 
 var

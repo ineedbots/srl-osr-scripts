@@ -180,6 +180,11 @@ begin
   Self.StationType := STATION_TYPE; 
   Self.MakeOption := MAKE_NUM;
 
+  Self.UsingRingOfForging := USING_RING_OF_FORGING;
+  Self.RingOfForgingItem := 'Ring of forging';
+  Self.RingOfForgingCountdown.Init(ONE_MINUTE * 7);
+  Self.RingOfForgingBrokeTexts := ['Ring of ', 'Your Ring of Forging has melted.'];
+
   case Self.StationType of
     EStationType.AL_KHARID_RANGE:
     begin

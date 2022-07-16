@@ -33,6 +33,36 @@ end;
 {$include_once Door.simba}
 
 {
+  Handles ring of forging
+}
+function TBot.HandleRingOfForging(): Boolean;
+var
+  ChatMsg: String;
+begin
+  if not Self.UsingRingOfForging or MainScreen.AnyInterfaceOpen() then
+    exit();
+
+  if Self.RingOfForgingCountdown.IsFinished() then
+  begin
+    Self.NeedToRefillRingOfForging := True;
+    exit(True);
+  end;
+
+  if not Chat.IsOpen() then
+    exit();
+
+  ChatMsg := Chat.GetMessage(7, [$7C0C7E]).Strip();
+
+  if not ChatMsg.IsInString(Self.RingOfForgingBrokeTexts) then
+    exit();
+
+  Script.ExamineRandomItem();
+
+  Self.NeedToRefillRingOfForging := True;
+  exit(True);
+end;
+
+{
   From Flight's AIOFisher
 }
 procedure TBot.DoSkillHover();

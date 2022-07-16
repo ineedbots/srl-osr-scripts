@@ -36,6 +36,7 @@ const
   MAKE_INTERFACE_BOX = [277, 400, 295, 412]; // the box to click
 
   TOOLS = ['Ammo mould', 'Double ammo mould'];
+  USING_RING_OF_FORGING = False;
 
   MATERIALS = ['Steel bar'];
   MATERIAL_RATIO = 1; // how many material required for one product? r2h would be 3, cannonball would be 1

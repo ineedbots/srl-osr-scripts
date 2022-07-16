@@ -33,7 +33,6 @@ begin
   if Self.AmuletOfChemCountdown.IsFinished() then
   begin
     Self.NeedToRefillAmuletOfChem := True;
-    Self.StoppedShort := True;
     exit(True);
   end;
 
@@ -41,15 +40,13 @@ begin
     exit();
 
   ChatMsg := Chat.GetMessage(7, [CHAT_COLOR_BLACK, CHAT_COLOR_RED, CHAT_COLOR_LIGHT_RED]).Strip();
-  writeln(ChatMsg);
 
   if not ChatMsg.IsInString(Self.AmuletCrumbledTexts) then
     exit();
 
   Script.ExamineRandomItem();
 
-  Self.NeedToRefillAmuletOfChem := True; 
-  Self.StoppedShort := True;
+  Self.NeedToRefillAmuletOfChem := True;
   exit(True);
 end;
 
