@@ -198,4 +198,168 @@ begin
   Script.WriteMsg('No materials', True);
 end;
 
+{
+  Cleans the herbs
+}
+function TBot.Clean(Item: TRSItem; out Pattern: TIntegerArray; i: Int32; out AfkClean: Boolean): Boolean;
+var
+  MaterialSlots: TIntegerArray;
+  MCount, OGMCount, StopShort, ii, MC: Int32;
+  CountDown: TCountDown;
+begin
+  i := i;
+  if not Inventory.FindItem(Item, MaterialSlots) then
+    exit();
+
+  MCount := Length(MaterialSlots);
+  OGMCount := MCount;
+
+  StopShort := MCount;
+  if Random() < 0.05 then
+    StopShort := SRL.SkewedRand(MCount, MCount, 0);
+
+  // remove all slots with no item!
+  for ii := High(Pattern) downto Low(Pattern) do
+    if MaterialSlots.Find(Pattern[ii]) = -1 then
+      Pattern.Remove(Pattern[ii]);
+
+  if Length(Pattern) <= 0 then
+    exit();
+
+  Mouse.Move(Inventory.GetSlotBox(Pattern[0]));
+
+  if MainScreen.IsUpText('Clean') and (Random() < 0.975) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := True;
+  end
+  else
+    Result := ChooseOption.Select('Clean');
+
+  Pattern.Remove(Pattern[0]);
+
+  if Result and AfkClean then
+  begin       
+    Script.WriteMsg('Starting the cleaning', True);
+
+    CountDown.Init(Self.TransformWaitTime);
+
+    while RSClient.IsLoggedIn() do
+    begin
+      // check inv
+      MaterialSlots.Clear();
+      Inventory.FindItem(Item, MaterialSlots);
+      MC := Length(MaterialSlots);
+
+      if MC < Self.MaterialRatio then
+      begin
+        Script.WriteMsg('Clean: No more material', True);
+        break;
+      end;
+
+      if MC <> MCount then
+      begin
+        Script.WriteMsg('Clean: InvCount changed, restarting countdown', True);
+        CountDown.Restart();
+      end;
+
+      if (StopShort - (OGMCount - MC)) <= 0 then
+      begin
+        if Random() < 0.65 then
+          Self.StoppedShort := True;
+
+        Script.WriteMsg('Stopping short for antiban', True);
+        break;
+      end;
+
+      MCount := MC;
+
+      if CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('Clean: Countdown expired', True);
+        break;
+      end;
+
+      if Chat.LeveledUp() then
+      begin
+        Script.WriteMsg('Clean: Leveld', True);
+        if Random() < 0.2 then
+        begin
+          Wait(0, 1500, wdLeft);
+          Chat.ChatToOption('doesnt matter');
+        end;
+        break;
+      end;
+
+      if Random() < (0.05 / 14) then
+      begin
+        AfkClean := False;
+        break;
+      end;
+
+      Self.DoMainLoopStuff('Cleaning items...', True);
+    end;
+  end;
+end;
+
+
+{
+  Clean the herbs
+}
+function TBot.DoClean(): Boolean;
+var
+  Item: TRSItem;
+  Pattern, MaterialSlots: TIntegerArray;
+  i, S: Int32;
+  AfkClean: Boolean;
+begin
+  Pattern := Bank.GetGoodPattern();
+
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+
+  if Random() < 0.05 then
+    AfkClean := True;
+
+  while RSClient.IsLoggedIn() do
+  begin
+    // make sure nothing is selected
+    Inventory.SetSelectedSlot(-1);
+
+    MaterialSlots.Clear();
+    if not Inventory.FindItems(Self.MaterialItems, MaterialSlots) or (Length(MaterialSlots) < Self.MaterialRatio) then
+    begin
+      Script.WriteMsg('DoClean: no mats', True);
+      break;
+    end;
+
+    if Self.StoppedShort then
+    begin
+      Script.WriteMsg('DoClean: stopping short', True);
+      break;
+    end;
+
+    if Random() < (0.05 / 28) then
+      AfkClean := True;
+
+    for Item in Self.MaterialItems do
+    begin
+      if Self.Clean(Item, Pattern, i, AfkClean) then
+        Result := True;
+    end;
+
+    if Length(Pattern) < Self.MaterialRatio then
+    begin
+      Self.StoppedShort := True;
+      break;
+    end;
+
+    Inc(i);
+  end;
+
+  Mouse.Speed := S;
+  Wait(0, 5555, wdLeft);
+  Script.WriteMsg('No materials', True);
+end;
+
 {$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM

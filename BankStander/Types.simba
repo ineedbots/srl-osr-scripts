@@ -18,7 +18,8 @@
 type
   ERSCreationType = (
     TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
-    COMBINE         // combine like potions
+    COMBINE,         // combine like potions
+    CLEANER          // cleans herbs
   );
 
   ERSBankColorType = (
@@ -37,7 +38,8 @@ type
     CreationType                                              : ERSCreationType;
     MakeNum, Did, TransformWaitTime, MaterialRatio,
       SecondaryMaterialRatio                                  : Int32;
-    StoppedShort, UsingAmuletOfChem, NeedToRefillAmuletOfChem : Boolean;
+    StoppedShort, UsingAmuletOfChem, NeedToRefillAmuletOfChem,
+      GainingXP                                               : Boolean;
     AmuletCrumbledTexts                                       : TStringArray;
     SelfBoxRadiusExpand                                       : Double;
     BankLocations                                             : TPointArray;

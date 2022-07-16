@@ -69,7 +69,7 @@ begin
       case Self.CreationType of
         ERSCreationType.TRANSFORM: DidIt := Self.DoTransform();
         ERSCreationType.COMBINE: DidIt := Self.DoCombine();
-        //ERSCreationType.SINGLETRANSFORM: Self.DoSingleTransform();
+        ERSCreationType.CLEANER: DidIt := Self.DoClean();
         //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
       end;
 
@@ -323,6 +323,8 @@ begin
 
   for Item in PRODUCTS do
     Self.ProductItems += Item;
+
+  Self.GainingXP := GAINING_XP;
 
   // do login init stuff
   if RSClient.IsLoggedIn() then

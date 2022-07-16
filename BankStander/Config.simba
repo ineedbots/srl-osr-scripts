@@ -28,25 +28,26 @@ const
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
 
-  BANK_COLOR_TYPE = ERSBankColorType.VARROCK_WEST_BANK_BOOTH;
+  BANK_COLOR_TYPE = ERSBankColorType.GRAND_EXCHANGE_BANKER;
+  GAINING_XP = False;
 
   MAP = 'zeah'; // 'zeah' or 'world'
   BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
 
   CREATION_TYPE = ERSCreationType.COMBINE;
-  AMULET_OF_CHEM = True;
+  AMULET_OF_CHEM = False;
 
   MAKE_NUM = 0;
 
   TOOLS = [];
 
-  MATERIALS = ['Ranarr potion (unf)'];
+  MATERIALS = ['kwuarm'];
   MATERIAL_RATIO = 1; // how many material per product?
 
-  SECONDARY_MATERIALS = ['Snape grass']; // like eye of newts for unfinished guam potions
+  SECONDARY_MATERIALS = ['Vial of water']; // like eye of newts for unfinished guam potions
   SECONDARY_MATERIAL_RATIO = 1; // how many secondary material is required for one product?
 
-  PRODUCTS = ['Prayer potion(3)', 'Prayer potion(4)'];
+  PRODUCTS = ['Ranarr potion (unf)'];
 
   // Account details
   _USERNAME       = '';
