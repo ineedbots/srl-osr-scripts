@@ -67,8 +67,6 @@ begin
       Self.RingOfForgingCharges := StrToInt(ChatMsg);
     except
     end;
-
-    exit(True);
   end;
 
   if Self.RingOfForgingCountdown.IsFinished() then

@@ -329,9 +329,6 @@ begin
   // withdraw the amulet
   if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
   begin
-    Self.NeedToRefillAmuletOfChem := False;
-    Self.AmuletOfChemCountdown.Restart();
-
     // withdraw it
     if not Bank.WithdrawItemFromBank(ACBox, 1) then
     begin
@@ -343,6 +340,8 @@ begin
     Script.AntiBan.AfterBankAntiBan(7);
 
     // find it
+    i := Inventory.Count();
+
     Pattern.Clear();
     if Inventory.FindItem(Self.AmuletOfChemItem, Pattern) then
     begin
@@ -357,7 +356,13 @@ begin
     else
       Script.WriteMsg('Couldn''t find amulet in inv');
 
-    Wait(444, 1000, wdLeft);
+    if Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000)) then
+    begin
+      Self.NeedToRefillAmuletOfChem := False;
+      Self.AmuletOfChemCountdown.Restart();
+    end;
+
+    Wait(0, 1000, wdLeft);
     Script.AntiBan.AfterBankAntiBan(7);
   end;
 
