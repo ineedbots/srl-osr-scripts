@@ -234,9 +234,6 @@ begin
   // do ring
   if Self.UsingRingOfForging and Self.NeedToRefillRingOfForging then
   begin
-    Self.NeedToRefillRingOfForging := False;
-    Self.RingOfForgingCountdown.Restart();
-
     // withdraw it
     if not Bank.WithdrawItemFromBank(RFBox, 1) then
     begin
@@ -248,6 +245,8 @@ begin
     Script.AntiBan.AfterBankAntiBan(7);
 
     // find it
+    i := Inventory.Count();
+
     Pattern.Clear();
     if Inventory.FindItem(Self.RingOfForgingItem, Pattern) then
     begin
@@ -262,7 +261,17 @@ begin
     else
       Script.WriteMsg('Couldn''t find amulet in inv');
 
-    Wait(444, 1000, wdLeft);
+    // check if we wear it
+    if Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000)) then
+    begin
+      Self.NeedToRefillRingOfForging := False;
+      Self.RingOfForgingCountdown.Restart();
+      Self.RingOfForgingCharges := 140;
+    end
+    else
+      Self.NeedToCheckCharges := True;
+
+    Wait(0, 1000, wdLeft);
     Script.AntiBan.AfterBankAntiBan(7);
   end;
 

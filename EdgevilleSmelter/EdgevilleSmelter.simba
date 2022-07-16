@@ -182,7 +182,8 @@ begin
 
   Self.UsingRingOfForging := USING_RING_OF_FORGING;
   Self.RingOfForgingItem := 'Ring of forging';
-  Self.RingOfForgingCountdown.Init(ONE_MINUTE * 7);
+  Self.RingOfForgingCountdown.Init(ONE_MINUTE * 10);
+  Self.RingOfForgingCharges := 140;
   Self.RingOfForgingBrokeTexts := ['Ring of ', 'Your Ring of Forging has melted.'];
 
   case Self.StationType of

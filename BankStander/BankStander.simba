@@ -309,7 +309,7 @@ begin
 
   Self.UsingAmuletOfChem := AMULET_OF_CHEM;
   Self.AmuletCrumbledTexts := [' dust.', 'Your amulet of chemistry helps you create a 4-dose potion. It then crumbles to dust.'];
-  Self.AmuletOfChemCountdown.Init(ONE_MINUTE*5);
+  Self.AmuletOfChemCountdown.Init(ONE_MINUTE * 10);
   Self.AmuletOfChemItem := 'Amulet of chemistry';
 
   for Item in TOOLS do

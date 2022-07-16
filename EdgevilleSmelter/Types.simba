@@ -36,9 +36,9 @@ type
   TBot = record
     StationType                                               : EStationType;
     StoppedShort, UsingInterfaceMake, UsingRingOfForging,
-      NeedToRefillRingOfForging                               : Boolean;
+      NeedToRefillRingOfForging, NeedToCheckCharges           : Boolean;
     StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
-      MaterialRatio                                           : Int32;
+      MaterialRatio, RingOfForgingCharges                     : Int32;
     RSW                                                       : TRSWalker;
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;

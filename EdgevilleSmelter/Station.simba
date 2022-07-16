@@ -328,17 +328,23 @@ begin
 
   while RSClient.IsLoggedIn() do
   begin
-    if Self.HandleRingOfForging() then
-    begin
-      Script.WriteMsg('Transform: HandleRingOfForging!', True);
-      Self.StoppedShort := True;
-      break;
-    end;
-
     // check inv
     MaterialSlots.Clear();
     Inventory.FindItems(Self.MaterialItems, MaterialSlots);
     MC := Length(MaterialSlots);
+
+    if Self.UsingRingOfForging then
+    begin
+      if (MC <> MCount) then
+        Self.RingOfForgingCharges -= MCount - MC;
+
+      if Self.HandleRingOfForging() then
+      begin
+        Script.WriteMsg('Transform: HandleRingOfForging!', True);
+        Self.StoppedShort := True;
+        break;
+      end;
+    end;
 
     if MC < Self.MaterialRatio then
     begin
