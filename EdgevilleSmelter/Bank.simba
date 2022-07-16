@@ -245,31 +245,36 @@ begin
     Script.AntiBan.AfterBankAntiBan(7);
 
     // find it
+    Pattern.Clear();
+    if not Inventory.FindItem(Self.RingOfForgingItem, Pattern) then
+    begin
+      Script.WriteMsg('Couldn''t find amulet in inv');
+      exit();
+    end;
+
+    // equip it   
     i := Inventory.Count();
 
-    Pattern.Clear();
-    if Inventory.FindItem(Self.RingOfForgingItem, Pattern) then
-    begin
-      // equip it
-      Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
-      Wait(0, 750, wdLeft);
-      ChooseOption.Select('Wear');
-      Wait(0, 500, wdLeft);
+    Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+    Wait(0, 750, wdLeft);
 
-      Script.AntiBan.AfterBankAntiBan(2);
-    end
-    else
-      Script.WriteMsg('Couldn''t find amulet in inv');
+    if not ChooseOption.Select('Wear') then
+    begin
+      Script.WriteMsg('Couldn''t select wear for ring');
+      exit();
+    end;
+
+    Wait(0, 500, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(2);
 
     // check if we wear it
     if Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000)) then
-    begin
-      Self.NeedToRefillRingOfForging := False;
-      Self.RingOfForgingCountdown.Restart();
-      Self.RingOfForgingCharges := 140;
-    end
+      Self.RingOfForgingCharges := 140
     else
       Self.NeedToCheckCharges := True;
+
+    Self.NeedToRefillRingOfForging := False;
+    Self.RingOfForgingCountdown.Restart();
 
     Wait(0, 1000, wdLeft);
     Script.AntiBan.AfterBankAntiBan(7);

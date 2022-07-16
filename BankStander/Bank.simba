@@ -340,27 +340,32 @@ begin
     Script.AntiBan.AfterBankAntiBan(7);
 
     // find it
-    i := Inventory.Count();
-
     Pattern.Clear();
-    if Inventory.FindItem(Self.AmuletOfChemItem, Pattern) then
+    if not Inventory.FindItem(Self.AmuletOfChemItem, Pattern) then
     begin
-      // equip it
-      Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
-      Wait(0, 750, wdLeft);
-      ChooseOption.Select('Wear');
-      Wait(0, 500, wdLeft);
-
-      Script.AntiBan.AfterBankAntiBan(2);
-    end
-    else
       Script.WriteMsg('Couldn''t find amulet in inv');
-
-    if Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000)) then
-    begin
-      Self.NeedToRefillAmuletOfChem := False;
-      Self.AmuletOfChemCountdown.Restart();
+      exit();
     end;
+
+    // equip it
+    i := Inventory.Count();
+    
+    Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+    Wait(0, 750, wdLeft);
+
+    if not ChooseOption.Select('Wear') then
+    begin
+      Script.WriteMsg('Couldn''t select wear for amulet');
+      exit(); 
+    end;
+
+    Wait(0, 500, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(2);
+
+    Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000));
+
+    Self.NeedToRefillAmuletOfChem := False;
+    Self.AmuletOfChemCountdown.Restart();
 
     Wait(0, 1000, wdLeft);
     Script.AntiBan.AfterBankAntiBan(7);
