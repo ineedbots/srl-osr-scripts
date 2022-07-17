@@ -101,12 +101,6 @@ begin
 
   Script.RareSmallWait();
 
-  if not MainScreen.IsUpText(Self.NestUpText) then
-  begin
-    Script.WriteMsg('Bad nest uptext');
-    exit();
-  end;
-
   if MainScreen.IsUpText(Self.NestOptions) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
@@ -135,15 +129,16 @@ begin
       begin
         if Inventory.IsFull() then
           Self.DropAThing();
+
         Script.WriteMsg('Picking up bird nest');
+
         if Self.ClickBirdsNest(B) then
         begin
           Minimap.WaitFlag();
           Minimap.WaitPlayerMoving();
-          Wait(750, 1500, wdLeft);
+          Wait(750, 1500, wdLeft);  
+          Script.ExamineRandomItem();
         end;
-
-        Script.ExamineRandomItem();
       end;
     end;
   end;
