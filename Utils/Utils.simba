@@ -294,6 +294,61 @@ begin
 end;
 
 {
+  Fixes problems, please fix srl.
+}
+procedure TRSWalker.WaitMoving(Destination: TPoint; WaitUntilDistance: Int32); override;
+var
+  Timeout, Countdown: TCountDown;
+  Position: record
+    Current, Previous: TPoint;
+  end;
+  awct: Int64;
+begin
+  Timeout.Init(Round(SRL.TruncatedGauss(20000, 25000)));
+
+  Countdown.Init(Round(SRL.TruncatedGauss(500, 1500)));
+
+  // initial timeout needs to be longer, as we might not have started walking yet.
+  Countdown.Timeout := GetTickCount() + Round(SRL.TruncatedGauss(2500, 3500));
+
+  Position.Previous := Self.GetMyPos();
+  Position.Current := Position.Previous;
+
+  // Break from the loop if:
+  // - Haven't moved in 500ms
+  // - Been walking for over 20 seconds
+  // - Within `WaitUntilDistance` to the destination
+  repeat
+    Self.CheckRunEnergy();
+
+    Position.Previous := Position.Current;
+    Position.Current := Self.GetMyPos();
+    if Position.Current <> Position.Previous then
+      Countdown.Restart();
+
+    if (@OnWalkingEvent <> nil) then
+    begin
+      OnWalkingEvent(@Self, Position.Current, Destination);  
+      Position.Current := Self.GetMyPos();
+    end;
+
+    if (Self.AdaptiveWalk) and (GetTickCount() > awct) then
+    begin
+      Self.AdaptiveWalkCheck(Position.Current);
+      awct := GetTickCount() + 1000;
+    end;
+
+    if Self.FancyMouse then
+      Self.DoMouseAhead(Position.Current);
+
+    if not Self.Enabled then
+      Break;
+
+    Wait(100);
+  until Timeout.IsFinished() or Countdown.IsFinished() or (Position.Current.DistanceTo(Destination) <= WaitUntilDistance);
+end;
+
+{
   Makes it so it works with items with non left click use
 }
 function Inventory.SetSelectedSlot(Slot: Int32): Boolean; override;
