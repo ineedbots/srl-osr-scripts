@@ -230,6 +230,7 @@ begin
     if BankPin.IsOpen() then
     begin
       Script.WriteMsg('DoBanking: Entering pin...', True);
+      Mouse.Move(Minimap.Bounds());
       BankPin.Enter(Login.GetPlayer().Pin);
       Wait(0, 5000, wdLeft);
       exit();

@@ -492,6 +492,7 @@ begin
     begin
       Wait(1000, 1750);
       Script.WriteMsg('WaitBankOpen: Entering pin...', True);
+      Mouse.Move(Minimap.Bounds());
       BankPin.Enter(Login.GetPlayer().Pin);
       Wait(500, 1000);
       BankOpenCountDown.Restart();
