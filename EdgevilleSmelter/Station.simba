@@ -81,6 +81,9 @@ var
   StationTiles: TPointArray;
   Clicked: Boolean;
 begin
+  if Self.HandleRingOfForging() then
+    exit();
+
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
@@ -212,6 +215,9 @@ var
   Walked: Boolean;
   BeforeCallback, BeforeCallback2: TRSWalker_OnWalkEvent;
 begin
+  if Self.HandleRingOfForging() then
+    exit();
+
   Script.WriteMsg('Going to station...', True);
   OurPos := Self.RSW.GetMyPos();
 
