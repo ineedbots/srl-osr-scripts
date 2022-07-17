@@ -30,6 +30,9 @@ begin
   if Self.StoppedShort then
     exit();
 
+  if Self.UsingRingOfForging and Self.NeedToRefillRingOfForging then
+    exit();
+
   if not Inventory.FindItems(Self.MaterialItems, Slots) then
     exit();
 

@@ -347,7 +347,6 @@ begin
       if Self.HandleRingOfForging() then
       begin
         Script.WriteMsg('Transform: HandleRingOfForging!', True);
-        Self.StoppedShort := True;
         break;
       end;
     end;
