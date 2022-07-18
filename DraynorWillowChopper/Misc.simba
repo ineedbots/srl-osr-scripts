@@ -56,19 +56,24 @@ end;
 {
   Returns true if found a birdsnest on the screen
 }
-function TBot.FoundBirdsNest(out B: TBox): Boolean;
+function TBot.FoundBirdsNest(out BA: TBoxArray): Boolean;
 var
   ATPA: T2DPointArray;
   TPA, Dots: TPointArray;
   CompAng: Single;
   TP: TPoint;
   TileRect: TRectangle;
+  B: TBox;
+  FS: Int32;
 begin
   Dots := Self.GetNestItemDots();
   if Length(Dots) <= 0 then
     exit();
 
   CompAng := Minimap.GetCompassAngle(False);
+  Dots.Sort(Minimap.Bounds().Middle());
+
+  FS := MainScreen.ConvertDistance(Self.BirdNestColor.FilterSize);
 
   for TP in Dots do
   begin
@@ -84,10 +89,10 @@ begin
     ATPA := Self.FindBirdNestColor(B);
     TPA := ATPA.Biggest();
 
-    if Length(TPA) < Self.BirdNestColor.FilterSize then
+    if Length(TPA) < FS then
       continue;
 
-    B := TPA.Bounds();
+    BA += TPA.Bounds();
     Result := True;
   end;
 end;
@@ -115,6 +120,7 @@ end;
 }
 procedure TBot.CheckBirdnest();
 var
+  BA: TBoxArray;
   B: TBox;
   S: String;
 begin
@@ -125,19 +131,24 @@ begin
     if S.IsInString(Self.BirdNestText) then
     begin
       // TODO check cluescroll
-      if Self.FoundBirdsNest(B) then
+      if Self.FoundBirdsNest(BA) then
       begin
         if Inventory.IsFull() then
           Self.DropAThing();
 
         Script.WriteMsg('Picking up bird nest');
 
-        if Self.ClickBirdsNest(B) then
+        for B in BA do
         begin
-          Minimap.WaitFlag();
-          Minimap.WaitPlayerMoving();
-          Wait(750, 1500, wdLeft);  
-          Script.ExamineRandomItem();
+          if Self.ClickBirdsNest(B) then
+          begin
+            Minimap.WaitFlag();
+            Minimap.WaitPlayerMoving();
+            Wait(750, 1500, wdLeft);
+            Script.ExamineRandomItem();
+
+            break;
+          end;
         end;
       end;
     end;
@@ -190,7 +201,7 @@ begin
   // find the tree's colors in this tile
   TPA := Self.FindFireColor(B).Biggest();
 
-  if Length(TPA) > Self.FireColor.FilterSize then
+  if Length(TPA) > MainScreen.ConvertDistance(Self.FireColor.FilterSize) then
   begin
     // make sure the middle of the tile is inside!
     Result := TPA.MinAreaCircle().Contains(TPA.Mean());

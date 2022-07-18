@@ -177,6 +177,7 @@ var
   CompAng: Double;
   Text: String;
   B: TBox;
+  BA: TBoxArray;
   T, L, K: TIntegerArray;
 begin
   OurTile := Self.RSW.GetMyPos();
@@ -246,8 +247,11 @@ begin
       RSClient.Image.DrawRect(TileRect, clPurple);
     end;
 
-    if Self.FoundBirdsNest(B) then
-      RSClient.Image.DrawBox(B, clBlack);
+    if Self.FoundBirdsNest(BA) then
+    begin
+      for B in BA do
+        RSClient.Image.DrawBox(B, clBlack);
+    end;
   end;
 
   if Inventory.IsOpen() then

@@ -66,7 +66,7 @@ begin
   // find the tree's colors in this tile
   TPA := Self.FindTreeColor(B).Biggest();
 
-  if Length(TPA) > Self.TreeColor.FilterSize then
+  if Length(TPA) > MainScreen.ConvertDistance(Self.TreeColor.FilterSize) then
   begin
     // if the circle is larger than the tile's circle, this is good
     Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;

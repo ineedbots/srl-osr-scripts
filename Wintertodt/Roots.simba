@@ -41,10 +41,12 @@ function TBot.FindRootsColor(Area: TBox): T2DPointArray;
 var
   ATPA: T2DPointArray;
   TPA, _: TPointArray;
-  i: Int32;
+  i, FS: Int32;
 begin
   ATPA := MainScreen.FindObject(Self.RootsColor.RSObject, Area);
   ATPA.FilterSize(MainScreen.ConvertDistance(Self.RootsColor.FilterSize), __GT__);
+
+  FS := MainScreen.ConvertDistance(Self.InsideRootsColor.FilterSize);
 
   for TPA in ATPA do
   begin
@@ -52,7 +54,7 @@ begin
       High(Self.InsideRootsColor.RSObject.Colors) do
     begin
       if SRL.FindColors(_, Self.InsideRootsColor.RSObject.Colors[i], TPA.Bounds())
-        > Self.InsideRootsColor.FilterSize then begin
+        > FS then begin
         Result += TPA;
         break;
       end;
