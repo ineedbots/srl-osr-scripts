@@ -375,6 +375,44 @@ begin
 end;
 
 {
+  Fixes bankpin problem where the bounds it too small and the number is outside the search area
+}
+function TRSBankPin.ClickDigit(Digit: Char): Boolean; override;
+var
+  Buttons: TRSButtonArray;
+  I: Int32;
+begin
+  Buttons := Self.GetButtons();
+
+  if Length(Buttons) = 10 then
+  begin
+    Result := True;
+
+    for I := 0 to High(Buttons) do
+      if OCR.LocateText(Buttons[i].Bounds.Expand(5), Digit, RS_FONT_BOLD_12, TOCRColorRule.Create([$007FFF]), 1) then
+      begin
+        Mouse.Click(Buttons[I].Bounds, MOUSE_LEFT);
+
+        Exit;
+      end;
+
+    // Already hovering
+    Mouse.Click(MOUSE_LEFT);
+  end;
+end;
+
+{
+  NO!
+}
+function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
+begin
+  if BankPin.IsOpen() then
+    exit();
+
+  Result := inherited(WaitForItems);
+end;
+
+{
   Stop the meme of closing the bank
 }
 function TRSGameTabs.Open(Tab: ERSGameTab): Boolean; override;
