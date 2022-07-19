@@ -1051,7 +1051,17 @@ end;
 }
 procedure TScript.UpdateZoomLevel();
 begin
-  MM2MS.ZoomLevel := Options.GetZoomLevel();
+  if not Options.Open() and (MM2MS.ZoomLevel = -1) then
+  begin
+    if MainScreen.AnyInterfaceOpen() then
+    begin
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      Wait(750, 1250);
+    end;
+  end;
+
+  if Options.Open() then
+    MM2MS.ZoomLevel := Options.GetZoomLevel();
 end;
 
 {

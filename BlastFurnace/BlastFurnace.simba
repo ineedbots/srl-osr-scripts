@@ -203,7 +203,7 @@ begin
   begin
     Script.DidLogin := True;
 
-    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+    Script.UpdateZoomLevel();
 
     Self.PayingForeman :=       (Stats.GetCurrentLevel(ERSSkill.SMITHING) < 60);
     Self.LastXP := XPBar.ReadXPBar();

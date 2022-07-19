@@ -120,7 +120,7 @@ begin
   begin
     Script.DidLogin := True;
 
-    MM2MS.ZoomLevel         := Options.GetZoomLevel();
+    Script.UpdateZoomLevel();
   end;
 
   Script.HPAmount             := Minimap.GetHPLevel();
