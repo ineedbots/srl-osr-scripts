@@ -29,6 +29,9 @@ begin
   if Self.StoppedShort then
     exit();
 
+  if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
+    exit();
+
   if not Inventory.FindItems(Self.MaterialItems, Slots) then
     exit();
 

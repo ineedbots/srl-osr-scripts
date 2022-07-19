@@ -391,6 +391,12 @@ begin
       break;
     end;
 
+    if not Self.ShouldDoStation() then
+    begin
+      Script.WriteMsg('Transform: Shouldn''t be doing station', True);
+      break;
+    end;
+
     Self.DoMainLoopStuff('Transforming items...', True);
   end;
 

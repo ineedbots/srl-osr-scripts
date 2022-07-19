@@ -80,7 +80,6 @@ begin
     if Self.HandleAmuletOfChem() then
     begin
       Script.WriteMsg('Transform: HandleAmuletOfChem!', True);
-      Self.StoppedShort := True;
       break;
     end;
 
@@ -126,6 +125,12 @@ begin
         Wait(0, 1500, wdLeft);
         Chat.ChatToOption('doesnt matter');
       end;
+      break;
+    end;
+
+    if not Self.ShouldMakeProduct() then
+    begin
+      Script.WriteMsg('Transform: shouldn''t make product', True);
       break;
     end;
 
@@ -298,6 +303,12 @@ begin
         break;
       end;
 
+      if not Self.ShouldMakeProduct() then
+      begin
+        Script.WriteMsg('Clean: shouldn''t make product', True);
+        break;
+      end;
+
       Self.DoMainLoopStuff('Cleaning items...', True);
     end;
   end;
@@ -337,6 +348,12 @@ begin
     if Self.StoppedShort then
     begin
       Script.WriteMsg('DoClean: stopping short', True);
+      break;
+    end;
+
+    if not Self.ShouldMakeProduct() then
+    begin
+      Script.WriteMsg('DoClean: shouldn''t make product', True);
       break;
     end;
 
