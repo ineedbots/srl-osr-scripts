@@ -1,0 +1,372 @@
+{
+  Al-Kharid Miner rock
+  Author: ineedbot
+  Date: 7/20/2022
+
+  Handles everything rock related
+}
+
+{$IFNDEF INEEDBOT_AKM_TREE}
+{$DEFINE INEEDBOT_AKM_TREE}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds the rock tile
+}
+function TBot.FindRockTile(OurPos: TPoint; Tile: TPoint): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Tile, 4);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetRockSearchBox(Tile: TRectangle): TBox;
+begin
+  Result := Tile.Expand(Round(Tile.Radius() * Self.RockColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all the found rocks in box
+}
+function TBot.FindRockColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.RockColor.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.RockColor.FilterSize), __GT__);
+end;
+
+{
+  Tries to find the rock at the tile, returns true if it does, also the area of where it is
+
+  This is mainly from olly/srl-development woodcut test script
+}
+function TBot.FindRock(PlayerPos: TPoint; RockPos: TPoint; out B: TBox): Boolean;
+var
+  Tile: TRectangle;
+  TPA: TPointArray;
+begin
+  // get the tile location on the mainscreen, and check if its visible
+  Tile := Self.FindRockTile(PlayerPos, RockPos);
+
+  B := Self.GetRockSearchBox(Tile);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+
+  // find the tree's colors in this tile
+  TPA := Self.FindRockColor(B).Biggest();
+
+  if Length(TPA) > MainScreen.ConvertDistance(Self.RockColor.FilterSize) then
+  begin
+    B := TPA.Bounds();
+    Result := True;
+  end;
+end;
+
+{
+  Attempts to click on a rock, returns if it does
+}
+function TBot.ClickRock(out WasClicked: Boolean; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+var
+  B: TBox;
+  CRockTiles: TPointArray;
+  TT: TPoint;
+begin
+  if OurPos = Point(-1, -1) then
+    OurPos := Self.RSW.GetMyPos();
+
+  // shake up the tiles
+  CRockTiles := Copy(Self.RockTiles);
+  CRockTiles.Sort(OurPos);
+  CRockTiles.RandomizeNearDists(OurPos, 8, 0.1);
+
+  for TT in CRockTiles do
+  begin
+    if not Self.FindRock(OurPos, TT, B) then
+      continue;
+
+    // apply velocity
+    if Velocity <> Point(0, 0) then
+    begin
+      B := B.Offset(Script.GetOffsetForVel(B, Velocity));
+
+      if not MainScreen.IsVisible(B.Middle()) then
+      begin
+        Script.WriteMsg('ClickRock: Tile velocity no visible', True);
+        break;
+      end;
+
+      B.LimitTo(MainScreen.Bounds());
+
+      if Script.Debug and Script.Drawing then
+        RSClient.Image.DrawBox(B, clMoneyGreen);
+    end;
+
+    Result := True;
+    Self.CurrentMiningRockTile := TT;
+
+    if Velocity <> Point(0, 0) then
+      Script.MouseLooksForUpText := Self.RockUptexts;
+    Mouse.Move(B);
+    Script.MouseLooksForUpText := [];
+
+    Script.RareSmallWait();
+
+    if not MainScreen.IsUpText(Self.RockUptexts, Random(100, 250)) then
+    begin
+      Script.WriteMsg('ClickRock: Bad uptext', True);
+
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    if not MainScreen.IsUpText(Self.RockOptions, Random(100, 250)) or (Random() < 0.10) then
+      WasClicked := ChooseOption.Select(Self.RockOptions)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      WasClicked := Mouse.DidClick(True);
+    end;
+
+    if not WasClicked then
+    begin
+      Script.WriteMsg('ClickRock: Didnt click', True);
+
+      if Velocity = Point(0, 0) then
+        continue
+      else
+        break;
+    end;
+
+    break;
+  end;
+end;
+
+{
+  While we walk to the rocks
+}
+procedure WalkingToRocks(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+var
+  WasClicked: Boolean = False;
+  S: Int32;
+  Velocity: TDoubleArray;
+  MSVel: TPoint;
+begin
+  // calcuate move velocity
+  Velocity := Script.GetVelocity(Position);
+
+  // if this is the last node in the path
+  if Destination = Walker^.Path[High(Walker^.Path)] then
+  begin
+    // make the mouse fast, because we are moving, its harder to keep up with objs
+    S := Mouse.Speed;
+    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+    MSVel := Script.WalkerVelToMSVel(Velocity);
+    // if we clicked the fish spot, then stop the walker
+    if Bot.ClickRock(WasClicked, Position, MSVel) and WasClicked then
+    begin
+      Script.WriteMsg('Clicked the rock while moving, nice!');
+      Walker^.Enabled := False;
+    end;
+
+    // reset the mosue speed back
+    Mouse.Speed := S;
+  end;
+
+  // mainscreen bank fix
+  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+end;
+
+{
+  Walks to the rocks,
+  Returns true if we clicked the rock spot while walking
+}
+function TBot.GoToRocks(Force: Boolean = False; Click: Boolean = True): Boolean;
+var
+  Where, OurPos: TPoint;
+  PathIdx: Int32;
+  Walked: Boolean;
+  BeforeCallback: TRSWalker_OnWalkEvent;
+begin
+  Script.WriteMsg('Going to rocks...', True);
+  OurPos := Self.RSW.GetMyPos();
+  Where := Self.RockTiles[Self.WalkedRock];
+  if Force then
+    Where := Self.RockWalkTile;
+
+  if Force or (OurPos.DistanceTo(Where) > 30) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
+  begin
+    Script.SetStatus('Going to trees spot...');
+
+    BeforeCallback := @Self.RSW.OnWalkingEvent;
+    if Click then
+      Self.RSW.OnWalkingEvent := @WalkingToRocks;
+    try
+      Walked := True;
+      Self.RSW.Enabled := True;
+
+      if (Length(Self.ToRocksPaths) > 0) and Force then
+      begin
+        PathIdx := SRL.TruncatedGauss(Low(Self.ToRocksPaths), High(Self.ToRocksPaths));
+
+        if OurPos.DistanceTo(Self.ToRocksPaths[PathIdx][Low(Self.ToRocksPaths[PathIdx])]) <
+          OurPos.DistanceTo(Self.ToRocksPaths[PathIdx][High(Self.ToRocksPaths[PathIdx])]) then
+          Walked := Self.RSW.WalkPath(Self.ToRocksPaths[PathIdx], 8);
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
+    except
+    end;
+    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    if not Walked then
+    begin
+      Script.WriteMsg('Failed to go to rock spot');
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      exit();
+    end;
+
+    // check if the walker was killed early, it must of been it clicked a fish spot
+    if not Self.RSW.Enabled then
+      Result := True;
+  end;
+
+  // set the 'next' rock spot...
+  if not Force then
+    Self.UpdateWalkedRock(False);
+end;
+
+{
+  Checks for runelite plugin
+  Returns true if using runelite plugin
+  Sets Mining to true or false.
+}
+function TBot.CheckRuneliteMiningPlugin(out Mining: Boolean): Boolean;
+var
+  B: TBox;
+  FColor: TOCRColorRule;
+begin
+  exit;
+  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+
+  FColor := TOCRColorRule.Create([65280, 10]);
+  if OCR.LocateText(B, 'Mining', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Mining := True;
+  end;
+
+  FColor := TOCRColorRule.Create([255, 10]);
+  if OCR.LocateText(B, 'NOT mining', RS_FONT_PLAIN_12, FColor, B) = 1 then
+  begin
+    Result := True;
+    Mining := False;
+  end;
+end;
+
+{
+  Waits while we are mining the rock
+}
+procedure TBot.WhileMining(RockTile: TPoint);
+var
+  TimeoutCounter: TCountdown;
+  OurPos: TPoint;
+  _: TBox;
+  InvCount: Int32;
+  Mining: Boolean;
+begin
+{
+  // wait for us to stop moving before we start monitoring the tree tile.
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+    Self.DoMainLoopStuff('Going to clicked rock...', False);  }
+
+  Self.UpdateWalkedRock(True);
+
+  OurPos := Self.RSW.GetMyPos();
+  InvCount := Inventory.Count();
+
+  // we timeout if we do not gain something into our inventory
+  TimeoutCounter.Init(Self.MineWaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.CheckRuneliteMiningPlugin(Mining) then
+    begin
+      if Mining then
+        Script.WriteMsg('WhileMining: Runelite says we are mining!', True)
+      else
+      begin
+        Script.WriteMsg('WhileMining: Runelite says we are not mining', True);
+        break;
+      end;
+    end
+    else
+    begin
+      if not Self.FindRock(OurPos, RockTile, _) then
+      begin
+        Script.WriteMsg('WhileMining: Tree not found', True);
+        break;
+      end;
+
+      if Inventory.IsFull() then
+      begin
+        Script.WriteMsg('WhileMining: Inventory full', True);
+        break;
+      end;
+
+      if Inventory.Count() > InvCount then
+      begin
+        Script.WriteMsg('WhileMining: Got an item! Restarting timer', True);
+        TimeoutCounter.Restart();
+      end;
+      InvCount := Inventory.Count();
+
+      if TimeoutCounter.IsFinished() then
+      begin
+        Script.WriteMsg('WhileMining: Timed out', True);
+        break;
+      end;
+    end;
+
+    Self.DoMainLoopStuff('Mining rock...', False);
+  end;
+
+  if TimeoutCounter.IsFinished() then
+    Script.WriteMsg('WhileMining: No ore gained in timeout...', True);
+
+  Script.SetStatus('Rock mining completed!');
+end;
+
+{
+  Executes when we need to gather items to fill our inventory
+}
+function TBot.DoGathering(): Boolean;
+var
+  Clicked: Boolean;
+begin
+  if (Self.ClickRock(Clicked) and Clicked) or
+    Self.GoToRocks() or
+    (Self.ClickRock(Clicked) and Clicked) then
+  begin
+    Result := True;
+    //Self.AfterActionAntiBan(True);
+    Self.WhileMining(Self.CurrentMiningRockTile);
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_AKM_TREE

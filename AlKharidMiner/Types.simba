@@ -1,0 +1,34 @@
+{
+  Al-Kharid Miner types
+  Author: ineedbot
+  Date: 7/20/2022
+
+  Types
+}
+
+{$IFNDEF INEEDBOT_AKM_TYPES}
+{$DEFINE INEEDBOT_AKM_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  TBot = record
+    WalkedRockForward, Specing, Banking                       : Boolean;
+    MineWaitTime, OresDone, WalkedRock, LastWalkedRock        : Int32;
+    RSW                                                       : TRSWalker;
+    OreItems, ToolItems                                       : TRSItemArray;
+    RockOptions, RockUptexts                                  : TStringArray;
+    RockTiles, BankTiles                                      : TPointArray;
+    RockWalkTile, BankWalkTile, CurrentMiningRockTile         : TPoint;
+    BankColor, RockColor                                      : TScriptColor;
+    ToBankPaths, ToRocksPaths                                 : T2DPointArray;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_AKM_TYPES

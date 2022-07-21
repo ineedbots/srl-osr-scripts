@@ -1,0 +1,42 @@
+{
+  Al-Kharid Miner config
+  Author: ineedbot
+  Date: 7/20/2022
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_AKM_CONFIG}
+{$DEFINE INEEDBOT_AKM_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = False;  // Take breaks?
+  MSWALKING      = False; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  // use bank?
+  BANKORES        = False;
+  USESPEC         = False; // Use the special attack when it can.
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_AKM_CONFIG

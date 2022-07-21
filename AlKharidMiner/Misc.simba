@@ -1,0 +1,86 @@
+{
+  Al-Kharid Miner misc
+  Author: ineedbot
+  Date: 7/20/2022
+
+  Misc
+}
+
+{$IFNDEF INEEDBOT_AKM_MISC}
+{$DEFINE INEEDBOT_AKM_MISC}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Drops all the logs in our inventory
+
+  Part of this is from Flight's AIOFisher
+}
+procedure TBot.DropItems();
+var
+  Pattern, OreSlots: TIntegerArray;
+  CurOres, i, S: Int32;
+begin
+  Script.SetStatus('Dropping logs...');
+  Self.AfterActionAntiBan(True);
+
+  // query the fish
+  Inventory.FindItems(Self.OreItems, OreSlots);
+  CurOres := Length(OreSlots);
+  Script.WriteMsg('DropItems: Ore slots (before drop): ' + ToStr(OreSlots), True);
+
+  // choose a random drop pattern
+  Pattern := Bank.GetGoodPattern();
+
+  // possibly not drop all logs, for antiban
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  // only drop logs...
+  for i := High(Pattern) downto Low(Pattern) do
+    if OreSlots.Find(Pattern[i]) = -1 then
+      Pattern.Remove(Pattern[i]);
+
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+  // drop
+  if Script.ShiftClicking then
+    Inventory.ShiftDrop(Pattern)
+  else
+  begin
+    for i in Pattern do
+    begin
+      Inventory.HoverSlot(i);
+
+      if MainScreen.IsUpText('Drop') then
+        Mouse.Click(MOUSE_LEFT)
+      else
+        ChooseOption.Select('Drop');
+
+      Wait(0, 1000, wdLeft);
+    end;
+  end;
+  Mouse.Speed := S;
+
+  // see how many logs we actually dropped, and log it
+  OreSlots.Clear();
+  Inventory.FindItems(Self.OreItems, OreSlots);
+  Self.OresDone += CurOres - Length(OreSlots);
+  Script.WriteMsg('DropItems: Ore slots (after drop): ' + ToStr(OreSlots), True);
+
+  Script.SetStatus('Ores dropped!');
+  Script.WriteMsg('Dropped ores... Currently mined ' + IntToStr(Self.OresDone) + ' ores!');
+  
+  Self.AfterActionAntiBan(True);
+end;
+
+{$ENDIF} // INEEDBOT_AKM_MISC

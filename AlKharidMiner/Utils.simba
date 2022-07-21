@@ -1,0 +1,288 @@
+{
+  Al-Kharid Miner utils
+  Author: ineedbot
+  Date: 7/20/2022
+
+  Utils
+}
+
+{$IFNDEF INEEDBOT_AKM_UTILS}
+{$DEFINE INEEDBOT_AKM_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once Bank.simba}
+{$include_once Rock.simba}
+
+{
+  Updates which rock tile we are at
+}
+procedure TBot.UpdateWalkedRock(Here: Boolean = True);
+var
+  CRockTiles: TPointArray;
+begin
+  if Here then
+  begin
+    CRockTiles := Copy(Self.RockTiles);
+    CRockTiles.Sort(Self.RSW.GetMyPos());
+
+    Self.LastWalkedRock := Self.WalkedRock;
+    Self.WalkedRock := Self.RockTiles.Find(CRockTiles[0]);
+    if Self.LastWalkedRock <> Self.WalkedRock then
+      Self.WalkedRockForward := Self.LastWalkedRock < Self.WalkedRock;
+  end
+  else
+  begin
+    if Length(Self.RockTiles) > 1 then
+    begin
+      if Self.WalkedRockForward then
+      begin
+        Self.WalkedRock += 1;
+        if Self.WalkedRock > High(Self.RockTiles) then
+        begin
+          Self.WalkedRock -= 2;
+          Self.WalkedRockForward := False;
+        end;
+      end
+      else
+      begin
+        Self.WalkedRock -= 1;
+        if Self.WalkedRock < Low(Self.RockTiles) then
+        begin
+          Self.WalkedRock += 2;
+          Self.WalkedRockForward := True;
+        end;
+      end;
+    end;
+  end;
+end;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  case Random() of
+    else Script.Antiban.HoverSkill(ERSSKILL.MINING, Random(1700, 3200), True);
+  end;
+end;
+
+{
+  Enables special attack
+}
+function TBot.CheckSpec(): Boolean;
+begin
+  if not Self.Specing then
+    exit();
+
+  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle()) >= 100 then
+  begin
+    Script.WriteMsg('Special attack boosting');
+
+    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
+
+    Wait(1000, 2000, wdLeft);
+    Result := True;
+  end;
+end;
+
+{
+  Checks if we are under attack
+}
+function TBot.CheckUnderAttack(): Boolean;
+begin
+  if Script.CheckUnderAttack() then
+  begin
+    Result := True;
+
+    Self.GoToBank(True);
+
+    if Script.HPAmount < 5 then
+      Script.Stop('Critical HP!')
+    else
+      Wait(5000, 15000);
+  end;
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(DoInterfaceClose: Boolean = False): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // are we under attack?
+  Self.CheckUnderAttack();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue() do
+      Wait(75, 500);
+  end;
+
+  Self.CheckSpec();
+
+  if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
+    MainScreen.CloseInterface();
+
+  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+  Inventory.SetSelectedSlot(-1);
+
+  if MainScreen.IsUpText('->') then
+    Mouse.Click(MOUSE_LEFT);
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True);
+begin
+  Wait(0, 750, wdLeft);
+
+  if DoAB then
+    Self.DoAntiban(DoInterfaceClose);
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  ATPA: T2DPointArray;
+  RockTile, OurTile, BankTile: TPoint;
+  TileRect: TRectangle;
+  i: Int32;
+  CompAng: Double;
+  Text: String;
+  B: TBox;
+  T, O: TIntegerArray;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+
+  Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+
+  if not MainScreen.AnyInterfaceOpen() then
+  begin
+    for RockTile in Self.RockTiles do
+    begin
+      TileRect := Self.FindRockTile(OurTile, RockTile);
+      B := Self.GetRockSearchBox(TileRect);
+      ATPA := Self.FindRockColor(B);
+
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, RockTile, CompAng), 4, clBlue);
+
+      if Self.FindRock(OurTile, RockTile, B) then
+        RSClient.Image.DrawBox(B, clBlue);
+    end;
+
+    for BankTile in Self.BankTiles do
+    begin
+      TileRect := Self.FindBankTile(OurTile, BankTile);
+      B := Self.GetBankSearchBox(TileRect);
+      ATPA := Self.FindBankColor(B);
+
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, BankTile, CompAng), 4, clBlue);
+
+      if Self.FindBank(OurTile, BankTile, B) then
+        RSClient.Image.DrawBox(B, clBlue);
+    end;
+  end;
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.OreItems, O);
+    Inventory.FindItems(Self.ToolItems, T);
+
+    for i := 0 to 27 do
+    begin
+      if O.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if T.Find(i) <> -1 then
+        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image.Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += 'Banking: ' + ToStr(Self.Banking) + LineEnding;
+  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Mined: ' + IntToStr(Self.OresDone) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+
+  ClearDebug();
+  Writeln(WriteOut);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  // check if we gained xp, failsafe
+  if RSClient.IsLoggedIn() then
+    Script.CheckActivity();
+
+  Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{$ENDIF} // INEEDBOT_AKM_UTILS
