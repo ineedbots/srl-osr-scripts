@@ -392,12 +392,12 @@ begin
   begin
     for I := 0 to High(Buttons) do
     begin
-      if OCR.LocateText(Buttons[I].Bounds.Expand(5), Digit, RS_FONT_BOLD_12, TOCRColorRule.Create([$007FFF]), 1) then
+      if OCR.LocateText(Buttons[i].Bounds.Expand(5), Digit, RS_FONT_BOLD_12, TOCRColorRule.Create([$007FFF]), 1) then
       begin
         Mouse.Click(Buttons[I].Bounds, MOUSE_LEFT);
         exit(True);
       end
-      else if Buttons[I].Bounds.Expand(5).Contains(Mouse.Position()) then
+      else if Buttons[i].Bounds.Expand(5).Contains(Mouse.Position()) then
         Hovering := True;
     end;
 
@@ -429,10 +429,13 @@ begin
   if Bank.IsOpen(False) then
   begin
     if (Tab = ERSGameTab.INVENTORY) then
-      Exit(True);
+      exit(True);
 
-    Exit(False);
+    exit(False);
   end;
+
+  if BankPin.IsOpen() then
+    exit(False);
 
   Result := inherited();
 end;
