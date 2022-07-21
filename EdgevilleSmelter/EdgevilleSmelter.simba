@@ -21,38 +21,6 @@ program EdgevilleSmelter;
 {$include_once Door.simba}
 
 {
-  Should do station?
-}
-function TBot.ShouldDoStation(): Boolean;  
-var
-  Slots: TIntegerArray;
-begin
-  if Self.StoppedShort then
-    exit();
-
-  if Self.UsingRingOfForging and Self.NeedToRefillRingOfForging then
-    exit();
-
-  if not Inventory.FindItems(Self.MaterialItems, Slots) then
-    exit();
-
-  if Length(Slots) < Self.MaterialRatio then
-    exit();
-
-  Slots.Clear();
-  if Length(Self.SecondaryMaterialItems) > 0 then
-  begin
-    if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
-      exit();
-
-    if Length(Slots) < Self.SecondaryMaterialRatio then
-      exit();
-  end;
-
-  exit(True);
-end;
-
-{
   Main loop of the script.
 }
 procedure TBot.Run();

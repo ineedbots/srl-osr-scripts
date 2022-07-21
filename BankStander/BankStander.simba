@@ -20,39 +20,6 @@ program BankStander;
 {$include_once Transform.simba}
 
 {
-  Should we create the product?
-}
-function TBot.ShouldMakeProduct(): Boolean;
-var
-  Slots: TIntegerArray;
-begin
-  if Self.StoppedShort then
-    exit();
-
-  if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
-    exit();
-
-  if not Inventory.FindItems(Self.MaterialItems, Slots) then
-    exit();
-
-  if Length(Slots) < Self.MaterialRatio then
-    exit();
-
-  Slots.Clear();
-
-  if Length(Self.SecondaryMaterialItems) > 0 then
-  begin
-    if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
-      exit();
-
-    if Length(Slots) < Self.SecondaryMaterialRatio then
-      exit();
-  end;
-
-  exit(True);
-end;
-
-{
   Does logged in stuff
 }
 procedure TBot.DoLoggedInStuff();

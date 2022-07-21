@@ -58,17 +58,22 @@ begin
         ChatMsg := Chat.GetMessage(7, [CHAT_COLOR_BLACK]).Strip();
         // You can smelt 91 more pieces of iron ore before a ring melts.
 
-        if (ChatMsg.Count('You can smelt') > 0) and (ChatMsg.Count('more pieces') > 0) then
+        if (ChatMsg.Count('You can smelt') > 0) and (ChatMsg.Count('more piece') > 0) then
         begin
           ChatMsg := ChatMsg.After('You can smelt');
-          ChatMsg := ChatMsg.Before('more pieces').Strip();
+          ChatMsg := ChatMsg.Before('more piece').Strip();
 
-          try
-            Self.RingOfForgingCharges := StrToInt(ChatMsg);
+          if ChatMsg = 'one' then
+            Self.RingOfForgingCharges := 1
+          else
+          begin
+            try
+              Self.RingOfForgingCharges := StrToInt(ChatMsg);
 
-            Self.NeedToCheckCharges := False;
-          except
-            Script.WriteMsg('Bad StrToInt: ' + ChatMsg, True);
+              Self.NeedToCheckCharges := False;
+            except
+              Script.WriteMsg('Bad StrToInt: ' + ChatMsg, True);
+            end;
           end;
         end
         else
@@ -117,6 +122,38 @@ begin
       Result := True;
     end;
   end;
+end;
+
+{
+  Should do station?
+}
+function TBot.ShouldDoStation(): Boolean;
+var
+  Slots: TIntegerArray;
+begin
+  if Self.StoppedShort then
+    exit();
+
+  if Self.UsingRingOfForging and Self.NeedToRefillRingOfForging then
+    exit();
+
+  if not Inventory.FindItems(Self.MaterialItems, Slots) then
+    exit();
+
+  if Length(Slots) < Self.MaterialRatio then
+    exit();
+
+  Slots.Clear();
+  if Length(Self.SecondaryMaterialItems) > 0 then
+  begin
+    if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
+      exit();
+
+    if Length(Slots) < Self.SecondaryMaterialRatio then
+      exit();
+  end;
+
+  exit(True);
 end;
 
 {
