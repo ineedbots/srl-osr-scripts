@@ -28,6 +28,8 @@ const
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
+  ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+
   COOKINGFISH    = True; // Cooking?
   BANKFISH       = True; // Do banking?
 

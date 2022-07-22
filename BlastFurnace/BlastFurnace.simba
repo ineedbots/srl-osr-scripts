@@ -93,7 +93,7 @@ begin
   Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
   Self.GetWorkingInvCount(Self.WorkingInvCount);
   Script.WriteMsg('Pos: ' + ToStr(Self.RSW.GetMyPos()) + '  Coffer: ' + ToStr(Self.RCoffer) + '  Coal: ' + ToStr(Self.RCoal) +
-    '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount), True);
+    '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount) + '  InCoalBag: ' + ToStr(Self.InCoalBag), True);
 
   // recover from bad amounts
   Self.RecoverFromOddAmounts(RLP);
@@ -163,7 +163,7 @@ begin
   end;
 
   // we should bank!
-  Script.WriteMsg('Need to bank!', True);
+  Script.WriteMsg('Need to bank! OreSlots: ' + ToStr(OreSlots) + '  CoalSlots: ' + ToStr(CoalSlots) + '  HasCoalBag: ' + ToStr(Inventory.FindItem(Self.CoalBagItem)), True);
   if not Self.GoDoBank(True, False, Item, 0) then
     Self.AfterActionAntiBan(True);
 end;
@@ -261,7 +261,7 @@ begin
   Script.MaxTiredMouseSpeed := 10;
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
-  ItemFinder.Similarity   := 0.999;
+  ItemFinder.Similarity   := ITEMFINDER_SIMILARITY;
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;

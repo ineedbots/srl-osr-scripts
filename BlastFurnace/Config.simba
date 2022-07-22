@@ -27,6 +27,9 @@ const
   SHIFTCLICK     = True;  // Use shift key to empty coalbag?
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+
   ICEGLOVES      = True;  // Using ice gloves?
 
   COAL_ITEM      = 'Coal';
