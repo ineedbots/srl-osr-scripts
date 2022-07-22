@@ -711,6 +711,7 @@ end;
 function TRSInventory.ShiftClick(Slot: Int32): Boolean;
 var
   Circle: TCircle;
+  i: Int32;
 begin
   IsKeyDown(VK_SHIFT); // Clear cache
 
@@ -725,7 +726,7 @@ begin
       Mouse.Click(Self.GetSlotBox(Slot), MOUSE_LEFT);
 
       // Spam click a little
-      for 1 to SRL.TruncatedGauss(0, 3) do
+      for i := 1 to SRL.TruncatedGauss(0, 3) do
       begin
         Circle.X := Mouse.Position().X;
         Circle.Y := Mouse.Position().Y;

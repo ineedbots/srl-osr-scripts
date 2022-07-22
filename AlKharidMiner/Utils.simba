@@ -69,9 +69,7 @@ end;
 }
 procedure TBot.DoSkillHover();
 begin
-  case Random() of
-    else Script.Antiban.HoverSkill(ERSSKILL.MINING, Random(1700, 3200), True);
-  end;
+  Script.Antiban.HoverSkill(ERSSKILL.MINING, Random(1700, 3200), True);
 end;
 
 {

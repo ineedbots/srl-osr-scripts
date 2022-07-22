@@ -141,7 +141,7 @@ begin
   end;
 
   // do we need to put stuff on the belt?
-  ForceBelt := (Self.NeedToDoBelt and (Inventory.FindItem(Self.OreItem, OreSlots) or Inventory.FindItem(Self.CoalItem, CoalSlots)));
+  ForceBelt := (Self.NeedToDoBelt and (Inventory.FindItem(Self.OreItem) or Inventory.FindItem(Self.CoalItem)));
   if ForceBelt or (Inventory.FindItem(Self.OreItem, OreSlots) xor Inventory.FindItem(Self.CoalItem, CoalSlots)) then
   begin
     // make sure we put on a good amount
@@ -261,7 +261,7 @@ begin
   Script.MaxTiredMouseSpeed := 10;
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
-  ItemFinder.Similarity   := 0.99;
+  ItemFinder.Similarity   := 0.999;
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;
