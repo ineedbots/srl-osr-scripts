@@ -23,6 +23,12 @@
 }
 function TBot.FindRockTile(OurPos: TPoint; Tile: TPoint): TRectangle;
 begin
+  if Tile.X = -1 then
+  begin
+    Result := [Point(-1, -1), Point(-1, -1), Point(-1, -1), Point(-1, -1)];
+    exit();
+  end;
+
   Result := Self.RSW.GetTileMSEx(OurPos, Tile, 4);
 end;
 
@@ -31,6 +37,13 @@ end;
 }
 function TBot.GetRockSearchBox(Tile: TRectangle): TBox;
 begin
+  if Tile.Top.X = -1 then
+  begin
+    Result := MainScreen.GetPlayerBox();
+    Result := Result.Expand(Round(Result.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+    exit();
+  end;
+
   Result := Tile.Expand(Round(Tile.Radius() * Self.RockColor.RadiusExpand)).Bounds();
 end;
 
@@ -45,13 +58,10 @@ end;
 
 {
   Tries to find the rock at the tile, returns true if it does, also the area of where it is
-
-  This is mainly from olly/srl-development woodcut test script
 }
-function TBot.FindRock(PlayerPos: TPoint; RockPos: TPoint; out B: TBox): Boolean;
+function TBot.FindRock(PlayerPos: TPoint; RockPos: TPoint; out B: TBox; out ATPA: T2DPointArray): Boolean;
 var
   Tile: TRectangle;
-  TPA: TPointArray;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.FindRockTile(PlayerPos, RockPos);
@@ -64,11 +74,11 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   // find the tree's colors in this tile
-  TPA := Self.FindRockColor(B).Biggest();
+  ATPA := Self.FindRockColor(B);
 
-  if Length(TPA) > MainScreen.ConvertDistance(Self.RockColor.FilterSize) then
+  if Length(ATPA) > 0 then
   begin
-    B := TPA.Bounds();
+    B := ATPA.Biggest().Bounds();
     Result := True;
   end;
 end;
@@ -76,11 +86,11 @@ end;
 {
   Attempts to click on a rock, returns if it does
 }
-function TBot.ClickRock(out WasClicked: Boolean; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+function TBot.ClickRock(out WasClicked: Boolean; out ClickPt: TPoint; out B: TBox; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  B: TBox;
-  CRockTiles: TPointArray;
+  CRockTiles, TPA: TPointArray;
   TT: TPoint;
+  ATPA: T2DPointArray;
 begin
   if OurPos = Point(-1, -1) then
     OurPos := Self.RSW.GetMyPos();
@@ -90,9 +100,11 @@ begin
   CRockTiles.Sort(OurPos);
   CRockTiles.RandomizeNearDists(OurPos, 8, 0.1);
 
+  ClickPt := Point(-1, -1);
+
   for TT in CRockTiles do
   begin
-    if not Self.FindRock(OurPos, TT, B) then
+    if not Self.FindRock(OurPos, TT, B, ATPA) then
       continue;
 
     // apply velocity
@@ -117,10 +129,28 @@ begin
 
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.RockUptexts;
-    Mouse.Move(B);
-    Script.MouseLooksForUpText := [];
 
-    Script.RareSmallWait();
+    if TT.X = -1 then
+    begin
+      ATPA.SortBySize();
+      for TPA in ATPA do
+      begin
+        B := TPA.Bounds();
+
+        Mouse.Move(B);
+        Script.RareSmallWait();
+
+        if MainScreen.IsUpText(Self.RockUptexts, Random(100, 250)) then
+          break;
+      end;
+    end
+    else
+    begin
+      Mouse.Move(B);
+      Script.RareSmallWait();
+    end;
+
+    Script.MouseLooksForUpText := [];
 
     if not MainScreen.IsUpText(Self.RockUptexts, Random(100, 250)) then
     begin
@@ -132,6 +162,7 @@ begin
         break;
     end;
 
+    ClickPt := Mouse.Position();
     if not MainScreen.IsUpText(Self.RockOptions, Random(100, 250)) or (Random() < 0.10) then
       WasClicked := ChooseOption.Select(Self.RockOptions)
     else
@@ -162,7 +193,8 @@ var
   WasClicked: Boolean = False;
   S: Int32;
   Velocity: TDoubleArray;
-  MSVel: TPoint;
+  MSVel, ClickPt: TPoint;
+  B: TBox;
 begin
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
@@ -176,7 +208,7 @@ begin
 
     MSVel := Script.WalkerVelToMSVel(Velocity);
     // if we clicked the fish spot, then stop the walker
-    if Bot.ClickRock(WasClicked, Position, MSVel) and WasClicked then
+    if Bot.ClickRock(WasClicked, ClickPt, B, Position, MSVel) and WasClicked then
     begin
       Script.WriteMsg('Clicked the rock while moving, nice!');
       Walker^.Enabled := False;
@@ -207,6 +239,9 @@ begin
   Where := Self.RockTiles[Self.WalkedRock];
   if Force then
     Where := Self.RockWalkTile;
+
+  if Where.X = -1 then
+    exit();
 
   if Force or (OurPos.DistanceTo(Where) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
@@ -262,7 +297,7 @@ var
   B: TBox;
   FColor: TOCRColorRule;
 begin
-  exit;
+  exit();
   B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
 
   FColor := TOCRColorRule.Create([65280, 10]);
@@ -283,18 +318,20 @@ end;
 {
   Waits while we are mining the rock
 }
-procedure TBot.WhileMining(RockTile: TPoint);
+procedure TBot.WhileMining(RockTile: TPoint; ClickPt: TPoint = [-1, -1]; ClickB: TBox = [-1, -1, -1, -1]);
 var
   TimeoutCounter: TCountdown;
   OurPos: TPoint;
-  _: TBox;
-  InvCount: Int32;
+  B: TBox;
+  InvCount, IC: Int32;
   Mining: Boolean;
+  ATPA: T2DPointArray;
 begin
-{
+  // Self.AfterActionAntiBan(True);
+
   // wait for us to stop moving before we start monitoring the tree tile.
   while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
-    Self.DoMainLoopStuff('Going to clicked rock...', False);  }
+    Self.DoMainLoopStuff('Going to clicked rock...', False);
 
   Self.UpdateWalkedRock(True);
 
@@ -317,24 +354,47 @@ begin
     end
     else
     begin
-      if not Self.FindRock(OurPos, RockTile, _) then
+      if not Self.FindRock(OurPos, RockTile, B, ATPA) then
       begin
-        Script.WriteMsg('WhileMining: Tree not found', True);
+        Script.WriteMsg('WhileMining: Rock not found', True);
         break;
       end;
 
-      if Inventory.IsFull() then
+      if ClickPt.X <> -1 then
       begin
-        Script.WriteMsg('WhileMining: Inventory full', True);
+        if RockTile.X = -1 then
+        begin
+          ATPA := Self.FindRockColor(ClickB);
+
+          if Length(ATPA) <= 0 then
+          begin
+            Script.WriteMsg('WhileMining: no rock colors inside clickBox', True);
+            break;
+          end;
+
+          B := ATPA.Biggest().Bounds();
+        end;
+
+        if not B.Contains(ClickPt) then
+        begin
+          Script.WriteMsg('WhileMining: ClickPt not inside B', True);
+          break;
+        end;
+      end;
+
+      IC := Inventory.Count();
+      if IC >= (Inventory.HIGH_SLOT + 1) then
+      begin
+        Script.WriteMsg('WhileMining: Inv full!', True);
         break;
       end;
 
-      if Inventory.Count() > InvCount then
+      if IC <> InvCount then
       begin
-        Script.WriteMsg('WhileMining: Got an item! Restarting timer', True);
-        TimeoutCounter.Restart();
+        Script.WriteMsg('WhileMining: Got an item!', True);
+        break;
       end;
-      InvCount := Inventory.Count();
+      InvCount := IC;
 
       if TimeoutCounter.IsFinished() then
       begin
@@ -343,7 +403,7 @@ begin
       end;
     end;
 
-    Self.DoMainLoopStuff('Mining rock...', False);
+    Self.DoMainLoopStuff('Mining rock...', True);
   end;
 
   if TimeoutCounter.IsFinished() then
@@ -358,14 +418,15 @@ end;
 function TBot.DoGathering(): Boolean;
 var
   Clicked: Boolean;
+  ClickPt: TPoint;
+  B: TBox;
 begin
-  if (Self.ClickRock(Clicked) and Clicked) or
+  if (Self.ClickRock(Clicked, ClickPt, B) and Clicked) or
     Self.GoToRocks() or
-    (Self.ClickRock(Clicked) and Clicked) then
+    (Self.ClickRock(Clicked, ClickPt, B) and Clicked) then
   begin
     Result := True;
-    //Self.AfterActionAntiBan(True);
-    Self.WhileMining(Self.CurrentMiningRockTile);
+    Self.WhileMining(Self.CurrentMiningRockTile, ClickPt, B);
   end;
 end;
 

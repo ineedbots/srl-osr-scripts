@@ -212,6 +212,7 @@ var
   MaterialSlots: TIntegerArray;
   MCount, OGMCount, StopShort, ii, MC: Int32;
   CountDown: TCountDown;
+  Uptxt: String;
 begin
   i := i;
   if not Inventory.FindItem(Item, MaterialSlots) then
@@ -234,7 +235,8 @@ begin
 
   Mouse.Move(Inventory.GetSlotBox(Pattern[0]));
 
-  if MainScreen.IsUpText('Clean') and (Random() < 0.975) then
+  Uptxt := MainScreen.GetUpText();
+  if (Uptxt.Count('Clean') > 0) and (Random() < 0.975) then
   begin
     Mouse.Click(MOUSE_LEFT);
     Result := True;

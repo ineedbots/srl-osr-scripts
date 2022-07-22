@@ -18,11 +18,11 @@
 {$include_once Types.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
-  DRAWING        = True; // Draw stuff on the screen? Like proggies?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DEBUGMODE      = False; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
-  TAKEBREAKS     = False;  // Take breaks?
+  TAKEBREAKS     = True;  // Take breaks?
   MSWALKING      = False; // Use mainscreen walking?
   SHIFTCLICK     = True;  // Use shift key to empty coalbag?
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle

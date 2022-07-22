@@ -115,6 +115,8 @@ end;
   Does general checks and does antiban.
 }
 function TBot.DoAntiBan(DoInterfaceClose: Boolean = False): Boolean;
+var
+  Uptxt: String;
 begin
   Script.DoGeneralChecks();
 
@@ -140,7 +142,8 @@ begin
   // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
   Inventory.SetSelectedSlot(-1);
 
-  if MainScreen.IsUpText('->') then
+  Uptxt := MainScreen.GetUpText();
+  if Uptxt.Count('->') > 0 then
     Mouse.Click(MOUSE_LEFT);
 
   // general antiban
@@ -164,6 +167,7 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
+  TPA: TPointArray;
   RockTile, OurTile, BankTile: TPoint;
   TileRect: TRectangle;
   i: Int32;
@@ -189,10 +193,22 @@ begin
       RSClient.Image.DrawBox(B, clGreen);
       RSClient.Image.DrawATPA(ATPA);
       RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, RockTile, CompAng), 4, clBlue);
 
-      if Self.FindRock(OurTile, RockTile, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+      if RockTile.X <> -1 then
+      begin
+        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, RockTile, CompAng), 4, clBlue);
+
+        if Self.FindRock(OurTile, RockTile, B, ATPA) then
+          RSClient.Image.DrawBox(B, clYellow);
+      end
+      else
+      begin
+        if Self.FindRock(OurTile, RockTile, B, ATPA) then
+        begin
+          for TPA in ATPA do
+            RSClient.Image.DrawBox(TPA.Bounds(), clYellow);
+        end;
+      end;
     end;
 
     for BankTile in Self.BankTiles do

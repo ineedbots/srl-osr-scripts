@@ -18,6 +18,7 @@
 type
   TBot = record
     WalkedRockForward, Specing, Banking                       : Boolean;
+    SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock        : Int32;
     RSW                                                       : TRSWalker;
     OreItems, ToolItems                                       : TRSItemArray;
