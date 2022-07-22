@@ -27,27 +27,29 @@ const
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
+  ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
 
-  BANK_COLOR_TYPE = ERSBankColorType.GRAND_EXCHANGE_BANKER;
-  GAINING_XP = False;
+
+  BANK_COLOR_TYPE = ERSBankColorType.BLAST_FURNACE_CHEST;
+  GAINING_XP = True;
 
   MAP = 'zeah'; // 'zeah' or 'world'
   BANK_LOCATIONS = [[-1{404}, 1490]]; // -1 for just using only color, no RSW
 
-  CREATION_TYPE = ERSCreationType.COMBINE;
+  CREATION_TYPE = ERSCreationType.TRANSFORM;
   AMULET_OF_CHEM = False;
 
-  MAKE_NUM = 0;
+  MAKE_NUM = 3;
 
-  TOOLS = [];
+  TOOLS = ['Chisel'];
 
-  MATERIALS = ['kwuarm'];
+  MATERIALS = ['Amethyst'];
   MATERIAL_RATIO = 1; // how many material per product?
 
-  SECONDARY_MATERIALS = ['Vial of water']; // like eye of newts for unfinished guam potions
-  SECONDARY_MATERIAL_RATIO = 1; // how many secondary material is required for one product?
+  SECONDARY_MATERIALS = []; // like eye of newts for unfinished guam potions
+  SECONDARY_MATERIAL_RATIO = 0; // how many secondary material is required for one product?
 
-  PRODUCTS = ['Ranarr potion (unf)'];
+  PRODUCTS = ['Amethyst dart tip'];
 
   // Account details
   _USERNAME       = '';
