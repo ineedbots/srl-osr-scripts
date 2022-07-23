@@ -131,6 +131,8 @@ begin
   Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;
+  Bank.FINDER_UPTEXT.Append('Deposit');
+  Bank.FINDER_OPTION.Append('Deposit');
   
   // init the antiban stuff
   Script.Antiban.OnStartBreak    := @PauseRunTime;
@@ -219,6 +221,29 @@ begin
     RadiusExpand := 1.5;
     NoColorTileExpand := 5;
   end;
+
+
+  // expanded mining guild
+  Self.BankWalkTile := [6709, 857];
+  Self.BankTiles := [[6704, 856]];
+  Self.ToBankPaths := [];
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(6909559, 7, 0.92, 0.55);
+    RSObject.Grow := 3;
+    RSObject.Erode := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+  Self.RockWalkTile := [6733, 858];
+  Self.RockTiles := [[6733, 854], [6738, 858]];
+  Self.ToRocksPaths := [];
+
+
   
   // do login init stuff
   if RSClient.IsLoggedIn() then
