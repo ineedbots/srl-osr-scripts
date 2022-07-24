@@ -145,7 +145,7 @@ begin
 
   IsBank := Bank.IsOpen();
   Script.SetStatus('Depositing items...');
-  Script.AntiBan.AfterBankAntiBan(20);
+  Script.AntiBan.AfterBankAntiBan(7);
 
   // query the items in our inventory
   if IsBank then
@@ -222,7 +222,7 @@ begin
   Script.SetStatus('Ores depositted!');
   Script.WriteMsg('Ores log... Currently mined ' + IntToStr(Self.OresDone) + ' ores!');
 
-  Script.AntiBan.AfterBankAntiBan(30);
+  Script.AntiBan.AfterBankAntiBan(6);
 
   // randomly close the bank
   if (Random() > 0.75) or Self.RSW.ScreenWalk then

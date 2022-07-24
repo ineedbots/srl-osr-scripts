@@ -138,15 +138,15 @@ begin
   Script.Antiban.OnStartBreak    := @PauseRunTime;
   Script.Antiban.OnFinishBreak   := @ResumeRunTime;
   
-  Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
-  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
+  Script.Antiban.AddTask(ONE_MINUTE*1, @Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*90, @Antiban.SetCompassNorth);
   //Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
-  Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
-  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
-  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSNPCs);
-  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSPlayers);
-  Script.Antiban.AddTask(ONE_MINUTE*8,  @Self.DoSkillHover);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  @Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*12,  @Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*16,  @Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*10,  @Self.DoSkillHover);
   Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
   
   if TAKEBREAKS then
@@ -239,8 +239,8 @@ begin
     NoColorTileExpand := 5;
   end;
 
-  Self.RockWalkTile := [6733, 858];
-  Self.RockTiles := [[6733, 854], [6738, 858]];
+  Self.RockWalkTile := [6743, 857];
+  Self.RockTiles := [[6733, 854], [6738, 858], [6738, 850]];
   Self.ToRocksPaths := [];
 
 

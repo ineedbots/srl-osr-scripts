@@ -84,21 +84,73 @@ begin
 end;
 
 {
+  Hovers over next rock
+}
+function TBot.HoverNextRock(ClickPt, OurPos: TPoint): Boolean;
+var
+  RockTile: TPoint;
+  B: TBox;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+begin
+  if Self.CurrentMiningRockTile.X = -1 then
+  begin
+    if ClickPt.X <> -1 then
+    begin
+      if Self.FindRock(OurPos, [-1, -1], B, ATPA) then
+      begin
+        for TPA in ATPA do
+        begin
+          B := TPA.Bounds();
+
+          if B.Contains(ClickPt) then
+            continue;
+
+          Mouse.Move(B);
+          Result := True;
+          break;
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    for RockTile in Self.RockTiles do
+    begin
+      if RockTile = Self.CurrentMiningRockTile then
+        continue;
+
+      if not Self.FindRock(OurPos, RockTile, B, ATPA) then
+        continue;
+
+      Mouse.Move(B);
+      Result := True;
+      break;
+    end;
+
+    if Length(Self.RockTiles) > 1 then
+      Mouse.Move(B);
+  end;
+end;
+
+{
   Attempts to click on a rock, returns if it does
 }
 function TBot.ClickRock(out WasClicked: Boolean; out ClickPt: TPoint; out B: TBox; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   CRockTiles, TPA: TPointArray;
-  TT: TPoint;
+  TT, MousePos: TPoint;
   ATPA: T2DPointArray;
 begin
   if OurPos = Point(-1, -1) then
     OurPos := Self.RSW.GetMyPos();
 
+  MousePos := Self.RSW.MSToWorldEx(OurPos, Mouse.Position());
+
   // shake up the tiles
   CRockTiles := Copy(Self.RockTiles);
-  CRockTiles.Sort(OurPos);
-  CRockTiles.RandomizeNearDists(OurPos, 8, 0.1);
+  CRockTiles.Sort(MousePos);
+  CRockTiles.RandomizeNearDists(OurPos, 8, 0.025);
 
   ClickPt := Point(-1, -1);
 
@@ -163,7 +215,7 @@ begin
     end;
 
     ClickPt := Mouse.Position();
-    if not MainScreen.IsUpText(Self.RockOptions, Random(100, 250)) or (Random() < 0.10) then
+    if not MainScreen.IsUpText(Self.RockOptions, Random(100, 250)) or (Random() < 0.025) then
       WasClicked := ChooseOption.Select(Self.RockOptions)
     else
     begin
@@ -200,7 +252,7 @@ begin
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if Destination = Walker^.Path[High(Walker^.Path)] then
+  if (Destination = Walker^.Path[High(Walker^.Path)]) and (Position.DistanceTo(Destination) < 7) then
   begin
     // make the mouse fast, because we are moving, its harder to keep up with objs
     S := Mouse.Speed;
@@ -337,6 +389,9 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
   InvCount := Inventory.Count();
+
+  if InvCount < 27 then
+    Self.HoverNextRock(ClickPt, OurPos);
 
   // we timeout if we do not gain something into our inventory
   TimeoutCounter.Init(Self.MineWaitTime);
