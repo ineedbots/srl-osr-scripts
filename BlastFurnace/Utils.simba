@@ -199,7 +199,9 @@ begin
       'steel':
       begin
         Coal := Self.WorkingInvCount;
-        Ores := Self.WorkingInvCount;
+
+        if CoalInvs > 0 then
+          Ores := Self.WorkingInvCount;
       end;
       'mithril':
       begin
