@@ -454,6 +454,9 @@ begin
   // attempt to open the bank 5 times
   for i := 0 to 5 do
   begin
+    if not RSClient.IsLoggedIn() then
+      exit();
+
     if Self.OpenBank() then
     begin
       Self.AfterActionAntiBan(True, False);

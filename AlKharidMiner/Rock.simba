@@ -252,22 +252,27 @@ begin
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if (Destination = Walker^.Path[High(Walker^.Path)]) and (Position.DistanceTo(Destination) < 7) then
+  if (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
-    // make the mouse fast, because we are moving, its harder to keep up with objs
-    S := Mouse.Speed;
-    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
-
-    MSVel := Script.WalkerVelToMSVel(Velocity);
-    // if we clicked the fish spot, then stop the walker
-    if Bot.ClickRock(WasClicked, ClickPt, B, Position, MSVel) and WasClicked then
+    if Position.DistanceTo(Destination) < 8 then
     begin
-      Script.WriteMsg('Clicked the rock while moving, nice!');
-      Walker^.Enabled := False;
-    end;
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
 
-    // reset the mosue speed back
-    Mouse.Speed := S;
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+      // if we clicked the fish spot, then stop the walker
+      if Bot.ClickRock(WasClicked, ClickPt, B, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the rock while moving, nice!');
+        Walker^.Enabled := False;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end
+    else
+      Mouse.Move(Bot.GetRockSearchBox(Bot.FindRockTile(Position, [-1, -1])));
   end;
 
   // mainscreen bank fix
@@ -317,7 +322,7 @@ begin
       end;
 
       if Walked and Self.RSW.Enabled then
-        Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
+        Walked := Self.RSW.WalkBlind(Where.Random(-3, 3, True), 0);
     except
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
@@ -373,22 +378,44 @@ end;
 procedure TBot.WhileMining(RockTile: TPoint; ClickPt: TPoint = [-1, -1]; ClickB: TBox = [-1, -1, -1, -1]);
 var
   TimeoutCounter: TCountdown;
-  OurPos: TPoint;
+  OurPos, ClickLoc: TPoint;
   B: TBox;
   InvCount, IC: Int32;
   Mining: Boolean;
   ATPA: T2DPointArray;
-begin
+  Dist: Double;
+begin                                
+  InvCount := Inventory.Count();
+
+  // check and see if this a far click
+  if ClickPt.X <> -1 then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    ClickLoc := Self.RSW.MSToWorldEx(OurPos, ClickPt);
+    Dist := ClickLoc.DistanceTo(OurPos);
+    Script.WriteMsg('Checking far click: ' + ToStr(Dist), True);
+
+    if Dist > 8 then
+    begin
+      Inc(Self.DidMove);
+      Inc(Self.DidMove);
+      ClickPt := [-1, -1];
+      Script.WriteMsg('Did a far click... ' + ToStr(Self.DidMove), True);
+      Wait(750, 1250);
+    end
+    else
+      Dec(Self.DidMove);
+  end;
+
   // Self.AfterActionAntiBan(True);
 
   // wait for us to stop moving before we start monitoring the tree tile.
-  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
     Self.DoMainLoopStuff('Going to clicked rock...', False);
 
   Self.UpdateWalkedRock(True);
 
   OurPos := Self.RSW.GetMyPos();
-  InvCount := Inventory.Count();
 
   if InvCount < 27 then
     Self.HoverNextRock(ClickPt, OurPos);
@@ -465,6 +492,16 @@ begin
     Script.WriteMsg('WhileMining: No ore gained in timeout...', True);
 
   Script.SetStatus('Rock mining completed!');
+
+  // check if we are not in the spot
+  if Self.DidMove < 0 then
+    Self.DidMove := 0;
+
+  if Self.DidMove > 5 then
+  begin
+    Self.DidMove := 0;
+    Self.GoToRocks(True, False);
+  end;
 end;
 
 {

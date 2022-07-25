@@ -239,8 +239,8 @@ begin
     NoColorTileExpand := 5;
   end;
 
-  Self.RockWalkTile := [6743, 857];
-  Self.RockTiles := [[6733, 854], [6738, 858], [6738, 850]];
+  Self.RockWalkTile := [6744, 855];
+  Self.RockTiles := [[6734, 854], [6738, 858], [6738, 850]];
   Self.ToRocksPaths := [];
 
 
