@@ -178,10 +178,6 @@ begin
   // make sure outside the arena
   if Bot.GetWinterTodtEnergyPerc() <> -1 then
     Walker^.Enabled := False;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -200,6 +196,10 @@ begin
 
   if Force or (OurPos.DistanceTo(Self.EnterTile) > 50) or not Self.FindEnterDoor(OurPos, B) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
     Script.SetStatus('Going to enter door...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
@@ -449,10 +449,6 @@ begin
   // make sure outside inside arena
   if Bot.GetWinterTodtEnergyPerc() = -1 then
     Walker^.Enabled := False;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -471,6 +467,10 @@ begin
 
   if Force or (OurPos.DistanceTo(Self.ExitTile) > 50) or not Self.FindEnterDoor(OurPos, B) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      
     Script.SetStatus('Going to exit door...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;

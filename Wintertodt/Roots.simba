@@ -203,10 +203,6 @@ begin
   // make sure outside inside arena
   if Bot.GetWinterTodtEnergyPerc() = -1 then
     Walker^.Enabled := False;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -232,6 +228,10 @@ begin
 
   if Force or (OurPos.DistanceTo(Self.RootsTile) > 50) or not Self.FindRoots(OurPos, B) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      
     Script.SetStatus('Going to roots...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;

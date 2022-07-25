@@ -207,10 +207,6 @@ begin
   // make sure outside inside arena
   if Bot.GetWinterTodtEnergyPerc() = -1 then
     Walker^.Enabled := False;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -237,6 +233,10 @@ begin
 
   if Force or (OurPos.DistanceTo(Self.BrazierTile) > 50) or not Self.FindBrazier(OurPos, IsLit, B) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+      
     Script.SetStatus('Going to brazier...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;

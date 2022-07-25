@@ -198,10 +198,6 @@ begin
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -224,6 +220,10 @@ begin
   if Force or (OurPos.DistanceTo(Self.StationWalkTile) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.StationWalkTile).Mean()) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
     Script.SetStatus('Going to station spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;   

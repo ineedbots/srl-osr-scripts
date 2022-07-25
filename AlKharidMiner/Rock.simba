@@ -274,10 +274,6 @@ begin
     else
       Mouse.Move(Bot.GetRockSearchBox(Bot.FindRockTile(Position, [-1, -1])));
   end;
-
-  // mainscreen bank fix
-  if Bot.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 end;
 
 {
@@ -303,7 +299,11 @@ begin
   if Force or (OurPos.DistanceTo(Where) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
   begin
-    Script.SetStatus('Going to trees spot...');
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+    Script.SetStatus('Going to rock spot...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
     if Click then
