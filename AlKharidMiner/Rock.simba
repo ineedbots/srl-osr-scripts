@@ -184,7 +184,7 @@ begin
 
     if TT.X = -1 then
     begin
-      ATPA.SortBySize();
+      ATPA.SortByMiddle(Mouse.Position());
       for TPA in ATPA do
       begin
         B := TPA.Bounds();
@@ -399,6 +399,7 @@ begin
     begin
       Inc(Self.DidMove);
       Inc(Self.DidMove);
+      Inc(Self.DidMove);
       ClickPt := [-1, -1];
       Script.WriteMsg('Did a far click... ' + ToStr(Self.DidMove), True);
       Wait(750, 1250);
@@ -497,7 +498,7 @@ begin
   if Self.DidMove < 0 then
     Self.DidMove := 0;
 
-  if Self.DidMove > 5 then
+  if Self.DidMove > 6 then
   begin
     Self.DidMove := 0;
     Self.GoToRocks(True, False);
