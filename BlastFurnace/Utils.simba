@@ -201,7 +201,9 @@ begin
         Coal := Self.WorkingInvCount;
 
         if CoalInvs > 0 then
-          Ores := Self.WorkingInvCount;
+          Ores := Self.WorkingInvCount
+        else
+          Self.NeedToDoBelt := True;
       end;
       'mithril':
       begin
