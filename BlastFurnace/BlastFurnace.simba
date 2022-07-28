@@ -30,34 +30,48 @@ program BlastFurnace;
   recovers from non normal amounts in the dispenser and melting pot
 }
 procedure TBot.RecoverFromOddAmounts(RLP: Boolean);
+var
+  BarName: String;
 begin
+  BarName := Self.GetBarItemName().Before(' ').Lower();
+
   // fix up coal
   if (Self.ROres > 0) and (Self.RCoal < (Self.ROres * Self.CoalRequiredForOre())) then
   begin
     // fix it up
     Self.FixUpCoalNeeded := (Self.ROres * Self.CoalRequiredForOre()) - Self.RCoal;
     Self.FixUpOresNeeded := 0;
-    Self.NeedToDoBelt := True;
+    Self.NeedToDoBelt := True;     
+
+    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up coal! FixUpCoalNeeded: ' + ToStr(FixUpCoalNeeded), True);
   end
   // fix up ores
   else if (Self.CoalRequiredForOre() > 0) and ((Self.RCoal mod Self.WorkingInvCount) <> 0) then
   begin
     Self.FixUpOresNeeded := Ceil(Self.RCoal / Self.CoalRequiredForOre()) - Self.ROres;
     Self.FixUpCoalNeeded := 0;
-    Self.NeedToDoBelt := True;
+    Self.NeedToDoBelt := True;  
+
+    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up ores! FixUpOresNeeded: ' + ToStr(FixUpOresNeeded), True);
   end
-  else
+  else if not ((BarName = 'steel') and (Self.RCoal < Self.WorkingInvCount)) then
   begin
     Self.FixUpCoalNeeded := 0;
     Self.FixUpOresNeeded := 0;   
-    Self.NeedToDoBelt := False;
-  end;
+    Self.NeedToDoBelt := False;   
+
+    Script.WriteMsg('RecoverFromOddAmounts: All is good...', True);
+  end
+  else
+    Script.WriteMsg('RecoverFromOddAmounts: Doing steel bar fixup.', True);
 
   // make sure these are sane values
   if not RLP then
   begin
     if (Self.RBars < 0) or (Self.RCoal < 0) or (Self.ROres < 0) then
     begin
+      Script.WriteMsg('RecoverFromOddAmounts: Insane values! Reading values...', True);
+
       if not Self.CheckTheDispenser() then
         Self.AfterActionAntiBan(True);
 
@@ -92,11 +106,13 @@ begin
   Self.GetCofferAmount(Self.RCoffer, RLP, x, y);
   Self.GetStuffInsideMelter(RLP, x, y, Self.RCoal, Self.ROres, Self.RBars);
   Self.GetWorkingInvCount(Self.WorkingInvCount);
-  Script.WriteMsg('Pos: ' + ToStr(Self.RSW.GetMyPos()) + '  Coffer: ' + ToStr(Self.RCoffer) + '  Coal: ' + ToStr(Self.RCoal) +
-    '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount) + '  InCoalBag: ' + ToStr(Self.InCoalBag), True);
 
   // recover from bad amounts
   Self.RecoverFromOddAmounts(RLP);
+
+  Script.WriteMsg('Pos: ' + ToStr(Self.RSW.GetMyPos()) + '  Coffer: ' + ToStr(Self.RCoffer) + '  Coal: ' + ToStr(Self.RCoal) +
+    '  Ore: ' + ToStr(Self.ROres) + '  Bars: ' + ToStr(Self.RBars) + '  WorkingInv: ' + ToStr(Self.WorkingInvCount) +
+    '  InCoalBag: ' + ToStr(Self.InCoalBag) + '  NeedToCollect: ' + ToStr(Self.NeedToCollect) + '  NeedToDoBelt: ' + ToStr(Self.NeedToDoBelt), True);
 
   // do we need to collect bars?
   if Self.NeedToCollect or (Self.RBars > 0) then
