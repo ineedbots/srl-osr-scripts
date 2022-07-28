@@ -336,7 +336,7 @@ begin
 
   with Self.MeltingPotColor do
   begin
-    RSObject.Colors += CTS2(3378368, 8, 0.03, 0.88);
+    RSObject.Colors += CTS2(875993, 9, 0.16, 1.38);
     RSObject.Erode := 2;
     RSObject.Grow := 2;
     RSObject.ClusterDistance := 1;
