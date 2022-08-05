@@ -375,6 +375,24 @@ begin
 end;
 
 {
+  Stops ALWAYS right clicking
+}
+function TRSInventory.ClickSlot(Slot: Int32; Option: String = ''): Boolean; override;
+begin
+  if Self.HoverSlot(Slot) then
+  begin
+    if (Option <> '') or not MainScreen.IsUpText(Option) or (Random() > 0.95) then
+      Result := ChooseOption.Select(Option)
+    else
+    begin
+      Mouse.Click(MOUSE_LEFT);
+
+      Result := True;
+    end;
+  end;
+end;
+
+{
   Fixes bankpin problem where the bounds it too small and the number is outside the search area
 }
 function TRSBankPin.ClickDigit(Digit: Char): Boolean; override;
