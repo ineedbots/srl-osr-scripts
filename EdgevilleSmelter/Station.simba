@@ -296,7 +296,10 @@ begin
       CountDown.Restart();
     end
     else if Self.MakeOption = -1 then
-      break;
+    begin       
+      Script.WriteMsg('WaitStationStart: Not expecting make.', True);
+      exit(True);
+    end;
 
     // timeout?
     if CountDown.IsFinished() then
