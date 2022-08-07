@@ -306,7 +306,7 @@ begin
     if Chat.LeveledUp() then
     begin
       Script.WriteMsg('WaitFireCreated: Clicking level up', True);
-      while Chat.ClickContinue() do
+      while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
         Wait(75, 500);
 
       Wait(2000, 3000, wdLeft);
@@ -829,7 +829,9 @@ begin
       if Random() < 0.2 then
       begin
         Wait(0, 1500, wdLeft);
-        Chat.ChatToOption('doesnt matter');
+
+        while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
+          Wait(75, 500);
       end;
       break;
     end;

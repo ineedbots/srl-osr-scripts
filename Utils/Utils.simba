@@ -1012,7 +1012,7 @@ var
   CountDown: TCountDown;
   Angle: Double;
 begin
-  if Script.MiddleClicking and (Random() < 0.9) then
+  if not Script.KeyboardMenuButtons or (Script.MiddleClicking and (Random() < 0.9)) then
     inherited(Degrees, Accuracy)
   else
   begin

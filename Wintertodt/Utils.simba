@@ -151,7 +151,7 @@ begin
   if Chat.LeveledUp() then
   begin
     Wait(0, 2500, wdLeft);
-    while Chat.ClickContinue() do
+    while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
       Wait(75, 500);
   end;
 
