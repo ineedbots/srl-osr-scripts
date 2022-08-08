@@ -238,10 +238,14 @@ begin
   else
     Button := Self.GetButton(ERSBankButton.ITEM);
 
+  if not Button.Enabled() then
+  begin
+    Button.Click();
+    Wait(0, 750, wdLeft);
+  end;
+
   if not Button.Enable() then
     Exit;
-
-  Wait(0, 250, wdLeft);
 
   if UseQuantityButtons then
   begin
