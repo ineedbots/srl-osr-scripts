@@ -585,7 +585,7 @@ begin
             if Self.ThrowWaterOnDispenser() then
               CountDown.Restart()
             else
-              Self.AfterActionAntiBan(True);
+              Self.AfterActionAntiBan(True, True, True);
           end
           else
           begin
@@ -616,10 +616,10 @@ begin
       if not RLP then
       begin
         if not Self.CheckTheDispenser() then
-          Self.AfterActionAntiBan(True);
+          Self.AfterActionAntiBan(True, True, True);
           
         if not Self.CheckThePot() then
-          Self.AfterActionAntiBan(True);
+          Self.AfterActionAntiBan(True, True, True);
       end;
 
       goto go_exit;
@@ -636,7 +636,7 @@ begin
     end;
   end;
 
-  Self.AfterActionAntiBan(True);
+  Self.AfterActionAntiBan(True, False);
 
   // wait for the collection
   if not Self.WaitGoCollectBars(IC) then

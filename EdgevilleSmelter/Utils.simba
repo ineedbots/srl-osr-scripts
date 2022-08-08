@@ -204,12 +204,15 @@ end;
 {
   From Slacky's BarbFisher
 }
-procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True);
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True; WasFailure: Boolean = False);
 begin
   Wait(0, 750, wdLeft);
 
   if DoAB then
     Self.DoAntiban(DoInterfaceClose);
+
+  if WasFailure then
+    MainScreen.SetHighestPitch();
 end;
 
 {

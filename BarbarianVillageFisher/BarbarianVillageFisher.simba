@@ -37,7 +37,7 @@ begin
         continue;
 
       if not Self.CookFish(RSItem) then
-        Self.AfterActionAntiBan(True);
+        Self.AfterActionAntiBan(True, True, True);
     end;
 
     exit();
@@ -46,7 +46,7 @@ begin
   if Self.Banking then
   begin
     if not Self.DoBank() then
-      Self.AfterActionAntiBan(True);
+      Self.AfterActionAntiBan(True, True, True);
   end
   else
     Self.DropItems();
@@ -67,7 +67,7 @@ begin
       else
       begin
         if not Self.DoGathering() then
-          Self.AfterActionAntiBan(True);
+          Self.AfterActionAntiBan(True, True, True);
       end;
     end
     else

@@ -446,10 +446,10 @@ begin
       if not RLP then
       begin
         if not Self.CheckTheDispenser() then
-          Self.AfterActionAntiBan(True);
+          Self.AfterActionAntiBan(True, True, True);
 
         if not Self.CheckThePot() then
-          Self.AfterActionAntiBan(True);
+          Self.AfterActionAntiBan(True, True, True);
       end;
 
       Fatal := True;

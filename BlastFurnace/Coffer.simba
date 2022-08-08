@@ -274,7 +274,7 @@ begin
   if not Inventory.FindItem(Self.CoinsItem) then
   begin
     if not Self.GoDoBank(False, True, Item, Self.CofferAmount) then
-      Self.AfterActionAntiBan(True);
+      Self.AfterActionAntiBan(True, True, True);
     Wait(0, 1500, wdLeft);
   end;
 
@@ -333,7 +333,7 @@ begin
       Item := 'was bar';
 
     if not Self.GoDoBank(False, True, Item, Self.CofferAmount) then
-      Self.AfterActionAntiBan(True);
+      Self.AfterActionAntiBan(True, True, True);
   end;
 end;
 
