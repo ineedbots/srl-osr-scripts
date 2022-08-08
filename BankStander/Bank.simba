@@ -468,6 +468,7 @@ begin
     end;
 
     Script.WriteMsg('Failed to open bank');
+    MainScreen.SetHighestPitch();
 
     if i = 0 then
       Minimap.SetCompassNorth((Random() > 0.2))
