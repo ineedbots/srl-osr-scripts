@@ -17,7 +17,7 @@
 
 type
   TBot = record
-    WalkedRockForward, Specing, Banking                       : Boolean;
+    WalkedRockForward, Banking                                : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
       DidMove                                                 : Int32;

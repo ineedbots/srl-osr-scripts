@@ -17,7 +17,7 @@
 
 type
   TBot = record
-    WalkedTreeForward, Specing, Banking                       : Boolean;
+    WalkedTreeForward, Banking                                : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime, MakeOption   : Int32;

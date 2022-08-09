@@ -32,7 +32,6 @@ const
 
   // use bank?
   BANKORES        = False;
-  USESPEC         = False; // Use the special attack when it can.
 
   // Account details
   _USERNAME       = '';

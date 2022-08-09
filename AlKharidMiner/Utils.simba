@@ -77,18 +77,22 @@ end;
 }
 function TBot.CheckSpec(): Boolean;
 begin
-  if not Self.Specing then
+  if not Minimap.IsSpecWeapon() then
     exit();
 
-  if Minimap.GetOrbLevel(Minimap.GetSpecAttackCircle()) >= 100 then
-  begin
-    Script.WriteMsg('Special attack boosting');
+  if Minimap.IsSpecEnabled() then
+    exit();
 
-    Mouse.Click(Minimap.GetSpecAttackCircle(), MOUSE_LEFT);
+  if Minimap.GetSpecLevel() < 100 then
+    exit();
 
-    Wait(1000, 2000, wdLeft);
-    Result := True;
-  end;
+  Script.WriteMsg('Special attack boosting');
+
+  if not Minimap.EnableSpec(100) then
+    exit();
+
+  Wait(1000, 2000, wdLeft);
+  Result := True;
 end;
 
 {

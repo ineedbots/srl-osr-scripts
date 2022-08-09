@@ -160,7 +160,6 @@ begin
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
 
-  Self.Specing := USESPEC;
   Self.Banking := BANKORES;
   Self.SelfBoxRadiusExpand := 1.3;
   
