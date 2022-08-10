@@ -472,6 +472,38 @@ begin
 end;
 
 {
+  Fix issue where gametabs are not checked
+}
+function TRSMainScreen.IsVisible(P: TPoint): Boolean; override;
+var
+  Boxes: TBoxArray;
+  B: TBox;
+begin
+  Result := Self.Bounds.Contains(P);
+
+  if Result then
+  begin
+    if Chat.IsOpen() and Chat.Bounds().Contains(P) then
+      Exit(False);
+    if ChatButtons.Bounds().Contains(P) then
+      Exit(False);
+    if Minimap.Bounds.Expand(50).Contains(P) then
+      Exit(False);
+    if GameTabs.Bounds().Contains(P) then
+      Exit(False);
+
+    if (GameTabs.Mode = ERSClientMode.RESIZABLE_MODERN) and (RootInterface.Width >= 948) then
+    begin
+      Boxes := GameTabs.GetTabBoxes();
+
+      for B in Boxes do
+        if B.Contains(P) then
+          Exit(False);
+    end;
+  end;
+end;
+
+{
   Adds tinted colors, should be added to SRL
 }
 function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
