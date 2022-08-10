@@ -145,6 +145,7 @@ begin
   if OurPos = Point(-1, -1) then
     OurPos := Self.RSW.GetMyPos();
 
+  // sort by our mouse position
   MousePos := Self.RSW.MSToWorldEx(OurPos, Mouse.Position());
 
   // shake up the tiles
@@ -254,6 +255,7 @@ begin
   // if this is the last node in the path
   if (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
+    // make sure close, so we get into position better
     if Position.DistanceTo(Destination) < 8 then
     begin
       // make the mouse fast, because we are moving, its harder to keep up with objs
@@ -272,7 +274,7 @@ begin
       Mouse.Speed := S;
     end
     else
-      Mouse.Move(Bot.GetRockSearchBox(Bot.FindRockTile(Position, [-1, -1])));
+      Mouse.Move(Bot.GetRockSearchBox(Bot.FindRockTile(Position, [-1, -1]))); // make sure our mouse doesnt hover over other rocks
   end;
 end;
 
@@ -443,12 +445,15 @@ begin
         break;
       end;
 
+      // if got a click pt
       if ClickPt.X <> -1 then
       begin
+        // if chopping anywhere, FindRock isnt accurate enough for this, so we gotta check ourselves
         if RockTile.X = -1 then
         begin
           ATPA := Self.FindRockColor(ClickB);
 
+          // make sure theres still colors in this box
           if Length(ATPA) <= 0 then
           begin
             Script.WriteMsg('WhileMining: no rock colors inside clickBox', True);
@@ -458,6 +463,7 @@ begin
           B := ATPA.Biggest().Bounds();
         end;
 
+        // make sure that its still in the box
         if not B.Contains(ClickPt) then
         begin
           Script.WriteMsg('WhileMining: ClickPt not inside B', True);

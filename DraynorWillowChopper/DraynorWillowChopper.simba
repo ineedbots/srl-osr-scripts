@@ -164,8 +164,8 @@ begin
   Script.Antiban.OnFinishBreak   := @ResumeRunTime;
   
   Script.Antiban.AddTask(ONE_SECOND*30, @Mouse.RandomMovement);
-  Script.Antiban.AddTask(ONE_SECOND*45, @Antiban.SetCompassNorth);
-  Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_SECOND*90, @Antiban.SetCompassNorth);
+  // Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*2,  @Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
   Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.HoverMSItems);
@@ -186,6 +186,7 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
 
   Self.Banking := BANKLOGS;
+  Self.SelfBoxRadiusExpand := 1.3;
   
   // location specific stuff
   Self.TreeOptions := ['Chop down Willow', 'Chop', 'down', 'Willow'];

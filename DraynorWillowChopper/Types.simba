@@ -20,7 +20,9 @@ type
     WalkedTreeForward, Banking                                : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
-      LastWalkedTree, FiredTile, FletchWaitTime, MakeOption   : Int32;
+      LastWalkedTree, FiredTile, FletchWaitTime, MakeOption,
+      DidMove                                                 : Int32;
+    SelfBoxRadiusExpand                                       : Double;
     RSW                                                       : TRSWalker;
     TinderItem, KnifeItem                                     : TRSItem;
     LogItems, ToolItems, KnifedLogItems                       : TRSItemArray;

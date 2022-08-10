@@ -23,6 +23,12 @@
 }
 function TBot.FindTreeTile(OurPos: TPoint; Tile: TPoint): TRectangle;
 begin
+  if Tile.X = -1 then
+  begin
+    Result := [Point(-1, -1), Point(-1, -1), Point(-1, -1), Point(-1, -1)];
+    exit();
+  end;
+
   Result := Self.RSW.GetTileMSEx(OurPos, Tile, 4);
 end;
 
@@ -31,6 +37,13 @@ end;
 }
 function TBot.GetTreeSearchBox(Tile: TRectangle): TBox;
 begin
+  if Tile.Top.X = -1 then
+  begin
+    Result := MainScreen.GetPlayerBox();
+    Result := Result.Expand(Round(Result.ToRectangle().Radius() * Self.SelfBoxRadiusExpand));
+    exit();
+  end;
+
   Result := Tile.Expand(Round(Tile.Radius() * Self.TreeColor.RadiusExpand)).Bounds();
 end;
 
@@ -48,7 +61,7 @@ end;
 
   This is mainly from olly/srl-development woodcut test script
 }
-function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out B: TBox): Boolean;
+function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out B: TBox; out ATPA: T2DPointArray): Boolean;
 var
   Tile: TRectangle;
   TPA: TPointArray;
@@ -64,23 +77,28 @@ begin
   B.LimitTo(MainScreen.Bounds());
 
   // find the tree's colors in this tile
-  TPA := Self.FindTreeColor(B).Biggest();
+  ATPA := Self.FindTreeColor(B);
 
-  if Length(TPA) > MainScreen.ConvertDistance(Self.TreeColor.FilterSize) then
+  if Length(ATPA) > 0 then
   begin
-    // if the circle is larger than the tile's circle, this is good
-    Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+    TPA := ATPA.Biggest();
+    B := TPA.Bounds();
+
+    if TreePos.X = -1 then
+      Result := True
+    else
+      Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;
   end;
 end;
 
 {
   Attempts to click on a tree, returns if it does
 }
-function TBot.ClickTree(out WasClicked: Boolean; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+function TBot.ClickTree(out WasClicked: Boolean; out ClickPt: TPoint; out B: TBox; OurPos: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
-  B: TBox;
-  CTreeTiles: TPointArray;
-  TT: TPoint;
+  CTreeTiles, TPA: TPointArray;
+  TT: TPoint;        
+  ATPA: T2DPointArray;
 begin
   if OurPos = Point(-1, -1) then
     OurPos := Self.RSW.GetMyPos();
@@ -90,9 +108,11 @@ begin
   CTreeTiles.Sort(OurPos);
   CTreeTiles.RandomizeNearDists(OurPos, 8, 0.1);
 
+  ClickPt := Point(-1, -1);
+
   for TT in CTreeTiles do
   begin
-    if not Self.FindTree(OurPos, TT, B) then
+    if not Self.FindTree(OurPos, TT, B, ATPA) then
       continue;
 
     // apply velocity
@@ -117,10 +137,28 @@ begin
 
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.TreeUptexts;
-    Mouse.Move(B);
-    Script.MouseLooksForUpText := [];
 
-    Script.RareSmallWait();
+    if TT.X = -1 then
+    begin
+      ATPA.SortByMiddle(Mouse.Position());
+      for TPA in ATPA do
+      begin
+        B := TPA.Bounds();
+
+        Mouse.Move(B);
+        Script.RareSmallWait();
+
+        if MainScreen.IsUpText(Self.TreeUptexts, Random(100, 250)) then
+          break;
+      end;
+    end
+    else
+    begin
+      Mouse.Move(B);
+      Script.RareSmallWait();
+    end;
+
+    Script.MouseLooksForUpText := [];
 
     if not MainScreen.IsUpText(Self.TreeUptexts, Random(100, 250)) then
     begin
@@ -132,6 +170,7 @@ begin
         break;
     end;
 
+    ClickPt := Mouse.Position();
     if not MainScreen.IsUpText(Self.TreeOptions, Random(100, 250)) or (Random() < 0.10) then
       WasClicked := ChooseOption.Select(Self.TreeOptions)
     else
@@ -162,7 +201,8 @@ var
   WasClicked: Boolean = False;
   S: Int32;
   Velocity: TDoubleArray;
-  MSVel: TPoint;
+  MSVel, ClickPt: TPoint;
+  B: TBox;
 begin
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
@@ -176,7 +216,7 @@ begin
 
     MSVel := Script.WalkerVelToMSVel(Velocity);
     // if we clicked the fish spot, then stop the walker
-    if Bot.ClickTree(WasClicked, Position, MSVel) and WasClicked then
+    if Bot.ClickTree(WasClicked, ClickPt, B, Position, MSVel) and WasClicked then
     begin
       Script.WriteMsg('Clicked the tree while moving, nice!');
       Walker^.Enabled := False;
@@ -203,6 +243,9 @@ begin
   Where := Self.TreeTiles[Self.WalkedTree];
   if Force then
     Where := Self.TreeWalkTile;
+
+  if Where.X = -1 then
+    exit();
 
   if Force or (OurPos.DistanceTo(Where) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
@@ -262,6 +305,7 @@ var
   B: TBox;
   FColor: TOCRColorRule;
 begin
+  exit();
   B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
 
   FColor := TOCRColorRule.Create([65280, 10]);
@@ -282,25 +326,48 @@ end;
 {
   Waits while we are chopping the tree
 }
-procedure TBot.WhileChopping(TreeTile: TPoint);
+procedure TBot.WhileChopping(TreeTile: TPoint; ClickPt: TPoint = [-1, -1]; ClickB: TBox = [-1, -1, -1, -1]);
 var
   TimeoutCounter: TCountdown;
-  OurPos: TPoint;
-  _: TBox;
-  InvCount: Int32;
+  OurPos, ClickLoc: TPoint;
+  B: TBox;
+  ATPA: T2DPointArray;
+  InvCount, IC: Int32;
   Chopping: Boolean;
-begin
+  Dist: Double;
+begin                   
+  InvCount := Inventory.Count();
+
+  // check and see if this a far click
+  if ClickPt.X <> -1 then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    ClickLoc := Self.RSW.MSToWorldEx(OurPos, ClickPt);
+    Dist := ClickLoc.DistanceTo(OurPos);
+    Script.WriteMsg('Checking far click: ' + ToStr(Dist), True);
+
+    if Dist > 8 then
+    begin
+      Inc(Self.DidMove);
+      Inc(Self.DidMove);
+      Inc(Self.DidMove);
+      ClickPt := [-1, -1];
+      Script.WriteMsg('Did a far click... ' + ToStr(Self.DidMove), True);
+      Wait(750, 1250);
+    end
+    else
+      Dec(Self.DidMove);
+  end;
+
+  // Self.AfterActionAntiBan(True);
+
   // wait for us to stop moving before we start monitoring the tree tile.
-  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
-    Self.DoMainLoopStuff('Going to clicked tree...');
+  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
+    Self.DoMainLoopStuff('Going to clicked tree...', False);
 
   Self.UpdateWalkedTree(True);
 
-  // wait a bit to start chopping
-  Wait(1000, 2000);
-
   OurPos := Self.RSW.GetMyPos();
-  InvCount := Inventory.Count();
 
   // we timeout if we do not gain something into our inventory
   TimeoutCounter.Init(Self.ChopWaitTime);
@@ -318,24 +385,51 @@ begin
     end
     else
     begin
-      if not Self.FindTree(OurPos, TreeTile, _) then
+      if not Self.FindTree(OurPos, TreeTile, B, ATPA) then
       begin
         Script.WriteMsg('WhileChopping: Tree not found', True);
         break;
       end;
 
-      if Inventory.IsFull() then
+      // if got a click pt
+      if ClickPt.X <> -1 then
+      begin
+        // if chopping anywhere, FindTree isnt accurate enough for this, so we gotta check ourselves
+        if TreeTile.X = -1 then
+        begin
+          ATPA := Self.FindTreeColor(ClickB);
+
+          // make sure theres still colors in this box
+          if Length(ATPA) <= 0 then
+          begin
+            Script.WriteMsg('WhileChopping: no tree colors inside clickBox', True);
+            break;
+          end;
+
+          B := ATPA.Biggest().Bounds();
+        end;
+
+        // make sure that its still in the box
+        if not B.Contains(ClickPt) then
+        begin
+          Script.WriteMsg('WhileChopping: ClickPt not inside B', True);
+          break;
+        end;
+      end;
+
+      IC := Inventory.Count();
+      if IC >= (Inventory.HIGH_SLOT + 1) then
       begin
         Script.WriteMsg('WhileChopping: Inventory full', True);
         break;
       end;
 
-      if Inventory.Count() > InvCount then
+      if IC <> InvCount then
       begin
         Script.WriteMsg('WhileChopping: Got an item! Restarting timer', True);
         TimeoutCounter.Restart();
       end;
-      InvCount := Inventory.Count();
+      InvCount := IC;
 
       if TimeoutCounter.IsFinished() then
       begin
@@ -344,13 +438,23 @@ begin
       end;
     end;
 
-    Self.DoMainLoopStuff('Chopping tree...');
+    Self.DoMainLoopStuff('Chopping tree...', True);
   end;
 
   if TimeoutCounter.IsFinished() then
     Script.WriteMsg('WhileChopping: No log gained in timeout...', True);
 
   Script.SetStatus('Tree chopping completed!');
+
+  // check if we are not in the spot
+  if Self.DidMove < 0 then
+    Self.DidMove := 0;
+
+  if Self.DidMove > 6 then
+  begin
+    Self.DidMove := 0;
+    // Self.GoToTrees(True, False);
+  end;
 end;
 
 {
@@ -359,14 +463,15 @@ end;
 function TBot.DoGathering(): Boolean;
 var
   Clicked: Boolean;
+  ClickPt: TPoint;
+  B: TBox;
 begin
-  if (Self.ClickTree(Clicked) and Clicked) or
+  if (Self.ClickTree(Clicked, ClickPt, B) and Clicked) or
     Self.GoToTrees() or
-    (Self.ClickTree(Clicked) and Clicked) then
+    (Self.ClickTree(Clicked, ClickPt, B) and Clicked) then
   begin
     Result := True;
-    Self.AfterActionAntiBan(True);
-    Self.WhileChopping(Self.CurrentChoppingTreeTile);
+    Self.WhileChopping(Self.CurrentChoppingTreeTile, ClickPt, B);
   end;
 end;
 

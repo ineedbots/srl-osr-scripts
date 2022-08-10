@@ -450,10 +450,7 @@ begin
 
       // meme!
       if Self.GoToRocks(True) then
-      begin
-        Self.AfterActionAntiBan(True);
         Self.WhileMining(Self.CurrentMiningRockTile);
-      end;
     end;
   end;
 end;

@@ -454,10 +454,7 @@ begin
 
       // meme!
       if Self.GoToTrees(True) then
-      begin
-        Self.AfterActionAntiBan(True);
         Self.WhileChopping(Self.CurrentChoppingTreeTile);
-      end;
     end;
   end;
 end;
