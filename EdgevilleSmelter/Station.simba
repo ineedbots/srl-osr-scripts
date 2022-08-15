@@ -436,7 +436,10 @@ begin
 
   if Self.UsingInterfaceMake and MainScreen.AnyInterfaceOpen() then
   begin
-    Mouse.Click(Self.InterfaceMakeBox, MOUSE_LEFT);
+    if Script.ShouldPressKeyboard() then
+      Keyboard.PressKey(VK_SPACE)
+    else
+      Mouse.Click(Self.InterfaceMakeBox, MOUSE_LEFT);
   end
   else if Make.IsOpen() and not Make.Select(Self.MakeOption, MAKE_QUANTITY_ALL, Script.ShouldPressKeyboard()) then
   begin
