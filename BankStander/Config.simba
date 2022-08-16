@@ -40,6 +40,7 @@ const
   AMULET_OF_CHEM = False;
 
   MAKE_NUM = 3;
+  SPELL_TO_CAST = ERSSpell.LVL1_ENCHANT;
 
   TOOLS = ['Chisel'];
 

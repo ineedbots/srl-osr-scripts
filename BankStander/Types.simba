@@ -19,7 +19,8 @@ type
   ERSCreationType = (
     TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
     COMBINE,         // combine like potions
-    CLEANER          // cleans herbs
+    CLEANER,          // cleans herbs
+    ENCHANTER          // enchants
   );
 
   ERSBankColorType = (
@@ -46,6 +47,7 @@ type
     RSW                                                       : TRSWalker;
     BankColor                                                 : TScriptColor;
     AmuletOfChemCountdown                                     : TCountdown;
+    Spell                                                     : ERSSpell;
   end;
 
 var

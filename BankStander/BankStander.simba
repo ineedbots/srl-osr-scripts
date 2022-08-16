@@ -40,6 +40,7 @@ begin
         ERSCreationType.TRANSFORM: DidIt := Self.DoTransform();
         ERSCreationType.COMBINE: DidIt := Self.DoCombine();
         ERSCreationType.CLEANER: DidIt := Self.DoClean();
+        ERSCreationType.ENCHANTER: DidIt := Self.DoEnchant();
         //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
       end;
 
@@ -180,6 +181,8 @@ begin
     Self.BankLocations[i].X := BANK_LOCATIONS[i][0];
     Self.BankLocations[i].Y := BANK_LOCATIONS[i][1];
   end;
+
+  Self.Spell := SPELL_TO_CAST;
 
   case BANK_COLOR_TYPE of
     ERSBankColorType.FARMING_GUILD_CHEST:

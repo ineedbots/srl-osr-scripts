@@ -386,4 +386,82 @@ begin
   Script.WriteMsg('No materials', True);
 end;
 
+{
+  Does the enchanting
+}
+procedure TBot.Enchant(Item: TRSItem; Pattern: TIntegerArray);
+var
+  B: TBox;
+  i: Int32;
+  ItemSlots: TIntegerArray;
+begin
+  if not Magic.Open() then
+  begin
+    Script.WriteMsg('Failed to open magic', True);
+    exit();
+  end;
+
+  if not Magic.GetSpellBox(Self.Spell, B) then
+  begin
+    Script.WriteMsg('Failed to GetSpellBox', True);
+    exit();
+  end;
+
+  for i in Pattern do
+  begin
+    ItemSlots.Clear();
+    if not Inventory.FindItem(Item, ItemSlots) then
+    begin
+      Script.WriteMsg('No materials found!', True);
+      exit();
+    end;
+
+    // skip this slot, item no longer in slot...
+    if ItemSlots.Find(i) = -1 then
+      continue;
+
+
+  end;
+end;
+
+{
+  Enchants!
+}
+function TBot.DoEnchant(): Boolean;
+var
+  MaterialSlots, Pattern: TIntegerArray;
+  Item: TRSItem;
+  i: Int32;
+begin
+  // runes are tools!
+  if not Inventory.FindItems(Self.ToolItems) then
+  begin
+    Script.WriteMsg('No runes', True);
+    exit();
+  end;
+
+  Script.WriteMsg('Enchanting items...', True);
+  Pattern := Bank.GetGoodPattern();  
+  Script.WriteMsg('DoEnchant: Pattern: ' + ToStr(Pattern), True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoEnchant: MaterialSlots: ' + ToStr(MaterialSlots), True);
+
+      // only include items in pattern
+      for i := High(Pattern) downto Low(Pattern) do
+        if MaterialSlots.Find(Pattern[i]) = -1 then
+          Pattern.Remove(Pattern[i]);
+
+      Self.Enchant(Item, Pattern);
+      Result := True;
+      break;
+    end;
+  end;
+
+  Script.WriteMsg('No materials', True);
+end;
+
 {$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM
