@@ -249,7 +249,7 @@ begin
   Pattern.Remove(Pattern[0]);
 
   if Result and AfkClean then
-  begin       
+  begin
     Script.WriteMsg('Starting the cleaning', True);
 
     CountDown.Init(Self.TransformWaitTime);
@@ -296,7 +296,7 @@ begin
         if Random() < 0.2 then
         begin
           Wait(0, 1500, wdLeft);
-          
+
           while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
             Wait(75, 500);
         end;
@@ -394,21 +394,50 @@ var
   B: TBox;
   i: Int32;
   ItemSlots: TIntegerArray;
+  CountDown: TCountDown;
 begin
-  if not Magic.Open() then
+  while RSClient.IsLoggedIn() do
   begin
-    Script.WriteMsg('Failed to open magic', True);
-    exit();
-  end;
+    if not Magic.Open() then
+    begin
+      Script.WriteMsg('Failed to open magic', True);
+      break;
+    end;
 
-  if not Magic.GetSpellBox(Self.Spell, B) then
-  begin
-    Script.WriteMsg('Failed to GetSpellBox', True);
-    exit();
-  end;
+    if not Magic.GetSpellBox(Self.Spell, B) then
+    begin
+      Script.WriteMsg('Failed to GetSpellBox', True);
+      break;
+    end;
 
-  for i in Pattern do
-  begin
+    // start the casts!
+    Mouse.Click(B, MOUSE_LEFT);
+    Wait(0, 750, wdLeft);
+
+    // make sure the inv opens
+    CountDown.Init(SRL.SkewedRand(2000, 1500, 2500));
+    while RSClient.IsLoggedIn() do
+    begin
+      if Inventory.IsOpen() then
+        break;
+
+      if CountDown.IsFinished() then
+        break;
+    end;
+
+    if not Inventory.IsOpen() then
+    begin
+      Script.WriteMsg('Inv didnt open', True);
+      break;
+    end;
+
+    // make sure theres mats
+    if not Inventory.FindItems(Self.ToolItems) then
+    begin
+      Script.WriteMsg('No runes found!', True);
+      break;
+    end;
+
     ItemSlots.Clear();
     if not Inventory.FindItem(Item, ItemSlots) then
     begin
@@ -416,11 +445,48 @@ begin
       exit();
     end;
 
-    // skip this slot, item no longer in slot...
-    if ItemSlots.Find(i) = -1 then
-      continue;
+    if not Self.ShouldMakeProduct() then
+      break;
 
+    // update pattern
+    for i := High(Pattern) downto Low(Pattern) do
+      if ItemSlots.Find(Pattern[i]) = -1 then
+        Pattern.Remove(Pattern[i]);
 
+    if Length(Pattern) <= 0 then
+      break;
+
+    i := Pattern[0];
+    Pattern.Remove(i);
+
+    // start enchanting
+    Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
+
+    if Random() < 0.8 then
+    begin
+      Wait(0, 750, wdLeft);
+      Mouse.Move(B);
+    end;
+
+    // wait for enchant, we should swap back to the magic tab when it begins
+    CountDown.Init(SRL.SkewedRand(3000, 1500, 3500));
+    while RSClient.IsLoggedIn() do
+    begin
+      if Magic.IsOpen() then
+        break;
+
+      if CountDown.IsFinished() then
+        break;
+    end;
+
+    if not Magic.IsOpen() then
+    begin
+      Script.WriteMsg('Magic didnt reopen', True);
+      break;
+    end;
+
+    if Length(Pattern) <= 0 then
+      break;
   end;
 end;
 
@@ -441,7 +507,7 @@ begin
   end;
 
   Script.WriteMsg('Enchanting items...', True);
-  Pattern := Bank.GetGoodPattern();  
+  Pattern := Bank.GetGoodPattern();
   Script.WriteMsg('DoEnchant: Pattern: ' + ToStr(Pattern), True);
 
   for Item in Self.MaterialItems do
