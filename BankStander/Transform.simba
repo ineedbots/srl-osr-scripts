@@ -317,7 +317,9 @@ begin
 
       Self.DoMainLoopStuff('Cleaning items...', True);
     end;
-  end;
+  end
+  else if Random() < (0.05 / 28) then
+    Self.StoppedShort := True;
 end;
 
 
@@ -389,15 +391,20 @@ end;
 {
   Does the enchanting
 }
-procedure TBot.Enchant(Item: TRSItem; Pattern: TIntegerArray);
+function TBot.Enchant(Item: TRSItem; Pattern: TIntegerArray): Boolean;
 var
   B: TBox;
-  i: Int32;
+  MCount, OGMCount, StopShort, i, MC: Int32;
   ItemSlots: TIntegerArray;
-  CountDown: TCountDown;
+  CountDown: TCountDown;    
+  AfkEnchant: Boolean;
 begin
+  if Random() < 0.05 then
+    AfkEnchant := True;
+
   while RSClient.IsLoggedIn() do
   begin
+    // open magic book
     if not Magic.Open() then
     begin
       Script.WriteMsg('Failed to open magic', True);
@@ -411,8 +418,9 @@ begin
     end;
 
     // start the casts!
+    Script.WriteMsg('Casting spell', True);
+    Wait(0, 1250, wdLeft);
     Mouse.Click(B, MOUSE_LEFT);
-    Wait(0, 750, wdLeft);
 
     // make sure the inv opens
     CountDown.Init(SRL.SkewedRand(2000, 1500, 2500));
@@ -423,6 +431,8 @@ begin
 
       if CountDown.IsFinished() then
         break;
+
+      Self.DoMainLoopStuff('Waiting for inv to open', False);
     end;
 
     if not Inventory.IsOpen() then
@@ -430,6 +440,12 @@ begin
       Script.WriteMsg('Inv didnt open', True);
       break;
     end;
+
+    Script.WriteMsg('Inv opened', True); 
+    Wait(0, 1250, wdLeft);
+
+    if not Self.ShouldMakeProduct() then
+      break;
 
     // make sure theres mats
     if not Inventory.FindItems(Self.ToolItems) then
@@ -439,14 +455,11 @@ begin
     end;
 
     ItemSlots.Clear();
-    if not Inventory.FindItem(Item, ItemSlots) then
+    if not Inventory.FindItem(Item, ItemSlots) or (Length(ItemSlots) < Self.MaterialRatio) then
     begin
       Script.WriteMsg('No materials found!', True);
-      exit();
-    end;
-
-    if not Self.ShouldMakeProduct() then
       break;
+    end;
 
     // update pattern
     for i := High(Pattern) downto Low(Pattern) do
@@ -460,16 +473,27 @@ begin
     Pattern.Remove(i);
 
     // start enchanting
+
+    // make sure that we are casting
+    Mouse.Move(Inventory.GetSlotBox(i));
+    if not MainScreen.IsUpText('->') then
+    begin
+      Script.WriteMsg('Not casting!', True);
+      break;
+    end;
+
+    Script.WriteMsg('Enchanting item', True);
     Mouse.Click(Inventory.GetSlotBox(i), MOUSE_LEFT);
 
+    // move our mouse to the spot again
     if Random() < 0.8 then
     begin
-      Wait(0, 750, wdLeft);
-      Mouse.Move(B);
+      Wait(0, 1250, wdLeft);
+      Mouse.Move(B.Expand(10));
     end;
 
     // wait for enchant, we should swap back to the magic tab when it begins
-    CountDown.Init(SRL.SkewedRand(3000, 1500, 3500));
+    CountDown.Init(SRL.SkewedRand(4000, 3500, 6000));
     while RSClient.IsLoggedIn() do
     begin
       if Magic.IsOpen() then
@@ -477,6 +501,8 @@ begin
 
       if CountDown.IsFinished() then
         break;
+
+      Self.DoMainLoopStuff('Waiting for magic to open', False);
     end;
 
     if not Magic.IsOpen() then
@@ -484,6 +510,101 @@ begin
       Script.WriteMsg('Magic didnt reopen', True);
       break;
     end;
+
+    Result := True;
+    Script.WriteMsg('Magic opened', True);
+
+    MCount := Length(Pattern);
+    OGMCount := MCount;
+
+    StopShort := MCount;
+    if Random() < 0.05 then
+      StopShort := SRL.SkewedRand(MCount, MCount, 0);
+
+    if Random() < (0.05 / 28) then
+      AfkEnchant := True;
+
+    if AfkEnchant then
+    begin
+      // do afk enchanting
+      CountDown.Init(Self.TransformWaitTime);
+      while RSClient.IsLoggedIn() do
+      begin
+        // check inv
+        ItemSlots.Clear();
+        Inventory.FindItem(Item, ItemSlots);
+        MC := Length(ItemSlots);
+
+        if MC < Self.MaterialRatio then
+        begin
+          Script.WriteMsg('Enchant: No more material', True);
+          break;
+        end;
+
+        if MC <> MCount then
+        begin
+          Script.WriteMsg('Enchant: InvCount changed, restarting countdown', True);
+          CountDown.Restart();
+        end;
+
+        if (StopShort - (OGMCount - MC)) <= 0 then
+        begin
+          if Random() < 0.65 then
+            Self.StoppedShort := True;
+
+          Script.WriteMsg('Stopping short for antiban', True);
+          break;
+        end;
+
+        MCount := MC;
+
+        if CountDown.IsFinished() then
+        begin
+          Script.WriteMsg('Enchant: Countdown expired', True);
+          break;
+        end;
+
+        if Chat.LeveledUp() then
+        begin
+          Script.WriteMsg('Enchant: Leveld', True);
+          if Random() < 0.2 then
+          begin
+            Wait(0, 1500, wdLeft);
+
+            while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
+              Wait(75, 500);
+          end;
+          break;
+        end;
+
+        if Random() < (0.05 / 14) then
+        begin
+          AfkEnchant := False;
+          break;
+        end;
+
+        if not Self.ShouldMakeProduct() then
+        begin
+          Script.WriteMsg('Enchant: shouldn''t make product', True);
+          break;
+        end;
+
+        Self.DoMainLoopStuff('Enchanting items...', True);
+      end;
+    end
+    else
+    begin
+      if Random() < (0.05 / 28) then
+      begin
+        Self.StoppedShort := True;
+        break;
+      end;
+
+      Wait(0, 3000, wdLeft);
+    end;
+
+    if Self.StoppedShort then
+      break;
 
     if Length(Pattern) <= 0 then
       break;
@@ -521,8 +642,7 @@ begin
         if MaterialSlots.Find(Pattern[i]) = -1 then
           Pattern.Remove(Pattern[i]);
 
-      Self.Enchant(Item, Pattern);
-      Result := True;
+      Result := Self.Enchant(Item, Pattern);
       break;
     end;
   end;
