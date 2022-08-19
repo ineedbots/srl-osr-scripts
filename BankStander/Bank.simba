@@ -218,19 +218,27 @@ end;
   Banks for glassmake!
 }
 function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox): Boolean;
+var
+  i: Int32;
 begin
   Pattern := Pattern;
 
   Bank.DepositAllItems();
 
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(7);
+
   // primary SHOULD be giant seaweed
   // runelite shift click to withdraw-1
-  Mouse.ShiftClick(MBox);
-  Mouse.ShiftClick(MBox);
-  Mouse.ShiftClick(MBox);
+  for i := 1 to 3 do
+  begin   
+    Mouse.ShiftClick(MBox);
 
-  Bank.WithdrawHelper(SMBox, 18, False, True);
+    Wait(0, 500, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(2);
+  end;
 
+  Bank.WithdrawItemFromBank(SMBox, 18, False, 18);
   Result := True;
 end;
 
