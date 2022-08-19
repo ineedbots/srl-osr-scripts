@@ -668,7 +668,35 @@ end;
   Activates the glassmake!
 }
 function TBot.DoGlassMake(): Boolean;
+var
+  B: TBox;
 begin
+  // open magic book
+  if not Magic.Open() then
+  begin
+    Script.WriteMsg('Failed to open magic', True);
+    exit();
+  end;
+
+  if not Magic.GetSpellBox(Self.Spell, B) then
+  begin
+    Script.WriteMsg('Failed to GetSpellBox', True);
+    exit();
+  end;
+
+  // start the casts!
+  Script.WriteMsg('Casting spell', True);
+  Wait(0, 1250, wdLeft);
+  Mouse.Click(B, MOUSE_LEFT);
+
+  // hover next action
+  if Random() < 0.8 then
+    Mouse.Move(MainScreen.GetPlayerBox());
+
+  // wait for the operation to complete!!
+  Wait(SRL.SkewedRand(4000, 3000, 5000));
+
+  Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM

@@ -219,6 +219,19 @@ end;
 }
 function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox): Boolean;
 begin
+  Pattern := Pattern;
+
+  Bank.DepositAllItems();
+
+  // primary SHOULD be giant seaweed
+  // runelite shift click to withdraw-1
+  Mouse.ShiftClick(MBox);
+  Mouse.ShiftClick(MBox);
+  Mouse.ShiftClick(MBox);
+
+  Bank.WithdrawHelper(SMBox, 18, False, True);
+
+  Result := True;
 end;
 
 {
@@ -478,7 +491,10 @@ begin
 
     if Self.OpenBank() then
     begin
-      Self.AfterActionAntiBan(True, False);
+      if Self.CreationType = ERSCreationType.GLASSMAKE then
+        Self.AfterActionAntiBan(False)
+      else
+        Self.AfterActionAntiBan(True, False);
 
       if Self.WaitBankOpen() then
         Result := True;

@@ -756,6 +756,28 @@ begin
 end;
 
 {
+  Shift clicks the box
+}
+function TMouse.ShiftClick(B: TBox): Boolean;
+begin
+  IsKeyDown(VK_SHIFT); // Clear cache
+
+  try
+    if not IsKeyDown(VK_SHIFT) then
+      KeyDown(VK_SHIFT);
+
+    Wait(100, 250);
+
+    Mouse.Click(B, MOUSE_LEFT);
+
+    Wait(0, 250, wdLeft);
+  finally
+    if IsKeyDown(VK_SHIFT) then
+      KeyUp(VK_SHIFT);
+  end;
+end;
+
+{
   Shift clicks the slot
 }
 function TRSInventory.ShiftClick(Slot: Int32): Boolean;
@@ -774,16 +796,6 @@ begin
       Wait(100, 250);
 
       Mouse.Click(Self.GetSlotBox(Slot), MOUSE_LEFT);
-
-      // Spam click a little
-      for i := 1 to SRL.TruncatedGauss(0, 3) do
-      begin
-        Circle.X := Mouse.Position().X;
-        Circle.Y := Mouse.Position().Y;
-        Circle.Radius := 5;
-
-        Mouse.Click(Circle, MOUSE_LEFT, True);
-      end;
 
       Wait(0, 250, wdLeft);
 
