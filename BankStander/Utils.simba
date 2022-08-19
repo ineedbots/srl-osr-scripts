@@ -19,6 +19,7 @@
 {$include_once Config.simba}
 
 {$include_once Bank.simba}
+{$include_once Transform.simba}
 
 {
   Handles amulet of chem
@@ -60,6 +61,12 @@ function TBot.ShouldMakeProduct(): Boolean;
 var
   Slots: TIntegerArray;
 begin
+  if Self.CreationType = ERSCreationType.GLASSMAKE then
+  begin
+    Self.DoGlassMake();
+    exit();
+  end;
+
   if Self.StoppedShort then
     exit();
 

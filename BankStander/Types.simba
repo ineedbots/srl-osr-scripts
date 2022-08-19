@@ -20,7 +20,8 @@ type
     TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
     COMBINE,         // combine like potions
     CLEANER,          // cleans herbs
-    ENCHANTER          // enchants
+    ENCHANTER,          // enchants
+    GLASSMAKE             // superglass make
   );
 
   ERSBankColorType = (

@@ -664,4 +664,11 @@ begin
   Script.WriteMsg('No materials', True);
 end;
 
+{
+  Activates the glassmake!
+}
+function TBot.DoGlassMake(): Boolean;
+begin
+end;
+
 {$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM

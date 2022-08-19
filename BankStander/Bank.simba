@@ -215,6 +215,13 @@ begin
 end;
 
 {
+  Banks for glassmake!
+}
+function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox): Boolean;
+begin
+end;
+
+{
   Banks
 }
 procedure TBot.DoBanking();
@@ -313,102 +320,114 @@ begin
   CurProducts := Length(ProductSlots);
   Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
 
-  // deposit our stuff
-  Script.WriteMsg('Depositting our produce.', True);
-  if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
-    Bank.DepositAllItems()
-  else if not Bank.DepositItemsIntoBank(Pattern) then
+  if Self.CreationType = ERSCreationType.GLASSMAKE then
   begin
-    Script.WriteMsg('Failed to deposit items');
-    Bank.Close(Script.ShouldPressKeyboard());
-    exit();
-  end;
-
-  Wait(0, 1000, wdLeft);
-  Script.AntiBan.AfterBankAntiBan(7);
-
-  // withdraw the amulet
-  if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
-  begin
-    // withdraw it
-    if not Bank.WithdrawItemFromBank(ACBox, 1) then
+    if not Self.DoGlassMakeBank(Pattern, MBox, SMBox) then
     begin
-      Script.WriteMsg('Failed to withdraw amulet');
-      exit();
-    end;
-
-    Wait(0, 1000, wdLeft);
-    Script.AntiBan.AfterBankAntiBan(7);
-
-    // find it
-    Pattern.Clear();
-    if not Inventory.FindItem(Self.AmuletOfChemItem, Pattern) then
-    begin
-      Script.WriteMsg('Couldn''t find amulet in inv');
-      exit();
-    end;
-
-    // equip it
-    i := Inventory.Count();
-    
-    Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
-    Wait(0, 750, wdLeft);
-
-    if not ChooseOption.Select('Wear') then
-    begin
-      Script.WriteMsg('Couldn''t select wear for amulet');
-      exit(); 
-    end;
-
-    Wait(0, 500, wdLeft);
-    Script.AntiBan.AfterBankAntiBan(2);
-
-    Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000));
-
-    Self.NeedToRefillAmuletOfChem := False;
-    Self.AmuletOfChemCountdown.Restart();
-
-    Wait(0, 1000, wdLeft);
-    Script.AntiBan.AfterBankAntiBan(7);
-  end;
-
-  // withdraw our crap        
-  FreeSpace := (Inventory.HIGH_SLOT + 1) - Inventory.Count();
-
-  if Length(Self.SecondaryMaterialItems) > 0 then
-  begin
-    MatsToWith := Floor(FreeSpace / (1 + Self.SecondaryMaterialRatio));
-
-    // lets withdraw our material
-    if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
-    begin
-      Script.WriteMsg('Failed to withdraw materials');
-      Bank.Close(Script.ShouldPressKeyboard());
-      exit();
-    end;
-
-    Wait(0, 1000, wdLeft);
-    Script.AntiBan.AfterBankAntiBan(7);
-
-    if not Bank.WithdrawItemFromBank(SMBox, MatsToWith * Self.SecondaryMaterialRatio) then
-    begin
-      Script.WriteMsg('Failed to withdraw secondary materials');
+      Script.WriteMsg('Failed to deposit items');
       Bank.Close(Script.ShouldPressKeyboard());
       exit();
     end;
   end
   else
   begin
-    if Self.MaterialRatio = 1 then
-      MatsToWith := -3
-    else
-      MatsToWith := FreeSpace - (FreeSpace mod Self.MaterialRatio);
-
-    if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
+    // deposit our stuff
+    Script.WriteMsg('Depositting our produce.', True);
+    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+      Bank.DepositAllItems()
+    else if not Bank.DepositItemsIntoBank(Pattern) then
     begin
-      Script.WriteMsg('Failed to withdraw materials');
+      Script.WriteMsg('Failed to deposit items');
       Bank.Close(Script.ShouldPressKeyboard());
       exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(7);
+
+    // withdraw the amulet
+    if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
+    begin
+      // withdraw it
+      if not Bank.WithdrawItemFromBank(ACBox, 1) then
+      begin
+        Script.WriteMsg('Failed to withdraw amulet');
+        exit();
+      end;
+
+      Wait(0, 1000, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(7);
+
+      // find it
+      Pattern.Clear();
+      if not Inventory.FindItem(Self.AmuletOfChemItem, Pattern) then
+      begin
+        Script.WriteMsg('Couldn''t find amulet in inv');
+        exit();
+      end;
+
+      // equip it
+      i := Inventory.Count();
+
+      Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+      Wait(0, 750, wdLeft);
+
+      if not ChooseOption.Select('Wear') then
+      begin
+        Script.WriteMsg('Couldn''t select wear for amulet');
+        exit();
+      end;
+
+      Wait(0, 500, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(2);
+
+      Inventory.WaitChange(i, SRL.SkewedRand(2500, 2000, 3000));
+
+      Self.NeedToRefillAmuletOfChem := False;
+      Self.AmuletOfChemCountdown.Restart();
+
+      Wait(0, 1000, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(7);
+    end;
+
+    // withdraw our crap
+    FreeSpace := (Inventory.HIGH_SLOT + 1) - Inventory.Count();
+
+    if Length(Self.SecondaryMaterialItems) > 0 then
+    begin
+      MatsToWith := Floor(FreeSpace / (1 + Self.SecondaryMaterialRatio));
+
+      // lets withdraw our material
+      if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
+      begin
+        Script.WriteMsg('Failed to withdraw materials');
+        Bank.Close(Script.ShouldPressKeyboard());
+        exit();
+      end;
+
+      Wait(0, 1000, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(7);
+
+      if not Bank.WithdrawItemFromBank(SMBox, MatsToWith * Self.SecondaryMaterialRatio) then
+      begin
+        Script.WriteMsg('Failed to withdraw secondary materials');
+        Bank.Close(Script.ShouldPressKeyboard());
+        exit();
+      end;
+    end
+    else
+    begin
+      if Self.MaterialRatio = 1 then
+        MatsToWith := -3
+      else
+        MatsToWith := FreeSpace - (FreeSpace mod Self.MaterialRatio);
+
+      if not Bank.WithdrawItemFromBank(MBox, MatsToWith) then
+      begin
+        Script.WriteMsg('Failed to withdraw materials');
+        Bank.Close(Script.ShouldPressKeyboard());
+        exit();
+      end;
     end;
   end;
 
