@@ -21,7 +21,7 @@
 {
   Transforms the item with a tool
 }
-procedure TBot.Transform(Item: TRSItem; MaterialSlots, ToolSlots: TIntegerArray);
+function TBot.Transform(Item: TRSItem; MaterialSlots, ToolSlots: TIntegerArray): Boolean;
 var
   ToolSlot, MaterialSlot, MCount, MC, StopShort, OGMCount: Int32;
   Made: Boolean;
@@ -29,8 +29,8 @@ var
 begin
   // can be secondary material too!
   ToolSlot := ToolSlots[Random(High(ToolSlots))];
-
   MaterialSlot := MaterialSlots[Random(High(MaterialSlots))];
+
   MCount := Length(MaterialSlots);
   OGMCount := MCount;
 
@@ -69,6 +69,8 @@ begin
     Script.WriteMsg('Failed to open make', True);
     exit();
   end;
+
+  Result := True;
 
   Self.AfterActionAntiBan(True, False);
   CountDown.Init(Self.TransformWaitTime);
@@ -165,8 +167,7 @@ begin
     if Inventory.FindItem(Item, MaterialSlots) then
     begin
       Script.WriteMsg('DoTransform: MaterialSlots: ' + ToStr(MaterialSlots), True);
-      Self.Transform(Item, MaterialSlots, ToolSlots);
-      Result := True;
+      Result := Self.Transform(Item, MaterialSlots, ToolSlots);
       break;
     end;
   end;
@@ -197,8 +198,7 @@ begin
     if Inventory.FindItem(Item, MaterialSlots) then
     begin
       Script.WriteMsg('DoCombine: MaterialSlots: ' + ToStr(MaterialSlots), True);
-      Self.Transform(Item, MaterialSlots, SecondaryMaterialSlots);
-      Result := True;
+      Result := Self.Transform(Item, MaterialSlots, SecondaryMaterialSlots);
       break;
     end;
   end;
@@ -207,18 +207,20 @@ begin
 end;
 
 {
-  Cleans the herbs
+  Cleans
 }
-function TBot.Clean(Item: TRSItem; out Pattern: TIntegerArray; i: Int32; out AfkClean: Boolean): Boolean;
+function TBot.Clean(Item: TRSItem; MaterialSlots: TIntegerArray): Boolean;
 var
-  MaterialSlots: TIntegerArray;
-  MCount, OGMCount, StopShort, ii, MC: Int32;
+  Pattern: TIntegerArray;
+  MCount, MC, StopShort, OGMCount, i, S: Int32;
   CountDown: TCountDown;
-  Uptxt: String;
+  UpTxt: String;
+  Clicked, Afk: Boolean;
 begin
-  i := i;
-  if not Inventory.FindItem(Item, MaterialSlots) then
-    exit();
+  S := Mouse.Speed;
+  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+
+  Pattern := Bank.GetGoodPattern();
 
   MCount := Length(MaterialSlots);
   OGMCount := MCount;
@@ -227,39 +229,84 @@ begin
   if Random() < 0.05 then
     StopShort := SRL.SkewedRand(MCount, MCount, 0);
 
-  // remove all slots with no item!
-  for ii := High(Pattern) downto Low(Pattern) do
-    if MaterialSlots.Find(Pattern[ii]) = -1 then
-      Pattern.Remove(Pattern[ii]);
+  if Random() < 0.05 then
+    Afk := True;
 
-  if Length(Pattern) <= 0 then
-    exit();
-
-  Mouse.Move(Inventory.GetSlotBox(Pattern[0]));
-
-  Uptxt := MainScreen.GetUpText();
-  if (Uptxt.Count('Clean') > 0) and (Random() < 0.975) then
+  while RSClient.IsLoggedIn() do
   begin
-    Mouse.Click(MOUSE_LEFT);
+    // make sure nothing is selected
+    Inventory.SetSelectedSlot(-1);
+
+    // check for items
+    MaterialSlots.Clear();
+    if not Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('Clean: No items for cleaning found', True);
+      break;
+    end;
+
+    // clean up the pattern!
+    for i := High(Pattern) downto Low(Pattern) do
+      if MaterialSlots.Find(Pattern[i]) = -1 then
+        Pattern.Remove(Pattern[i]);
+
+    // make sure!
+    if Length(Pattern) <= 0 then
+    begin
+      Script.WriteMsg('Clean: Pattern is empty', True);
+      break;
+    end;
+
+    // pop!
+    i := Pattern[0];
+    Pattern.Remove(i);
+
+    // click it!
+    Mouse.Move(Inventory.GetSlotBox(i));
+
+    UpTxt := MainScreen.GetUpText();
+    if (UpTxt.Count('Clean') > 0) and (Random() < 0.975) then
+    begin
+      Mouse.Click(MOUSE_LEFT);
+      Clicked := True;
+    end
+    else
+      Clicked := ChooseOption.Select('Clean');
+
+    if not Clicked then
+    begin
+      Script.WriteMsg('Didnt click the clean, trying another', True);
+      continue;
+    end;
+
     Result := True;
-  end
-  else
-    Result := ChooseOption.Select('Clean');
 
-  Pattern.Remove(Pattern[0]);
-
-  if Result and AfkClean then
-  begin
-    Script.WriteMsg('Starting the cleaning', True);
+    // start afking?
+    if Random() < (0.05 / 28) then
+      Afk := True;
 
     CountDown.Init(Self.TransformWaitTime);
-
     while RSClient.IsLoggedIn() do
     begin
       // check inv
-      MaterialSlots.Clear();
-      Inventory.FindItem(Item, MaterialSlots);
       MC := Length(MaterialSlots);
+
+      // check if stopping short
+      if (StopShort - (OGMCount - MC)) <= 0 then
+      begin
+        if Random() < 0.65 then
+          Self.StoppedShort := True;
+
+        Script.WriteMsg('Stopping short for antiban', True);
+        break;
+      end;
+
+      // stop afking?
+      if Random() < (0.05 / 14) then
+        Afk := False;
+
+      if not Afk then
+        break;
 
       if MC < Self.MaterialRatio then
       begin
@@ -271,15 +318,6 @@ begin
       begin
         Script.WriteMsg('Clean: InvCount changed, restarting countdown', True);
         CountDown.Restart();
-      end;
-
-      if (StopShort - (OGMCount - MC)) <= 0 then
-      begin
-        if Random() < 0.65 then
-          Self.StoppedShort := True;
-
-        Script.WriteMsg('Stopping short for antiban', True);
-        break;
       end;
 
       MCount := MC;
@@ -303,12 +341,6 @@ begin
         break;
       end;
 
-      if Random() < (0.05 / 14) then
-      begin
-        AfkClean := False;
-        break;
-      end;
-
       if not Self.ShouldMakeProduct() then
       begin
         Script.WriteMsg('Clean: shouldn''t make product', True);
@@ -316,91 +348,74 @@ begin
       end;
 
       Self.DoMainLoopStuff('Cleaning items...', True);
+
+      // update!
+      MaterialSlots.Clear();
+      Inventory.FindItem(Item, MaterialSlots);
     end;
-  end
-  else if Random() < (0.05 / 28) then
-    Self.StoppedShort := True;
-end;
 
-
-{
-  Clean the herbs
-}
-function TBot.DoClean(): Boolean;
-var
-  Item: TRSItem;
-  Pattern, MaterialSlots: TIntegerArray;
-  i, S: Int32;
-  AfkClean: Boolean;
-begin
-  Pattern := Bank.GetGoodPattern();
-
-  S := Mouse.Speed;
-  Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
-
-  if Random() < 0.05 then
-    AfkClean := True;
-
-  while RSClient.IsLoggedIn() do
-  begin
-    // make sure nothing is selected
-    Inventory.SetSelectedSlot(-1);
-
-    MaterialSlots.Clear();
-    if not Inventory.FindItems(Self.MaterialItems, MaterialSlots) or (Length(MaterialSlots) < Self.MaterialRatio) then
+    if MC < Self.MaterialRatio then
     begin
-      Script.WriteMsg('DoClean: no mats', True);
+      Script.WriteMsg('Clean: No more material', True);
       break;
     end;
 
     if Self.StoppedShort then
     begin
-      Script.WriteMsg('DoClean: stopping short', True);
+      Script.WriteMsg('Clean: stopping short', True);
       break;
     end;
-
-    if not Self.ShouldMakeProduct() then
-    begin
-      Script.WriteMsg('DoClean: shouldn''t make product', True);
-      break;
-    end;
-
-    if Random() < (0.05 / 28) then
-      AfkClean := True;
-
-    for Item in Self.MaterialItems do
-    begin
-      if Self.Clean(Item, Pattern, i, AfkClean) then
-        Result := True;
-    end;
-
-    if Length(Pattern) < Self.MaterialRatio then
-    begin
-      Self.StoppedShort := True;
-      break;
-    end;
-
-    Inc(i);
   end;
 
   Mouse.Speed := S;
   Wait(0, 5555, wdLeft);
+end;
+
+{
+  Does clean type
+}
+function TBot.DoClean(): Boolean;
+var
+  MaterialSlots: TIntegerArray;
+  Item: TRSItem;
+begin
+  Script.WriteMsg('Cleaning items...', True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoClean: MaterialSlots: ' + ToStr(MaterialSlots), True);
+      Result := Self.Clean(Item, MaterialSlots);
+      break;
+    end;
+  end;
+
   Script.WriteMsg('No materials', True);
 end;
 
 {
   Does the enchanting
 }
-function TBot.Enchant(Item: TRSItem; Pattern: TIntegerArray): Boolean;
-var
+function TBot.Enchant(Item: TRSItem; MaterialSlots: TIntegerArray): Boolean;
+var        
+  Pattern: TIntegerArray;
   B: TBox;
   MCount, OGMCount, StopShort, i, MC: Int32;
-  ItemSlots: TIntegerArray;
   CountDown: TCountDown;    
-  AfkEnchant: Boolean;
+  Afk: Boolean;
 begin
+  Pattern := Bank.GetGoodPattern();
+
+  MCount := Length(MaterialSlots);
+  OGMCount := MCount;
+
+  StopShort := MCount;
   if Random() < 0.05 then
-    AfkEnchant := True;
+    StopShort := SRL.SkewedRand(MCount, MCount, 0);
+
+  if Random() < 0.05 then
+    Afk := True;
 
   while RSClient.IsLoggedIn() do
   begin
@@ -445,7 +460,10 @@ begin
     Wait(0, 1250, wdLeft);
 
     if not Self.ShouldMakeProduct() then
+    begin
+      Script.WriteMsg('Shouldnt make product', True);
       break;
+    end;
 
     // make sure theres mats
     if not Inventory.FindItems(Self.ToolItems) then
@@ -454,8 +472,9 @@ begin
       break;
     end;
 
-    ItemSlots.Clear();
-    if not Inventory.FindItem(Item, ItemSlots) or (Length(ItemSlots) < Self.MaterialRatio) then
+    // get mats
+    MaterialSlots.Clear();
+    if not Inventory.FindItem(Item, MaterialSlots) or (Length(MaterialSlots) < Self.MaterialRatio) then
     begin
       Script.WriteMsg('No materials found!', True);
       break;
@@ -463,12 +482,16 @@ begin
 
     // update pattern
     for i := High(Pattern) downto Low(Pattern) do
-      if ItemSlots.Find(Pattern[i]) = -1 then
+      if MaterialSlots.Find(Pattern[i]) = -1 then
         Pattern.Remove(Pattern[i]);
 
     if Length(Pattern) <= 0 then
+    begin
+      Script.WriteMsg('Emmpty pattern!', True);
       break;
+    end;
 
+    // pop!
     i := Pattern[0];
     Pattern.Remove(i);
 
@@ -514,101 +537,101 @@ begin
     Result := True;
     Script.WriteMsg('Magic opened', True);
 
-    MCount := Length(Pattern);
-    OGMCount := MCount;
-
-    StopShort := MCount;
-    if Random() < 0.05 then
-      StopShort := SRL.SkewedRand(MCount, MCount, 0);
-
+    // start afking?
     if Random() < (0.05 / 28) then
-      AfkEnchant := True;
+      Afk := True;
 
-    if AfkEnchant then
+    CountDown.Init(Self.TransformWaitTime);
+    while RSClient.IsLoggedIn() do
     begin
-      // do afk enchanting
-      CountDown.Init(Self.TransformWaitTime);
-      while RSClient.IsLoggedIn() do
+      // check inv
+      MC := Length(MaterialSlots);
+
+      // check if stopping short
+      if (StopShort - (OGMCount - MC)) <= 0 then
       begin
-        // check inv
-        ItemSlots.Clear();
-        Inventory.FindItem(Item, ItemSlots);
-        MC := Length(ItemSlots);
+        if Random() < 0.65 then
+          Self.StoppedShort := True;
 
-        if MC < Self.MaterialRatio then
-        begin
-          Script.WriteMsg('Enchant: No more material', True);
-          break;
-        end;
-
-        if MC <> MCount then
-        begin
-          Script.WriteMsg('Enchant: InvCount changed, restarting countdown', True);
-          CountDown.Restart();
-        end;
-
-        if (StopShort - (OGMCount - MC)) <= 0 then
-        begin
-          if Random() < 0.65 then
-            Self.StoppedShort := True;
-
-          Script.WriteMsg('Stopping short for antiban', True);
-          break;
-        end;
-
-        MCount := MC;
-
-        if CountDown.IsFinished() then
-        begin
-          Script.WriteMsg('Enchant: Countdown expired', True);
-          break;
-        end;
-
-        if Chat.LeveledUp() then
-        begin
-          Script.WriteMsg('Enchant: Leveld', True);
-          if Random() < 0.2 then
-          begin
-            Wait(0, 1500, wdLeft);
-
-            while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
-              Wait(75, 500);
-          end;
-          break;
-        end;
-
-        if Random() < (0.05 / 14) then
-        begin
-          AfkEnchant := False;
-          break;
-        end;
-
-        if not Self.ShouldMakeProduct() then
-        begin
-          Script.WriteMsg('Enchant: shouldn''t make product', True);
-          break;
-        end;
-
-        Self.DoMainLoopStuff('Enchanting items...', True);
-      end;
-    end
-    else
-    begin
-      if Random() < (0.05 / 28) then
-      begin
-        Self.StoppedShort := True;
+        Script.WriteMsg('Stopping short for antiban', True);
         break;
       end;
 
-      Wait(0, 3000, wdLeft);
+      // stop afking?
+      if Random() < (0.05 / 14) then
+        Afk := False;
+
+      if not Afk then
+        break;
+
+      if MC < Self.MaterialRatio then
+      begin
+        Script.WriteMsg('Enchant: No more material', True);
+        break;
+      end;
+
+      if MC <> MCount then
+      begin
+        Script.WriteMsg('Enchant: InvCount changed, restarting countdown', True);
+        CountDown.Restart();
+      end;
+
+      MCount := MC;
+
+      if CountDown.IsFinished() then
+      begin
+        Script.WriteMsg('Enchant: Countdown expired', True);
+        break;
+      end;
+
+      if Chat.LeveledUp() then
+      begin
+        Script.WriteMsg('Enchant: Leveld', True);
+        if Random() < 0.2 then
+        begin
+          Wait(0, 1500, wdLeft);
+
+          while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
+            Wait(75, 500);
+        end;
+        break;
+      end;
+
+      if not Self.ShouldMakeProduct() then
+      begin
+        Script.WriteMsg('Enchant: shouldn''t make product', True);
+        break;
+      end;
+
+      Self.DoMainLoopStuff('Enchanting items...', True);
+
+      // update!
+      MaterialSlots.Clear();
+      Inventory.FindItem(Item, MaterialSlots);
+    end;
+
+    Wait(0, 3000, wdLeft);
+
+    if MC < Self.MaterialRatio then
+    begin
+      Script.WriteMsg('Enchant: No more material', True);
+      break;
     end;
 
     if Self.StoppedShort then
+    begin
+      Script.WriteMsg('Enchant: stopping short', True);
       break;
+    end;
 
     if Length(Pattern) <= 0 then
+    begin
+      Script.WriteMsg('Enchant: Pattern is compelte', True);
       break;
+    end;
   end;
+
+  Wait(0, 5555, wdLeft);
 end;
 
 {
@@ -616,9 +639,8 @@ end;
 }
 function TBot.DoEnchant(): Boolean;
 var
-  MaterialSlots, Pattern: TIntegerArray;
+  MaterialSlots: TIntegerArray;
   Item: TRSItem;
-  i: Int32;
 begin
   // runes are tools!
   if not Inventory.FindItems(Self.ToolItems) then
@@ -628,21 +650,13 @@ begin
   end;
 
   Script.WriteMsg('Enchanting items...', True);
-  Pattern := Bank.GetGoodPattern();
-  Script.WriteMsg('DoEnchant: Pattern: ' + ToStr(Pattern), True);
 
   for Item in Self.MaterialItems do
   begin
     if Inventory.FindItem(Item, MaterialSlots) then
     begin
       Script.WriteMsg('DoEnchant: MaterialSlots: ' + ToStr(MaterialSlots), True);
-
-      // only include items in pattern
-      for i := High(Pattern) downto Low(Pattern) do
-        if MaterialSlots.Find(Pattern[i]) = -1 then
-          Pattern.Remove(Pattern[i]);
-
-      Result := Self.Enchant(Item, Pattern);
+      Result := Self.Enchant(Item, MaterialSlots);
       break;
     end;
   end;

@@ -273,7 +273,7 @@ begin
     end;
   end;
 
-  Self.TransformWaitTime := 3000;
+  Self.TransformWaitTime := 4500;
   Self.CreationType := CREATION_TYPE;
   Self.MakeNum := MAKE_NUM;
 
