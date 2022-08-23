@@ -504,6 +504,51 @@ begin
 end;
 
 {
+  Flight's fix for xpbar!
+}
+function TRSXPBar.IsOpen: Boolean; override;
+
+  function FindBorder: Boolean;
+  const
+    COLOR_BORDER = $233038;
+  var C: Int32;
+  begin
+    C := SRL.CountColor(COLOR_BORDER, Self.Bounds);
+    case Self.Width of   // With / without progress bar
+{Smallest} 119: Result := (C = 292) or (C = 175);
+{Medium}   129: Result := (C = 312) or (C = 185);
+{Large}    140: Result := (C = 334) or (C = 196);
+    end;
+  end;
+
+  function UpdateLocation: Boolean;
+  var
+    Location: ERSXPBarLocation;
+    Size: ERSXPBarSize;
+  begin
+    for Location in ERSXPBarLocation do
+      for Size in ERSXPBarSize do
+      begin
+        Self.Cache := [];
+        Self.Alignment := Self.Alignments[Location][Size];
+        if FindBorder() then
+        begin
+          case Size of
+            ERSXPBarSize.SMALL:  Self.Font := RS_FONT_PLAIN_11;
+            ERSXPBarSize.MEDIUM: Self.Font := RS_FONT_PLAIN_12;
+            ERSXPBarSize.LARGE:  Self.Font := RS_FONT_BOLD_12;
+          end;
+
+          Exit(True);
+        end;
+      end;
+  end;
+
+begin
+  Result := FindBorder() or UpdateLocation();
+end;
+
+{
   Adds tinted colors, should be added to SRL
 }
 function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
@@ -771,6 +816,7 @@ begin
     Mouse.Click(B, MOUSE_LEFT);
 
     Wait(0, 250, wdLeft);
+    Result := True;
   finally
     if IsKeyDown(VK_SHIFT) then
       KeyUp(VK_SHIFT);
@@ -781,9 +827,6 @@ end;
   Shift clicks the slot
 }
 function TRSInventory.ShiftClick(Slot: Int32): Boolean;
-var
-  Circle: TCircle;
-  i: Int32;
 begin
   IsKeyDown(VK_SHIFT); // Clear cache
 
