@@ -133,6 +133,23 @@ begin
 end;
 
 {
+  Flight's screen shooter!! takes a screen shot!
+}
+procedure TScript.TakeScreenshot(Dir, PreName: String);
+var
+  i: Int32;
+begin
+  // flight's screen shotter!
+  CreateDirectory(                       'Screenshots/');
+  CreateDirectory(                       'Screenshots/ineedbot/');
+  CreateDirectory(                       'Screenshots/ineedbot/' + Dir + '/');
+  i := Length(GetFiles(                  'Screenshots/ineedbot/' + Dir + '/', 'png'));
+  SaveScreenshot(                        'Screenshots/ineedbot/' + Dir + '/' + PreName + IntToStr(i) + '.png');
+
+  Self.WriteMsg('Saving screenshot: ' + ('Screenshots/ineedbot/' + Dir + '/' + PreName + IntToStr(i) + '.png'));
+end;
+
+{
   From Flight's AIOFisher
   Pauses the run time
 }

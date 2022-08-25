@@ -116,6 +116,8 @@ end;
 }
 procedure TBot.Free();
 begin
+  Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
+  Script.TakeScreenshot('DraynorWillowChopper', 'Ending_');
 end;
 
 {
@@ -125,6 +127,9 @@ procedure TBot.Init();
 var
   Worlds: TIntegerArray;
 begin
+  Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
+  AddOnTerminate(@Self.Free);
+
   // init the player
   if _WORLDS[0] <> -1 then
     Worlds := _WORLDS;
@@ -291,8 +296,6 @@ begin
   Script.TrueRunTime.Start();
   Script.ReportCounter.Init(Script.ReportRate);
   Script.DrawCounter.Init(Script.DrawRate);
-  
-  AddOnTerminate(@Self.Free);
 end;
 
 {
