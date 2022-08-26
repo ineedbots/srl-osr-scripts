@@ -5,7 +5,8 @@
 begin
   while 1 do
   begin
-    Mouse.Click(MainScreen.GetPlayerBox().Middle(), MOUSE_LEFT);
+    Mouse.Move(MainScreen.GetPlayerBox().Middle(), 2, True);
+    Mouse.Click(MOUSE_LEFT);
     Wait(0, 750, wdLeft);
   end;
 end.
