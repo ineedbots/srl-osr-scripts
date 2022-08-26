@@ -50,6 +50,8 @@ begin
   Self.SetStatus('Stopping... ' + Reason);
   Self.StopReason := Reason;
   Self.Running := False;
+
+  Self.TakeScreenshot('Stop', Reason + '_');
 end;
 
 {
