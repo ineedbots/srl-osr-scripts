@@ -1,0 +1,11 @@
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+{$include_once Utils/Utils.simba}
+
+begin
+  while 1 do
+  begin
+    Mouse.Click(MainScreen.GetPlayerBox().Middle(), MOUSE_LEFT);
+    Wait(0, 750, wdLeft);
+  end;
+end.
