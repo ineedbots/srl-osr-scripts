@@ -28,6 +28,50 @@
 {$include_once Vein.simba}
 
 {
+  Amount of pay-dirt in sack
+}
+function TBot.AmountOfPayDirtInSack(): Int32;
+var
+  TPA: TPointArray;
+begin
+  // flight's motherload!
+
+  // look for the border
+  if SRL.FindColors(TPA, CTS1(2306104, 0), [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 100, MainScreen.Y1 + 100]) <= 0 then
+  begin
+    // runelite?
+    exit(-1);
+  end;
+
+  // use ocr to detect number
+  Result := OCR.RecognizeNumber(TPA.Bounds(), TOCRColorRule.Create([13158600, 255]), RS_FONT_QUILL);
+end;
+
+{
+  Fix itemfinder Pay-dirt!
+}
+function TRSItemFinder.Find(constref Item: TRSItem; constref Slots: TBoxArray; constref MaxToFind: Int32 = -1): TIntegerArray; override;
+var
+  x, y, i: Int32;
+  ItemStr: String;
+begin
+  ItemStr := ToStr(Item).Lower();
+  if (ItemStr <> 'pay-dirt') and (ItemStr <> '12011') then
+    exit(inherited(Item, Slots, MaxToFind));
+
+  for i := 0 to High(Slots) do
+  begin
+    if not FindDTM(Bot.DTM_PayDirt, x, y, Slots[i]) then
+      continue;
+
+    Result := Result + i;
+
+    if (MaxToFind > 0) and (Length(Result) = MaxToFind) then
+      exit();
+  end;
+end;
+
+{
   From Flight's AIOFisher
 }
 procedure TBot.DoSkillHover();
@@ -126,7 +170,8 @@ begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
 
-  Text := 'Pos: ' + ToStr(OurTile);
+  Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
+  Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack());
   RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
   if not MainScreen.AnyInterfaceOpen() then

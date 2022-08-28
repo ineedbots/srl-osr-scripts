@@ -75,6 +75,8 @@ procedure TBot.Free();
 begin
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
   Script.TakeScreenshot('MotherloadMiner', 'Ending_');
+
+  FreeDTM(Self.DTM_PayDirt);
 end;
 
 {
@@ -151,6 +153,8 @@ begin
 
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';
+  // flight!
+  Self.DTM_PayDirt := DTMFromString('mKgEAAHicpc3NCkBQEIbhOZ1sucizcwVW7CQ/G+6IiKQUG7kZr8wNYOr5msV8jS8imRVJVIRY9xQFapSo0NjnPsdsRDqMWNSBDSd2rJgwoEWP0Dm+mtcC0vvgbv+fCz5nFGI=');
   Self.GemBagItem := 'Open gem bag';
 
   Self.OreItems := ['Coal', 'Gold ore', 'Mithril ore', 'Adamantite ore', 'Runite ore'];

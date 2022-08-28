@@ -17,7 +17,7 @@
 
 type
   TBot = record
-    OresDone                                                  : Int32;
+    OresDone, DTM_PayDirt                                     : Int32;
     RSW                                                       : TRSWalker;
     BankColor                                                 : TScriptColor;
     BankTiles                                                 : TPointArray;
