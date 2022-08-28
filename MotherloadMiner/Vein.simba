@@ -1,0 +1,21 @@
+{
+  Motherload Miner veins
+  Author: ineedbot
+  Date: 8/27/2022
+
+  Vein
+}
+
+{$IFNDEF INEEDBOT_MLM_VEIN}
+{$DEFINE INEEDBOT_MLM_VEIN}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{$ENDIF} // INEEDBOT_MLM_VEIN

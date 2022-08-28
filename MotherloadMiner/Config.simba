@@ -1,0 +1,40 @@
+{
+  Motherload Miner config
+  Author: ineedbot
+  Date: 8/27/2022
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_MLM_CONFIG}
+{$DEFINE INEEDBOT_MLM_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  MSWALKING      = False; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+
+  // Account details
+  _USERNAME       = '';
+  _PASSWORD       = '';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_MLM_CONFIG

@@ -1,0 +1,33 @@
+{
+  Motherload Miner types
+  Author: ineedbot
+  Date: 8/27/2022
+
+  Types
+}
+
+{$IFNDEF INEEDBOT_MLM_TYPES}
+{$DEFINE INEEDBOT_MLM_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  TBot = record
+    OresDone                                                  : Int32;
+    RSW                                                       : TRSWalker;
+    BankColor                                                 : TScriptColor;
+    BankTiles                                                 : TPointArray;
+    BankWalkTile                                              : TPoint;
+    ToBankPaths                                               : T2DPointArray;
+    OreItems, ToolItems                                       : TRSItemArray;
+    HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
+  end;
+
+var
+  Bot: TBot;
+
+{$ENDIF} // INEEDBOT_MLM_TYPES
