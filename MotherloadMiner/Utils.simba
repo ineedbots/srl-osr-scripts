@@ -180,15 +180,16 @@ var
   Text: String;
   B: TBox;
   T, O, P: TIntegerArray;
-  Bool: Boolean;
+  Bool, Upper: Boolean;
   Rockfall: TRockfall;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
+  Upper := Self.IsOnUpperLevel(OurTile);
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
   Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack()) + LineEnding;
-  Text += 'Upper: ' + ToStr(Self.IsOnUpperLevel(OurTile)) + LineEnding;
+  Text += 'Upper: ' + ToStr(Upper) + LineEnding;
 
   for i := 0 to High(Self.Rockfalls) do
   begin
@@ -198,8 +199,6 @@ begin
         Text += 'Inside Rockfall ''' + ToStr(i) + ''' Zone ' + ToStr(h) + LineEnding;
     end;
   end;
-
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
@@ -288,12 +287,28 @@ begin
     RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.WaterTile, CompAng), 4, clBlue);
 
     if Self.FindWater(OurTile, B, Bool) and Bool then
+    begin
+      Text += 'Water running!';
+      RSClient.Image.DrawBox(B, clBlue);
+    end;
+
+    // ladder
+    TileRect := Self.FindLadderTile(OurTile, Upper);
+    B := Self.GetLadderSearchBox(TileRect);
+    ATPA := Self.FindLadderColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.LowerLadderTile, CompAng), 4, clBlue);
+
+    if Self.FindLadder(OurTile, Upper, B) then
       RSClient.Image.DrawBox(B, clBlue);
 
     // rockfall
     for Rockfall in Self.Rockfalls do
     begin
-      {TileRect := Self.FindRockfallTile(OurTile, Rockfall);
+      TileRect := Self.FindRockfallTile(OurTile, Rockfall);
       B := Self.GetRockfallSearchBox(TileRect, Rockfall);
       ATPA := Self.FindRockfallColor(B, Rockfall);
 
@@ -302,8 +317,11 @@ begin
       RSClient.Image.DrawRect(TileRect, clRed);
       RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Rockfall.Tile, CompAng), 4, clBlue);
 
+      ATPA := Self.FindRockfallNoColor(B, Rockfall);
+      RSClient.Image.DrawATPA(ATPA);
+
       if Self.FindRockfall(OurTile, Rockfall, B, Bool) and Bool then
-        RSClient.Image.DrawBox(B, clBlue);}
+        RSClient.Image.DrawBox(B, clBlue);
 
       for TPA in Rockfall.Zones do
       begin
@@ -314,6 +332,8 @@ begin
       end;
     end;
   end;
+
+  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
   if Inventory.IsOpen() then
   begin

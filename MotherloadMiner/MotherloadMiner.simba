@@ -182,7 +182,17 @@ begin
 
       FilterSize := 10;
       RadiusExpand := 0;
-      NoColorTileExpand := 5;
+    end;
+
+    with NoColor do
+    begin
+      RSObject.Colors += CTS2(476761, 6, 0.13, 2.90);
+      RSObject.Grow := 3;
+      RSObject.Erode := 1;
+      RSObject.ClusterDistance := 255;
+
+      FilterSize := 0;
+      RadiusExpand := 0;
     end;
 
     Tile := [242, 102];
@@ -287,6 +297,26 @@ begin
 
     FilterSize := 10;
     RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.ToLadderPaths := [];
+  Self.LadderUptext := ['Climb'];
+  Self.LadderOptions := ['Climb'];
+
+  Self.LowerLadderTile := [233, 115];
+  Self.UpperLadderTile := [233, 110];
+
+  with Self.LadderColor do
+  begin
+    RSObject.Colors += CTS2(4939368, 7, 0.08, 0.06);
+    RSObject.Grow := 3;
+    RSObject.Erode := 1;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 0.5;
     NoColorTileExpand := 5;
   end;
 

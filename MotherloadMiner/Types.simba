@@ -17,7 +17,7 @@
 
 type
   TRockfall = record
-    Color                                                     : TScriptColor;
+    Color, NoColor                                            : TScriptColor;
     Tile                                                      : TPoint;
     Zones                                                     : T2DPointArray;
   end;
@@ -30,13 +30,14 @@ type
     RSW                                                       : TRSWalker;
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,
-      RockfallUptext, RockfallOptions                         : TStringArray;
+      RockfallUptext, RockfallOptions, LadderUptext,
+      LadderOptions                                           : TStringArray;
     BankColor, SackColor, CrateColor, HopperColor, StrutColor,
-      WaterColor                                              : TScriptColor;
+      WaterColor, LadderColor                                 : TScriptColor;
     BankTiles, UpperArea                                      : TPointArray;
     BankWalkTile, SackTile, CrateTile, HopperTile, StrutTile,
-      WaterTile                                               : TPoint;
-    ToBankPaths                                               : T2DPointArray;
+      WaterTile, LowerLadderTile, UpperLadderTile             : TPoint;
+    ToBankPaths, ToLadderPaths                                : T2DPointArray;
     OreItems, ToolItems                                       : TRSItemArray;
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
     Rockfalls                                                 : TRockfallArray;

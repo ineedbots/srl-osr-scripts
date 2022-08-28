@@ -18,4 +18,74 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{
+  Finds the Rockfall tile
+}
+function TBot.FindRockfallTile(OurPos: TPoint; Rockfall: TRockfall): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Rockfall.Tile);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetRockfallSearchBox(RockfallTile: TRectangle; Rockfall: TRockfall): TBox;
+begin
+  Result := RockfallTile.Expand(Round(RockfallTile.Radius() * Rockfall.Color.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindRockfallColor(Area: TBox; Rockfall: TRockfall): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Rockfall.Color.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Rockfall.Color.FilterSize), __GT__);
+end;
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindRockfallNoColor(Area: TBox; Rockfall: TRockfall): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Rockfall.NoColor.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Rockfall.NoColor.FilterSize), __GT__);
+end;
+
+{
+  Returns true if the Rockfall is visible, B is the bounds of the Rockfall on the screen
+}
+function TBot.FindRockfall(OurTile: TPoint; Rockfall: TRockfall; out B: TBox; out IsThere: Boolean): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+begin
+  TileRect := Self.FindRockfallTile(OurTile, Rockfall);
+
+  B := Self.GetRockfallSearchBox(TileRect, Rockfall);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+  IsThere := False;
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindRockfallColor(B, Rockfall);
+
+  if Length(ATPA) > 0 then
+  begin
+    TPA := ATPA.Biggest();
+
+    if TileRect.Contains(TPA.Mean()) then
+    begin
+      ATPA := Self.FindRockfallNoColor(B, Rockfall);
+      B := TPA.Bounds();
+      IsThere := (Length(TPA) > Length(ATPA.Biggest()));
+    end;
+  end;
+end;
+
 {$ENDIF} // INEEDBOT_MLM_ROCKFALL
