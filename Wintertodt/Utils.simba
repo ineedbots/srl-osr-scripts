@@ -141,6 +141,8 @@ end;
 function TBot.DoAntiBan(DoInterfaceClose: Boolean = True): Boolean;
 var
   Uptxt: String;
+  JugSlots: TIntegerArray;
+  i: Int32;
 begin
   Script.DoGeneralChecks();
 
@@ -164,6 +166,16 @@ begin
   Uptxt := MainScreen.GetUpText();
   if Uptxt.Count('->') > 0 then
     Mouse.Click(MOUSE_LEFT);
+
+  // drop jugs
+  if Inventory.FindItem('Jug', JugSlots) then
+  begin
+    for i := 0 to High(JugSlots) do
+    begin
+      Inventory.HoverSlot(i);
+      ChooseOption.Select('Drop');
+    end;
+  end;
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
