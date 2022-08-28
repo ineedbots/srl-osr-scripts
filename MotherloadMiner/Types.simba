@@ -19,9 +19,13 @@ type
   TBot = record
     OresDone, DTM_PayDirt                                     : Int32;
     RSW                                                       : TRSWalker;
-    BankColor                                                 : TScriptColor;
+    SackUptext, SackOptions, CrateUptext, CrateOptions,
+      HopperUptext, HopperOptions, StrutUptext, StrutOptions  : TStringArray;
+    BankColor, SackColor, CrateColor, HopperColor, StrutColor,
+      WaterColor                                              : TScriptColor;
     BankTiles                                                 : TPointArray;
-    BankWalkTile                                              : TPoint;
+    BankWalkTile, SackTile, CrateTile, HopperTile, StrutTile,
+      WaterTile                                               : TPoint;
     ToBankPaths                                               : T2DPointArray;
     OreItems, ToolItems                                       : TRSItemArray;
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;

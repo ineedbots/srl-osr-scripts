@@ -57,7 +57,10 @@ var
 begin
   ItemStr := ToStr(Item).Lower();
   if (ItemStr <> 'pay-dirt') and (ItemStr <> '12011') then
-    exit(inherited(Item, Slots, MaxToFind));
+  begin
+    Result := inherited(Item, Slots, MaxToFind);
+    exit();
+  end;
 
   for i := 0 to High(Slots) do
   begin
@@ -158,7 +161,7 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  TPA: TPointArray;
+  //TPA: TPointArray;
   OurTile, TP: TPoint;
   TileRect: TRectangle;
   i: Int32;
@@ -166,6 +169,7 @@ var
   Text: String;
   B: TBox;
   T, O, P: TIntegerArray;
+  Bool: Boolean;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -176,6 +180,7 @@ begin
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
+    // bank
     for TP in Self.BankTiles do
     begin
       TileRect := Self.FindBankTile(OurTile, TP);
@@ -190,19 +195,84 @@ begin
       if Self.FindBank(OurTile, TP, B) then
         RSClient.Image.DrawBox(B, clBlue);
     end;
+
+    // sack
+    TileRect := Self.FindSackTile(OurTile);
+    B := Self.GetSackSearchBox(TileRect);
+    ATPA := Self.FindSackColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.SackTile, CompAng), 4, clBlue);
+
+    if Self.FindSack(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+    // crate
+    TileRect := Self.FindCrateTile(OurTile);
+    B := Self.GetCrateSearchBox(TileRect);
+    ATPA := Self.FindCrateColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.CrateTile, CompAng), 4, clBlue);
+
+    if Self.FindCrate(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+    // hopper
+    TileRect := Self.FindHopperTile(OurTile);
+    B := Self.GetHopperSearchBox(TileRect);
+    ATPA := Self.FindHopperColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.HopperTile, CompAng), 4, clBlue);
+
+    if Self.FindHopper(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+    // strut
+    TileRect := Self.FindStrutTile(OurTile);
+    B := Self.GetStrutSearchBox(TileRect);
+    ATPA := Self.FindStrutColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.StrutTile, CompAng), 4, clBlue);
+
+    if Self.FindStrut(OurTile, B) then
+      RSClient.Image.DrawBox(B, clBlue);
+
+    // water
+    TileRect := Self.FindWaterTile(OurTile);
+    B := Self.GetWaterSearchBox(TileRect);
+    ATPA := Self.FindWaterColor(B);
+
+    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image.DrawRect(TileRect, clRed);
+    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.WaterTile, CompAng), 4, clBlue);
+
+    if Self.FindWater(OurTile, B, Bool) and Bool then
+      RSClient.Image.DrawBox(B, clBlue);
   end;
 
   if Inventory.IsOpen() then
   begin
-    Inventory.FindItems(Self.OreItems, O);
     Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.OreItems, O);
     Inventory.FindItem(Self.PayDirtItem, P);
 
     for i := 0 to 27 do
     begin
-      if O.Find(i) <> -1 then
+      if T.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
-      else if T.Find(i) <> -1 then
+      else if O.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
       else if P.Find(i) <> -1 then
         RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple)

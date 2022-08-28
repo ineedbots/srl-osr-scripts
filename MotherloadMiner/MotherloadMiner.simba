@@ -34,7 +34,6 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.RSW.DebugPosition();
     end
     else
     begin
@@ -177,6 +176,90 @@ begin
   end;
 
   Self.ToBankPaths := [];
+
+
+  Self.SackTile := [206, 174];
+  Self.SackUptext := ['Search'];
+  Self.SackOptions := ['Search'];
+
+  with Self.SackColor do
+  begin
+    RSObject.Colors += CTS2(4874862, 10, 0.06, 0.44);
+    RSObject.Grow := 3;
+    RSObject.Erode := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.CrateTile := [220, 114];
+  Self.CrateUptext := ['Search'];
+  Self.CrateOptions := ['Search'];
+
+  with Self.CrateColor do
+  begin
+    RSObject.Colors += CTS2(3698053, 6, 0.04, 0.14);
+    RSObject.Grow := 3;
+    RSObject.Erode := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.HopperTile := [206, 121];
+  Self.HopperUptext := ['Deposit'];
+  Self.HopperOptions := ['Deposit'];
+
+  with Self.HopperColor do
+  begin
+    RSObject.Colors += CTS2(7109243, 9, 0.14, 0.45);
+    RSObject.Grow := 3;
+    RSObject.Erode := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.StrutTile := [180, 134];
+  Self.StrutUptext := ['Hammer'];
+  Self.StrutOptions := ['Hammer'];
+
+  with Self.StrutColor do
+  begin
+    RSObject.Colors += CTS2(3759727, 9, 0.05, 0.17);
+    RSObject.Grow := 3;
+    RSObject.Erode := 2;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+
+  Self.WaterTile := [207, 125];
+
+  with Self.WaterColor do
+  begin
+    RSObject.Colors += CTS2(13946054, 9, 0.28, 0.70);
+    RSObject.Grow := 1;
+    RSObject.Erode := 0;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
   
   // do login init stuff
   if RSClient.IsLoggedIn() then
