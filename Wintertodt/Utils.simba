@@ -141,8 +141,6 @@ end;
 function TBot.DoAntiBan(DoInterfaceClose: Boolean = True): Boolean;
 var
   Uptxt: String;
-  JugSlots: TIntegerArray;
-  i: Int32;
 begin
   Script.DoGeneralChecks();
 
@@ -166,16 +164,6 @@ begin
   Uptxt := MainScreen.GetUpText();
   if Uptxt.Count('->') > 0 then
     Mouse.Click(MOUSE_LEFT);
-
-  // drop jugs
-  if Inventory.FindItem('Jug', JugSlots) then
-  begin
-    for i in JugSlots do
-    begin
-      Inventory.HoverSlot(i);
-      ChooseOption.Select('Drop');
-    end;
-  end;
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -416,7 +404,7 @@ end;
 function TBot.EatFood(Num: Int32 = -1): Boolean;
 var
   HPPrec, i, NumEaten: Int32;
-  FoodSlots, Pattern: TIntegerArray;
+  FoodSlots, Pattern, JugSlots: TIntegerArray;
   CountDown: TCountDown;
   Eaten: Boolean;
 begin
@@ -501,6 +489,16 @@ begin
   end;
 
   Wait(0, 1000, wdLeft);
+
+  // drop jugs
+  if Inventory.FindItem('Jug', JugSlots) then
+  begin
+    for i in JugSlots do
+    begin
+      Inventory.HoverSlot(i);
+      ChooseOption.Select('Drop');
+    end;
+  end;
 end;
 
 {
