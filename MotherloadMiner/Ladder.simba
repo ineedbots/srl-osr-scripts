@@ -186,6 +186,7 @@ function TBot.GoToLadder(Force: Boolean = False; Clicking: Boolean = True): Bool
 var
   Walked, Upper: Boolean;
   OurPos, Where: TPoint;
+  PathIdx: Int32;
   BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
 begin
@@ -210,8 +211,22 @@ begin
     if Clicking then
       Self.RSW.OnWalkingEvent := @WalkingToLadder;
     try
-      Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
+      Walked := True;
+      Self.RSW.Enabled := True;
+
+      if (Length(Self.ToLadderPaths) > 0) and not Upper then
+      begin
+        PathIdx := SRL.TruncatedGauss(Low(Self.ToLadderPaths), High(Self.ToLadderPaths));
+
+        if OurPos.DistanceTo(Self.ToLadderPaths[PathIdx][Low(Self.ToLadderPaths[PathIdx])]) <
+          OurPos.DistanceTo(Self.ToLadderPaths[PathIdx][High(Self.ToLadderPaths[PathIdx])]) then
+          Walked := Self.RSW.WalkPath(Self.ToLadderPaths[PathIdx], 8);
+      end;
+
+      if Walked and Self.RSW.Enabled then
+        Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 

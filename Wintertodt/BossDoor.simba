@@ -220,6 +220,7 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Self.EnterTile.Random(-8, 8, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 
@@ -491,6 +492,7 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Self.ExitTile.Random(-8, 8, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 

@@ -326,6 +326,7 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Where.Random(-3, 3, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 

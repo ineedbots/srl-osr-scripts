@@ -234,6 +234,7 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Self.ConveyorTile.Offset(Self.ConveyorTileWalkOffset).Random(-6, 6, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 

@@ -299,6 +299,7 @@ begin
       if Walked and Self.RSW.Enabled then
         Walked := Self.RSW.WalkBlind(Self.BankTile.Offset(Self.BankTileWalkOffset).Random(-6, 6, True), 0);
     except
+      Walked := False;
     end;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 
