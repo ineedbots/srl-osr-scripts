@@ -170,7 +170,7 @@ begin
   // drop jugs
   if Inventory.FindItem('Jug', JugSlots) then
   begin
-    for i := 0 to High(JugSlots) do
+    for i in JugSlots do
     begin
       Inventory.HoverSlot(i);
       ChooseOption.Select('Drop');
