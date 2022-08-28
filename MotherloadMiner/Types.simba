@@ -16,22 +16,37 @@
 {$include_once ../Utils/Utils.simba}
 
 type
+  TRockfall = record
+    Color                                                     : TScriptColor;
+    Tile                                                      : TPoint;
+    Zones                                                     : T2DPointArray;
+  end;
+
+  TRockfallArray = array of TRockfall;
+
   TBot = record
+    Name                                                      : String;
     OresDone, DTM_PayDirt                                     : Int32;
     RSW                                                       : TRSWalker;
     SackUptext, SackOptions, CrateUptext, CrateOptions,
-      HopperUptext, HopperOptions, StrutUptext, StrutOptions  : TStringArray;
+      HopperUptext, HopperOptions, StrutUptext, StrutOptions,
+      RockfallUptext, RockfallOptions                         : TStringArray;
     BankColor, SackColor, CrateColor, HopperColor, StrutColor,
       WaterColor                                              : TScriptColor;
-    BankTiles                                                 : TPointArray;
+    BankTiles, UpperArea                                      : TPointArray;
     BankWalkTile, SackTile, CrateTile, HopperTile, StrutTile,
       WaterTile                                               : TPoint;
     ToBankPaths                                               : T2DPointArray;
     OreItems, ToolItems                                       : TRSItemArray;
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
+    Rockfalls                                                 : TRockfallArray;
   end;
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Motherload Miner';
+end;
 
 {$ENDIF} // INEEDBOT_MLM_TYPES

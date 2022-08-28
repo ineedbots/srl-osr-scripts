@@ -75,6 +75,17 @@ begin
 end;
 
 {
+  Are we up?
+}
+function TBot.IsOnUpperLevel(Pos: TPoint = [-1, -1]): Boolean;
+begin
+  if Pos.X = -1 then
+    Pos := Self.RSW.GetMyPos();
+
+  Result := SRL.PointInPoly(Pos, Self.UpperArea);
+end;
+
+{
   From Flight's AIOFisher
 }
 procedure TBot.DoSkillHover();
@@ -161,25 +172,43 @@ end;
 procedure TBot.DebugDraw();
 var
   ATPA: T2DPointArray;
-  //TPA: TPointArray;
+  TPA, TPA2: TPointArray;
   OurTile, TP: TPoint;
   TileRect: TRectangle;
-  i: Int32;
+  i, h: Int32;
   CompAng: Double;
   Text: String;
   B: TBox;
   T, O, P: TIntegerArray;
   Bool: Boolean;
+  Rockfall: TRockfall;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
-  Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack());
+  Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack()) + LineEnding;
+  Text += 'Upper: ' + ToStr(Self.IsOnUpperLevel(OurTile)) + LineEnding;
+
+  for i := 0 to High(Self.Rockfalls) do
+  begin
+    for h := 0 to High(Self.Rockfalls[i].Zones) do
+    begin
+      if SRL.PointInPoly(OurTile, Self.Rockfalls[i].Zones[h]) then
+        Text += 'Inside Rockfall ''' + ToStr(i) + ''' Zone ' + ToStr(h) + LineEnding;
+    end;
+  end;
+
   RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
+    // upper area
+    TPA := Copy(Self.UpperArea);
+    for i := Low(TPA) to High(TPA) do
+      TPA[i] := Self.RSW.WorldToMM(OurTile, TPA[i], CompAng);
+    RSClient.Image.DrawPoly(TPA, clRed);
+
     // bank
     for TP in Self.BankTiles do
     begin
@@ -260,6 +289,30 @@ begin
 
     if Self.FindWater(OurTile, B, Bool) and Bool then
       RSClient.Image.DrawBox(B, clBlue);
+
+    // rockfall
+    for Rockfall in Self.Rockfalls do
+    begin
+      {TileRect := Self.FindRockfallTile(OurTile, Rockfall);
+      B := Self.GetRockfallSearchBox(TileRect, Rockfall);
+      ATPA := Self.FindRockfallColor(B, Rockfall);
+
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Rockfall.Tile, CompAng), 4, clBlue);
+
+      if Self.FindRockfall(OurTile, Rockfall, B, Bool) and Bool then
+        RSClient.Image.DrawBox(B, clBlue);}
+
+      for TPA in Rockfall.Zones do
+      begin
+        TPA2 := Copy(TPA);
+        for i := Low(TPA2) to High(TPA2) do
+          TPA2[i] := Self.RSW.WorldToMM(OurTile, TPA2[i], CompAng);
+        RSClient.Image.DrawPoly(TPA2, clGreen);
+      end;
+    end;
   end;
 
   if Inventory.IsOpen() then
@@ -305,16 +358,15 @@ begin
   if not Script.CanReportConsole() then
     exit();
 
-  WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += LineEnding + 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
   WriteOut += 'Status: ' + Script.Status + LineEnding;
   WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
   WriteOut += 'Mined: ' + IntToStr(Self.OresDone) + LineEnding;
   WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
   WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
-  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short);
 
-  ClearDebug();
-  Writeln(WriteOut);
+  Script.WriteMsg(WriteOut, False, True, True);
 end;
 
 {

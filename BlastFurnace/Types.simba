@@ -17,6 +17,7 @@
 
 type
   TBot = record
+    Name                                                         : String;
     RSW                                                          : TRSWalker;
     ConveyorBeltColor, SinkColor, CofferColor, ChestColor,
       MeltingPotColor, MeltingPotMMColor, DispenserColor,
@@ -56,5 +57,8 @@ type
 var
   Bot: TBot;
 
-{$ENDIF} // INEEDBOT_BLASTFURANCE_TYPES
+begin
+  Bot.Name := 'ineedbot''s Blast Furnace';
+end;
 
+{$ENDIF} // INEEDBOT_BLASTFURANCE_TYPES

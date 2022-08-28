@@ -17,6 +17,7 @@
 
 type
   TBot = record
+    Name                                                      : String;
     WalkedRockForward, Banking                                : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
@@ -32,5 +33,9 @@ type
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Al-Kharid Miner';
+end;
 
 {$ENDIF} // INEEDBOT_AKM_TYPES

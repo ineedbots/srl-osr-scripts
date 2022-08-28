@@ -27,7 +27,7 @@ type
   end;
 
   TScript = record
-    Status, StopReason                                        : String;
+    Status, StopReason, Name, ScriptName                      : String;
     MouseLooksForUpText                                       : TStringArray;
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks,
       KeyboardMenuButtons, ShiftClicking, MiddleClicking      : Boolean;
@@ -48,5 +48,9 @@ type
 var
   Script: TScript;
 
-{$ENDIF} // INEEDBOT_UTILS_TYPES
+begin
+  Script.Name := 'ineedbot''s utils';
+  Script.ScriptName := Script.Name;
+end;
 
+{$ENDIF} // INEEDBOT_UTILS_TYPES

@@ -105,7 +105,7 @@ end;
 procedure TBot.Free();
 begin
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
-  Script.TakeScreenshot('BankStander', 'Ending_');
+  Script.TakeScreenshot(Self.Name, 'Ending_');
 end;
 
 {
@@ -117,6 +117,8 @@ var
   i: Int32;
   Item: TRSItem;
 begin
+  Script.ScriptName := Self.Name;
+
   Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
   AddOnTerminate(@Self.Free);
 

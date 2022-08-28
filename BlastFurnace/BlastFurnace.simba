@@ -240,7 +240,7 @@ end;
 procedure TBot.Free();
 begin
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
-  Script.TakeScreenshot('BlastFurnace', 'Ending_');
+  Script.TakeScreenshot(Self.Name, 'Ending_');
 end;
 
 {
@@ -250,6 +250,8 @@ procedure TBot.Init();
 var
   Worlds: TIntegerArray;
 begin
+  Script.ScriptName := Self.Name;
+
   Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
   AddOnTerminate(@Self.Free);
 

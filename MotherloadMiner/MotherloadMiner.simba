@@ -73,7 +73,7 @@ end;
 procedure TBot.Free();
 begin
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
-  Script.TakeScreenshot('MotherloadMiner', 'Ending_');
+  Script.TakeScreenshot(Self.Name, 'Ending_');
 
   FreeDTM(Self.DTM_PayDirt);
 end;
@@ -85,6 +85,8 @@ procedure TBot.Init();
 var
   Worlds: TIntegerArray;
 begin
+  Script.ScriptName := Self.Name;
+
   Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
   AddOnTerminate(@Self.Free);
 
@@ -159,6 +161,34 @@ begin
   Self.OreItems := ['Coal', 'Gold ore', 'Mithril ore', 'Adamantite ore', 'Runite ore'];
   Self.ToolItems := ['Bronze pickaxe', 'Iron pickaxe', 'Steel pickaxe', 'Black pickaxe', 'Mithril pickaxe', 'Adamant pickaxe',
     'Rune pickaxe', 'Gilded pickaxe', 'Dragon pickaxe', '3rd age pickaxe', 'Crystal pickaxe', Self.GemBagItem, Self.HammerItem];
+
+
+  Self.UpperArea := [[143, 60], [156, 60], [160, 64], [171, 65], [175, 60], [183, 60], [187, 56], [192, 60], [201, 61], [208, 68], [212, 69], [215, 64], [239, 64], [244, 60], [249, 65], [257, 64], [260, 69], [268, 68], [271, 73], [275, 80], [276, 92], [283, 100], [283, 108], [271, 121], [271, 128], [275, 132], [275, 144], [279, 148], [279, 157], [275, 165], [271, 167], [271, 172], [279, 181], [284, 180], [287, 185], [280, 191], [279, 196], [276, 199], [266, 199], [263, 195], [251, 195], [248, 193], [248, 184], [252, 178], [252, 155], [259, 148], [259, 144], [252, 136], [252, 129], [247, 124], [244, 124], [236, 116], [231, 116], [227, 112], [223, 112], [216, 105], [216, 101], [211, 95], [203, 95], [198, 91], [195, 92], [190, 87], [173, 87], [168, 91], [155, 92], [140, 77], [139, 63]];
+
+
+  Self.RockfallUptext := ['Mine Rockfall'];
+  Self.RockfallOptions := ['Mine Rockfall'];
+
+  SetLength(Self.Rockfalls, 1);
+  with Self.Rockfalls[0] do
+  begin
+    with Color do
+    begin
+      // flight's color values
+      RSObject.Colors += CTS2(1459023, 7, 0.07, 0.78);
+      RSObject.Grow := 3;
+      RSObject.Erode := 2;
+      RSObject.ClusterDistance := 3;
+
+      FilterSize := 10;
+      RadiusExpand := 0;
+      NoColorTileExpand := 5;
+    end;
+
+    Tile := [242, 102];
+    Zones := [[[236, 103], [232, 96], [231, 72], [238, 61], [272, 62], [280, 80], [287, 106], [271, 111], [251, 111], [246, 105]]];
+  end;
+
 
   Self.BankTiles := [[250, 154]];
   Self.BankWalkTile := [246, 154];

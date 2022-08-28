@@ -17,6 +17,7 @@
 
 type
   TBot = record
+    Name                                                      : String;
     WalkedFishForward, Banking, Cooking                       : Boolean;
     FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
       LastWalkedFish, FishDone                                : Int32;
@@ -33,5 +34,9 @@ type
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Barbarian Village Fisher';
+end;
 
 {$ENDIF} // INEEDBOT_BVF_TYPES

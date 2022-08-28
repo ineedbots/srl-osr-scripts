@@ -17,6 +17,7 @@
 
 type
   TBot = record
+    Name                                                      : String;
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
@@ -48,5 +49,8 @@ type
 var
   Bot: TBot;
 
-{$ENDIF} // INEEDBOT_WINTERTODT_TYPES
+begin
+  Bot.Name := 'ineedbot''s Wintertodt';
+end;
 
+{$ENDIF} // INEEDBOT_WINTERTODT_TYPES

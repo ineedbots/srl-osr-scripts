@@ -34,6 +34,7 @@ type
   TDoorArray = array of TDoor;
 
   TBot = record
+    Name                                                      : String;
     StationType                                               : EStationType;
     StoppedShort, UsingInterfaceMake, UsingRingOfForging,
       NeedToRefillRingOfForging, NeedToCheckCharges           : Boolean;
@@ -55,5 +56,9 @@ type
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Edgeville Smelter';
+end;
 
 {$ENDIF} // INEEDBOT_EVS_TYPES

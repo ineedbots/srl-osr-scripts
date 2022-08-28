@@ -17,6 +17,7 @@
 
 type
   TBot = record
+    Name                                                      : String;
     WalkedTreeForward, Banking                                : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
@@ -40,5 +41,9 @@ type
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Draynor Village Chopper';
+end;
 
 {$ENDIF} // INEEDBOT_DVC_TYPES

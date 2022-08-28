@@ -242,7 +242,7 @@ begin
   if not Script.CanReportConsole() then
     exit();
 
-  WriteOut += 'Banking: ' + ToStr(Self.Banking) + LineEnding;
+  WriteOut += LineEnding + 'Banking: ' + ToStr(Self.Banking) + LineEnding;
   WriteOut += 'Cooking: ' + ToStr(Self.Cooking) + LineEnding;
   WriteOut += 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
   WriteOut += 'Status: ' + Script.Status + LineEnding;
@@ -250,10 +250,9 @@ begin
   WriteOut += 'Fished: ' + IntToStr(Self.FishDone) + LineEnding;
   WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
   WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
-  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short);
 
-  ClearDebug();
-  Writeln(WriteOut);
+  Script.WriteMsg(WriteOut, False, True, True);
 end;
 
 {

@@ -34,6 +34,7 @@ type
   );
 
   TBot = record
+    Name                                                      : String;
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;
     AmuletOfChemItem                                          : TRSItem;
@@ -53,5 +54,9 @@ type
 
 var
   Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Bank Stander';
+end;
 
 {$ENDIF} // INEEDBOT_BANKSTANDER_TYPES
