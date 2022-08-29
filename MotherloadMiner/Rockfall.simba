@@ -73,17 +73,15 @@ begin
 
   B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindRockfallNoColor(B, Rockfall);
+  ATPA := Self.FindRockfallColor(B, Rockfall);
 
   if Length(ATPA) > 0 then
   begin
-    TPA := ATPA.Biggest();      
+    TPA := ATPA.Biggest();
+    ATPA := Self.FindRockfallNoColor(B, Rockfall);
+
     B := TPA.Bounds();
-
-    ATPA := Self.FindRockfallColor(B, Rockfall);
-    IsThere := (Length(TPA) < Length(ATPA.Biggest()));
-
-    B := ATPA.Biggest().Bounds();
+    IsThere := (Length(TPA) > Length(ATPA.Biggest()));
   end;
 end;
 

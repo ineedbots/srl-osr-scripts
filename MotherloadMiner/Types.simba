@@ -44,7 +44,8 @@ type
       RockfallUptext, RockfallOptions, LadderUptext,
       LadderOptions, VeinUptext, VeinOptions                  : TStringArray;
     BankColor, SackColor, CrateColor, HopperColor, StrutColor,
-      WaterColor, LadderColor, VeinColor                      : TScriptColor;
+      WaterColor, LowerLadderColor, UpperLadderColor,
+      VeinColor                                               : TScriptColor;
     BankTiles, UpperArea                                      : TPointArray;
     BankWalkTile, SackTile, CrateTile, HopperTile, StrutTile,
       WaterTile, LowerLadderTile, UpperLadderTile             : TPoint;

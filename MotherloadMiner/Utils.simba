@@ -321,8 +321,8 @@ begin
 
     // ladder
     TileRect := Self.FindLadderTile(OurTile, Height, Upper);
-    B := Self.GetLadderSearchBox(TileRect);
-    ATPA := Self.FindLadderColor(B);
+    B := Self.GetLadderSearchBox(TileRect, Upper);
+    ATPA := Self.FindLadderColor(B, Upper);
 
     RSClient.Image.DrawBox(B, clGreen);
     RSClient.Image.DrawATPA(ATPA);

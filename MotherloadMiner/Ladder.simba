@@ -32,18 +32,29 @@ end;
 {
   Gets the search box
 }
-function TBot.GetLadderSearchBox(LadderTile: TRectangle): TBox;
+function TBot.GetLadderSearchBox(LadderTile: TRectangle; Upper: Boolean): TBox;
 begin
-  Result := LadderTile.Expand(Round(LadderTile.Radius() * Self.LadderColor.RadiusExpand)).Bounds();
+  if Upper then
+    Result := LadderTile.Expand(Round(LadderTile.Radius() * Self.UpperLadderColor.RadiusExpand)).Bounds()
+  else
+    Result := LadderTile.Expand(Round(LadderTile.Radius() * Self.LowerLadderColor.RadiusExpand)).Bounds();
 end;
 
 {
   Returns all object colors within the box
 }
-function TBot.FindLadderColor(Area: TBox): T2DPointArray;
+function TBot.FindLadderColor(Area: TBox; Upper: Boolean): T2DPointArray;
 begin
-  Result := MainScreen.FindObject(Self.LadderColor.RSObject, Area);
-  Result.FilterSize(MainScreen.ConvertDistance(Self.LadderColor.FilterSize), __GT__);
+  if Upper then
+  begin
+    Result := MainScreen.FindObject(Self.UpperLadderColor.RSObject, Area);
+    Result.FilterSize(MainScreen.ConvertDistance(Self.UpperLadderColor.FilterSize), __GT__);
+  end
+  else
+  begin
+    Result := MainScreen.FindObject(Self.LowerLadderColor.RSObject, Area);
+    Result.FilterSize(MainScreen.ConvertDistance(Self.LowerLadderColor.FilterSize), __GT__);
+  end;
 end;
 
 {
@@ -56,7 +67,7 @@ var
 begin
   TileRect := Self.FindLadderTile(OurTile, Height, Upper);
 
-  B := Self.GetLadderSearchBox(TileRect);
+  B := Self.GetLadderSearchBox(TileRect, Upper);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
@@ -65,12 +76,17 @@ begin
 
   B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindLadderColor(B);
+  ATPA := Self.FindLadderColor(B, Upper);
 
   if Length(ATPA) <= 0 then
-    B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.LadderColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
+  begin
+    if Upper then
+      B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.UpperLadderColor.NoColorTileExpand)) // couldnt find color... use the fixd tile
+    else
+      B := TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.LowerLadderColor.NoColorTileExpand));
+  end
   else
-    B := ATPA.Biggest().Bounds();
+    B := ATPA.NearestTo(TileRect.Mean()).Bounds();
 end;
 
 {

@@ -334,13 +334,13 @@ begin
     RSObject.ClusterDistance := 3;
 
     FilterSize := 10;
-    RadiusExpand := 1.5;
+    RadiusExpand := 0.1;
     NoColorTileExpand := 5;
   end;
 
 
-  Self.WaterTile := [207, 125];
-  Self.WaterHeight := 3;
+  Self.WaterTile := [206, 125];
+  Self.WaterHeight := 3 + 2;
 
   with Self.WaterColor do
   begin
@@ -360,17 +360,34 @@ begin
   Self.LadderOptions := ['Climb'];
 
   Self.LowerLadderTile := [233, 115];
-  Self.UpperLadderTile := [233, 110];
+  Self.UpperLadderTile := [233, 112];
 
   Self.LowerLadderHeight := 4 + 1;
-  Self.UpperLadderHeight := 5 - 1;
+  Self.UpperLadderHeight := 5 - 3;
 
-  with Self.LadderColor do
+  with Self.LowerLadderColor do
+  begin
+    RSObject.ColorClusters += [
+      CTS2(4939368, 7, 0.08, 0.06),
+      CTS2(1654613, 2, 0.07, 1.49),
+      5
+    ];
+
+    RSObject.Grow := 3;
+    RSObject.Erode := 1;
+    RSObject.ClusterDistance := 4;
+
+    FilterSize := 10;
+    RadiusExpand := 0.5;
+    NoColorTileExpand := 5;
+  end;
+
+  with Self.UpperLadderColor do
   begin
     RSObject.Colors += CTS2(4939368, 7, 0.08, 0.06);
     RSObject.Grow := 3;
     RSObject.Erode := 1;
-    RSObject.ClusterDistance := 3;
+    RSObject.ClusterDistance := 4;
 
     FilterSize := 10;
     RadiusExpand := 0.5;
