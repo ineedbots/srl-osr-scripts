@@ -24,6 +24,14 @@ type
 
   TRockfallArray = array of TRockfall;
 
+  TVein = record
+    Tile                                                      : TPoint;
+    Height                                                    : Int32;
+    Angle                                                     : Double;
+  end;
+
+  TVeinArray = array of TVein;
+
   TBot = record
     Name                                                      : String;
     OresDone, DTM_PayDirt                                     : Int32;
@@ -31,9 +39,9 @@ type
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,
       RockfallUptext, RockfallOptions, LadderUptext,
-      LadderOptions                                           : TStringArray;
+      LadderOptions, VeinUptext, VeinOptions                  : TStringArray;
     BankColor, SackColor, CrateColor, HopperColor, StrutColor,
-      WaterColor, LadderColor                                 : TScriptColor;
+      WaterColor, LadderColor, VeinColor                      : TScriptColor;
     BankTiles, UpperArea                                      : TPointArray;
     BankWalkTile, SackTile, CrateTile, HopperTile, StrutTile,
       WaterTile, LowerLadderTile, UpperLadderTile             : TPoint;
@@ -41,6 +49,7 @@ type
     OreItems, ToolItems                                       : TRSItemArray;
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
     Rockfalls                                                 : TRockfallArray;
+    Veins                                                     : TVeinArray;
   end;
 
 var

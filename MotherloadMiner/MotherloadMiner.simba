@@ -175,28 +175,72 @@ begin
     with Color do
     begin
       // flight's color values
-      RSObject.Colors += CTS2(1459023, 7, 0.07, 0.78);
-      RSObject.Grow := 3;
-      RSObject.Erode := 2;
+      RSObject.ColorClusters += [
+        CTS2(1459023, 7, 0.07, 0.78),
+        CTS2(2121069, 1, 0.01, 0.01),
+        3
+      ];
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
       RSObject.ClusterDistance := 3;
 
-      FilterSize := 10;
-      RadiusExpand := 0;
+      FilterSize := 0;
+      RadiusExpand := 1.0;
     end;
 
     with NoColor do
     begin
       RSObject.Colors += CTS2(476761, 6, 0.13, 2.90);
-      RSObject.Grow := 3;
-      RSObject.Erode := 1;
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
       RSObject.ClusterDistance := 255;
 
       FilterSize := 0;
-      RadiusExpand := 0;
+      RadiusExpand := 0.25;
     end;
 
     Tile := [242, 102];
     Zones := [[[236, 103], [232, 96], [231, 72], [238, 61], [272, 62], [280, 80], [287, 106], [271, 111], [251, 111], [246, 105]]];
+  end;
+
+
+  Self.VeinUptext := ['Mine Ore vein'];
+  Self.VeinOptions := ['Mine Ore vein'];
+
+  with Self.VeinColor do
+  begin
+    // flight color!
+    RSObject.Colors += CTS2(9540251, 21, 0.10, 0.13);
+    RSObject.Grow := 2;
+    RSObject.Erode := 0;
+    RSObject.ClusterDistance := 3;
+
+    FilterSize := 0;
+    RadiusExpand := 0.15;
+    NoColorTileExpand := 5;
+  end;
+
+
+  SetLength(Self.Veins, 3);
+  with Self.Veins[0] do
+  begin
+    Tile := [266, 78];
+    Angle := 90.0;
+    Height := 5;
+  end;
+
+  with Self.Veins[1] do
+  begin
+    Tile := [266, 82];
+    Angle := 90.0;
+    Height := 5;
+  end;
+
+  with Self.Veins[2] do
+  begin
+    Tile := [266, 86];
+    Angle := 90.0;
+    Height := 5;
   end;
 
 

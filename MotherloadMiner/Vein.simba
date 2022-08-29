@@ -18,4 +18,57 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{
+  Finds the Vein tile
+}
+function TBot.FindVeinTile(OurPos: TPoint; Vein: TVein): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, Vein.Tile, Vein.Height);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetVeinSearchBox(VeinTile: TRectangle): TBox;
+begin
+  Result := VeinTile.Expand(Round(VeinTile.Radius() * Self.VeinColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindVeinColor(Area: TBox): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Self.VeinColor.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Self.VeinColor.FilterSize), __GT__);
+end;
+
+{
+  Returns true if the Vein is visible, B is the bounds of the Vein on the screen
+}
+function TBot.FindVein(OurTile: TPoint; Vein: TVein; out B: TBox): Boolean;
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+begin
+  TileRect := Self.FindVeinTile(OurTile, Vein);
+
+  B := Self.GetVeinSearchBox(TileRect);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  B.LimitTo(MainScreen.Bounds());
+
+  ATPA := Self.FindVeinColor(B);
+
+  if Length(ATPA) > 0 then
+  begin
+    TPA := ATPA.Biggest();
+    B := TPA.Bounds();
+    Result := True;
+  end;
+end;
+
 {$ENDIF} // INEEDBOT_MLM_VEIN

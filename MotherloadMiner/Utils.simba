@@ -182,6 +182,7 @@ var
   T, O, P: TIntegerArray;
   Bool, Upper: Boolean;
   Rockfall: TRockfall;
+  Vein: TVein;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -190,6 +191,7 @@ begin
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
   Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack()) + LineEnding;
   Text += 'Upper: ' + ToStr(Upper) + LineEnding;
+  Text += 'Angle: ' + ToStr(Minimap.GetCompassAngle(True)) + LineEnding;
 
   for i := 0 to High(Self.Rockfalls) do
   begin
@@ -330,6 +332,22 @@ begin
           TPA2[i] := Self.RSW.WorldToMM(OurTile, TPA2[i], CompAng);
         RSClient.Image.DrawPoly(TPA2, clGreen);
       end;
+    end;
+
+    // veins
+    for Vein in Self.Veins do
+    begin
+      TileRect := Self.FindVeinTile(OurTile, Vein);
+      B := Self.GetVeinSearchBox(TileRect);
+      ATPA := Self.FindVeinColor(B);
+
+      RSClient.Image.DrawBox(B, clGreen);
+      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image.DrawRect(TileRect, clRed);
+      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
+
+      if Self.FindVein(OurTile, Vein, B) then
+        RSClient.Image.DrawBox(B, clBlue);
     end;
   end;
 

@@ -73,18 +73,17 @@ begin
 
   B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindRockfallColor(B, Rockfall);
+  ATPA := Self.FindRockfallNoColor(B, Rockfall);
 
   if Length(ATPA) > 0 then
   begin
     TPA := ATPA.Biggest();
+    B := TPA.Bounds();
 
-    if TileRect.Contains(TPA.Mean()) then
-    begin
-      ATPA := Self.FindRockfallNoColor(B, Rockfall);
-      B := TPA.Bounds();
-      IsThere := (Length(TPA) > Length(ATPA.Biggest()));
-    end;
+    ATPA := Self.FindRockfallColor(B, Rockfall);
+    IsThere := (Length(TPA) < Length(ATPA.Biggest()));
+
+    B := ATPA.Biggest().Bounds();
   end;
 end;
 
