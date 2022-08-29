@@ -416,6 +416,9 @@ begin
 
   Script.AntiBan.AfterBankAntiBan(30);
 
+  if Inventory.Count() > 14 then
+    Self.DoBanking();
+
   // randomly close the bank
   if (Random() > 0.75) or Self.RSW.ScreenWalk then
     Bank.Close(Script.ShouldPressKeyboard());
