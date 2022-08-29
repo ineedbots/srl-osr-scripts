@@ -189,7 +189,7 @@ begin
       RSObject.ClusterDistance := 3;
 
       FilterSize := 0;
-      RadiusExpand := 1.5;
+      RadiusExpand := 0.15;
     end;
 
     with NoColor do
@@ -204,6 +204,7 @@ begin
 
     Tile := [242, 102];
     Zones := [[[236, 103], [232, 96], [231, 72], [238, 61], [272, 62], [280, 80], [287, 106], [271, 111], [251, 111], [246, 105]]];
+    Height := 7 + 1;
   end;
 
 
@@ -229,26 +230,27 @@ begin
   begin
     Tile := [265, 78];
     Angle := 90.0;
-    Height := 5;
+    Height := 13 + 5;
   end;
 
   with Self.Veins[1] do
   begin
     Tile := [265, 82];
     Angle := 90.0;
-    Height := 5;
+    Height := 13 + 5;
   end;
 
   with Self.Veins[2] do
   begin
     Tile := [265, 86];
     Angle := 90.0;
-    Height := 5;
+    Height := 13 + 5;
   end;
 
 
   Self.BankTiles := [[250, 154]];
   Self.BankWalkTile := [246, 154];
+  Self.BankHeight := 6 + 2;
 
   with Self.BankColor do
   begin
@@ -268,6 +270,7 @@ begin
   Self.SackTile := [206, 174];
   Self.SackUptext := ['Search'];
   Self.SackOptions := ['Search'];
+  Self.SackHeight := 4 + 1;
 
   with Self.SackColor do
   begin
@@ -285,6 +288,7 @@ begin
   Self.CrateTile := [220, 114];
   Self.CrateUptext := ['Search'];
   Self.CrateOptions := ['Search'];
+  Self.CrateHeight := 4 + 2;
 
   with Self.CrateColor do
   begin
@@ -302,6 +306,7 @@ begin
   Self.HopperTile := [206, 121];
   Self.HopperUptext := ['Deposit'];
   Self.HopperOptions := ['Deposit'];
+  Self.HopperHeight := 6 + 1;
 
   with Self.HopperColor do
   begin
@@ -319,6 +324,7 @@ begin
   Self.StrutTile := [180, 134];
   Self.StrutUptext := ['Hammer'];
   Self.StrutOptions := ['Hammer'];
+  Self.StrutHeight := 5 + 1;
 
   with Self.StrutColor do
   begin
@@ -334,6 +340,7 @@ begin
 
 
   Self.WaterTile := [207, 125];
+  Self.WaterHeight := 3;
 
   with Self.WaterColor do
   begin
@@ -354,6 +361,9 @@ begin
 
   Self.LowerLadderTile := [233, 115];
   Self.UpperLadderTile := [233, 110];
+
+  Self.LowerLadderHeight := 4 + 1;
+  Self.UpperLadderHeight := 5 - 1;
 
   with Self.LadderColor do
   begin

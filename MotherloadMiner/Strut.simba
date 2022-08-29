@@ -21,9 +21,9 @@
 {
   Finds the Water tile
 }
-function TBot.FindWaterTile(OurPos: TPoint): TRectangle;
+function TBot.FindWaterTile(OurPos: TPoint; Height: Int32): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Self.WaterTile);
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.WaterTile, Self.WaterHeight - Height);
 end;
 
 {
@@ -46,12 +46,12 @@ end;
 {
   Returns true if the Water is visible, B is the bounds of the Water on the screen
 }
-function TBot.FindWater(OurTile: TPoint; out B: TBox; out Running: Boolean): Boolean;
+function TBot.FindWater(OurTile: TPoint; Height: Int32; out B: TBox; out Running: Boolean): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
 begin
-  TileRect := Self.FindWaterTile(OurTile);
+  TileRect := Self.FindWaterTile(OurTile, Height);
 
   B := Self.GetWaterSearchBox(TileRect);
 
@@ -76,9 +76,9 @@ end;
 {
   Finds the Strut tile
 }
-function TBot.FindStrutTile(OurPos: TPoint): TRectangle;
+function TBot.FindStrutTile(OurPos: TPoint; Height: Int32): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Self.StrutTile);
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.StrutTile, Self.StrutHeight - Height);
 end;
 
 {
@@ -101,12 +101,12 @@ end;
 {
   Returns true if the Strut is visible, B is the bounds of the Strut on the screen
 }
-function TBot.FindStrut(OurTile: TPoint; out B: TBox): Boolean;
+function TBot.FindStrut(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
 begin
-  TileRect := Self.FindStrutTile(OurTile);
+  TileRect := Self.FindStrutTile(OurTile, Height);
 
   B := Self.GetStrutSearchBox(TileRect);
 
@@ -131,12 +131,15 @@ end;
 function TBot.ClickStrut(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   B: TBox;
+  Height: Int32;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  Height := Self.GetHeight(OurTile);
+
   // find the sink
-  if not Self.FindStrut(OurTile, B) then
+  if not Self.FindStrut(OurTile, Height, B) then
   begin
     Script.WriteMsg('ClickStrut: sink not visible', True);
     exit();
@@ -239,11 +242,13 @@ var
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
+  Height: Int32;
 begin
   Script.WriteMsg('Going to Strut....', True);
   OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeight(OurPos);
 
-  if Force or (OurPos.DistanceTo(Self.StrutTile) > 50) or not Self.FindStrut(OurPos, B) then
+  if Force or (OurPos.DistanceTo(Self.StrutTile) > 50) or not Self.FindStrut(OurPos, Height, B) then
   begin
     // mainscreen bank fix
     if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then

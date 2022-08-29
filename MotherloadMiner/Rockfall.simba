@@ -21,9 +21,9 @@
 {
   Finds the Rockfall tile
 }
-function TBot.FindRockfallTile(OurPos: TPoint; Rockfall: TRockfall): TRectangle;
+function TBot.FindRockfallTile(OurPos: TPoint; Height: Int32; Rockfall: TRockfall): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Rockfall.Tile);
+  Result := Self.RSW.GetTileMSEx(OurPos, Rockfall.Tile, Rockfall.Height - Height);
 end;
 
 {
@@ -55,13 +55,13 @@ end;
 {
   Returns true if the Rockfall is visible, B is the bounds of the Rockfall on the screen
 }
-function TBot.FindRockfall(OurTile: TPoint; Rockfall: TRockfall; out B: TBox; out IsThere: Boolean): Boolean;
+function TBot.FindRockfall(OurTile: TPoint; Height: Int32; Rockfall: TRockfall; out B: TBox; out IsThere: Boolean): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
   TPA: TPointArray;
 begin
-  TileRect := Self.FindRockfallTile(OurTile, Rockfall);
+  TileRect := Self.FindRockfallTile(OurTile, Height, Rockfall);
 
   B := Self.GetRockfallSearchBox(TileRect, Rockfall);
 
@@ -77,7 +77,7 @@ begin
 
   if Length(ATPA) > 0 then
   begin
-    TPA := ATPA.Biggest();
+    TPA := ATPA.Biggest();      
     B := TPA.Bounds();
 
     ATPA := Self.FindRockfallColor(B, Rockfall);

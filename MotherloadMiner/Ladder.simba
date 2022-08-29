@@ -21,12 +21,12 @@
 {
   Finds the Ladder tile
 }
-function TBot.FindLadderTile(OurPos: TPoint; Upper: Boolean): TRectangle;
+function TBot.FindLadderTile(OurPos: TPoint; Height: Int32; Upper: Boolean): TRectangle;
 begin
   if Upper then
-    Result := Self.RSW.GetTileMSEx(OurPos, Self.UpperLadderTile)
+    Result := Self.RSW.GetTileMSEx(OurPos, Self.UpperLadderTile, Self.UpperLadderHeight - Height)
   else
-    Result := Self.RSW.GetTileMSEx(OurPos, Self.LowerLadderTile);
+    Result := Self.RSW.GetTileMSEx(OurPos, Self.LowerLadderTile, Self.LowerLadderHeight - Height);
 end;
 
 {
@@ -49,12 +49,12 @@ end;
 {
   Returns true if the Ladder is visible, B is the bounds of the Ladder on the screen
 }
-function TBot.FindLadder(OurTile: TPoint; Upper: Boolean; out B: TBox): Boolean;
+function TBot.FindLadder(OurTile: TPoint; Height: Int32; Upper: Boolean; out B: TBox): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
 begin
-  TileRect := Self.FindLadderTile(OurTile, Upper);
+  TileRect := Self.FindLadderTile(OurTile, Height, Upper);
 
   B := Self.GetLadderSearchBox(TileRect);
 
@@ -79,12 +79,15 @@ end;
 function TBot.ClickLadder(out WasClicked: Boolean; Upper: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   B: TBox;
+  Height: Int32;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  Height := Self.GetHeight(OurTile);
+
   // find the sink
-  if not Self.FindLadder(OurTile, Upper, B) then
+  if not Self.FindLadder(OurTile, Height, Upper, B) then
   begin
     Script.WriteMsg('ClickLadder: sink not visible', True);
     exit();
@@ -186,20 +189,21 @@ function TBot.GoToLadder(Force: Boolean = False; Clicking: Boolean = True): Bool
 var
   Walked, Upper: Boolean;
   OurPos, Where: TPoint;
-  PathIdx: Int32;
+  PathIdx, Height: Int32;
   BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
 begin
   Script.WriteMsg('Going to Ladder....', True);
   OurPos := Self.RSW.GetMyPos();
   Upper := Self.IsOnUpperLevel(OurPos);
+  Height := Self.GetHeight(OurPos);
 
   if Upper then
     Where := Self.UpperLadderTile
   else
     Where := Self.LowerLadderTile;
 
-  if Force or (OurPos.DistanceTo(Where) > 50) or not Self.FindLadder(OurPos, Upper, B) then
+  if Force or (OurPos.DistanceTo(Where) > 50) or not Self.FindLadder(OurPos, Height, Upper, B) then
   begin
     // mainscreen bank fix
     if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then

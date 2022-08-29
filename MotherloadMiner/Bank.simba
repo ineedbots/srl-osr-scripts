@@ -21,9 +21,9 @@
 {
   Finds the bank tile
 }
-function TBot.FindBankTile(OurPos: TPoint; BankTile: TPoint): TRectangle;
+function TBot.FindBankTile(OurPos: TPoint; Height: Int32; BankTile: TPoint): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, BankTile);
+  Result := Self.RSW.GetTileMSEx(OurPos, BankTile, Self.BankHeight - Height);
 end;
 
 {
@@ -46,12 +46,12 @@ end;
 {
   Returns true if bank is visible, B is bounds of it
 }
-function TBot.FindBank(OurTile, BankTile: TPoint; out B: TBox): Boolean;
+function TBot.FindBank(OurTile: TPoint; Height: Int32; BankTile: TPoint; out B: TBox): Boolean;
 var
   Tile: TRectangle;
   ATPA: T2DPointArray;
 begin
-  Tile := Self.FindBankTile(OurTile, BankTile);
+  Tile := Self.FindBankTile(OurTile, Height, BankTile);
 
   B := Self.GetBankSearchBox(Tile);
 
@@ -240,6 +240,7 @@ var
   BankTiles: TPointArray;
   BankTile: TPoint;
   B: TBox;
+  Height: Int32;
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
@@ -250,6 +251,8 @@ begin
 
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
+
+  Height := Self.GetHeight(OurTile);
 
   // randomize the tiles a bit, shake em up
   BankTiles := Copy(Self.BankTiles);
@@ -262,7 +265,7 @@ begin
   for BankTile in BankTiles do
   begin
     // try see if we can find this bank
-    if not Self.FindBank(OurTile, BankTile, B) then
+    if not Self.FindBank(OurTile, Height, BankTile, B) then
       continue;
 
     // apply velocity

@@ -20,6 +20,7 @@ type
     Color, NoColor                                            : TScriptColor;
     Tile                                                      : TPoint;
     Zones                                                     : T2DPointArray;
+    Height                                                    : Int32;
   end;
 
   TRockfallArray = array of TRockfall;
@@ -34,7 +35,9 @@ type
 
   TBot = record
     Name                                                      : String;
-    OresDone, DTM_PayDirt                                     : Int32;
+    OresDone, DTM_PayDirt, LowerLadderHeight, HopperHeight,
+      UpperLadderHeight, BankHeight, SackHeight, CrateHeight,
+      StrutHeight, WaterHeight                                : Int32;
     RSW                                                       : TRSWalker;
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,

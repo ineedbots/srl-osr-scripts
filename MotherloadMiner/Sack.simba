@@ -21,9 +21,9 @@
 {
   Finds the sack tile
 }
-function TBot.FindSackTile(OurPos: TPoint): TRectangle;
+function TBot.FindSackTile(OurPos: TPoint; Height: Int32): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Self.SackTile);
+  Result := Self.RSW.GetTileMSEx(OurPos, Self.SackTile, Self.SackHeight - Height);
 end;
 
 {
@@ -46,12 +46,12 @@ end;
 {
   Returns true if the sack is visible, B is the bounds of the sack on the screen
 }
-function TBot.FindSack(OurTile: TPoint; out B: TBox): Boolean;
+function TBot.FindSack(OurTile: TPoint; Height: Int32; out B: TBox): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
 begin
-  TileRect := Self.FindSackTile(OurTile);
+  TileRect := Self.FindSackTile(OurTile, Height);
 
   B := Self.GetSackSearchBox(TileRect);
 
@@ -76,12 +76,15 @@ end;
 function TBot.ClickSack(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   B: TBox;
+  Height: Int32;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  Height := Self.GetHeight(OurTile);
+
   // find the sink
-  if not Self.FindSack(OurTile, B) then
+  if not Self.FindSack(OurTile, Height, B) then
   begin
     Script.WriteMsg('ClickSack: sink not visible', True);
     exit();
@@ -184,11 +187,13 @@ var
   OurPos: TPoint;
   BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
+  Height: Int32;
 begin
   Script.WriteMsg('Going to sack....', True);
   OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeight(OurPos);
 
-  if Force or (OurPos.DistanceTo(Self.SackTile) > 50) or not Self.FindSack(OurPos, B) then
+  if Force or (OurPos.DistanceTo(Self.SackTile) > 50) or not Self.FindSack(OurPos, Height, B) then
   begin
     // mainscreen bank fix
     if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then

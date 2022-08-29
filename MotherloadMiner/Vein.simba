@@ -21,9 +21,9 @@
 {
   Finds the Vein tile
 }
-function TBot.FindVeinTile(OurPos: TPoint; Vein: TVein): TRectangle;
+function TBot.FindVeinTile(OurPos: TPoint; Height: Int32; Vein: TVein): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, Vein.Tile, Vein.Height);
+  Result := Self.RSW.GetTileMSEx(OurPos, Vein.Tile, Vein.Height - Height);
 end;
 
 {
@@ -46,13 +46,13 @@ end;
 {
   Returns true if the Vein is visible, B is the bounds of the Vein on the screen
 }
-function TBot.FindVein(OurTile: TPoint; Vein: TVein; out B: TBox): Boolean;
+function TBot.FindVein(OurTile: TPoint; Height: Int32; Vein: TVein; out B: TBox): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
   TPA: TPointArray;
 begin
-  TileRect := Self.FindVeinTile(OurTile, Vein);
+  TileRect := Self.FindVeinTile(OurTile, Height, Vein);
 
   B := Self.GetVeinSearchBox(TileRect);
 
