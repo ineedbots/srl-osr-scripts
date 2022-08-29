@@ -28,6 +28,29 @@
 {$include_once Vein.simba}
 
 {
+  Converts heightmap height to mm2ms height
+}
+function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;
+begin
+  Result := HeightMapHeight div 4;
+end;
+
+{
+  Gets height from heightmap
+}
+function TBot.GetHeight(Pos: TPoint = [-1, -1]): Int32;
+var
+  Col: TRGB32;
+begin
+  if Pos.X = -1 then
+    Pos := Self.RSW.GetMyPos();
+
+  Col := TRGB32(Self.HeightMapBMP.GetPixel(Pos.X, Pos.Y));
+
+  Result := Self.HeightMapHeightToMM2MSHeight(Col.R);
+end;
+
+{
   Amount of pay-dirt in sack
 }
 function TBot.AmountOfPayDirtInSack(): Int32;
@@ -192,6 +215,7 @@ begin
   Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack()) + LineEnding;
   Text += 'Upper: ' + ToStr(Upper) + LineEnding;
   Text += 'Angle: ' + ToStr(Minimap.GetCompassAngle(True)) + LineEnding;
+  Text += 'Height: ' + ToStr(Self.GetHeight(OurTile)) + LineEnding;
 
   for i := 0 to High(Self.Rockfalls) do
   begin
@@ -422,7 +446,7 @@ begin
   Self.Draw();
 
   // check if we gained xp, failsafe
-  if RSClient.IsLoggedIn() then
+  if False and RSClient.IsLoggedIn() then
     Script.CheckActivity();
 
   Wait(Script.MainLoopWaitAmount(True));

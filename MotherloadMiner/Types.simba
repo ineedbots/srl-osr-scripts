@@ -50,6 +50,7 @@ type
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
     Rockfalls                                                 : TRockfallArray;
     Veins                                                     : TVeinArray;
+    HeightMapBMP                                              : TMufasaBitmap;
   end;
 
 var

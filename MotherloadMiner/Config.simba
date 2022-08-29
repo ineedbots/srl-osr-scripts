@@ -31,8 +31,8 @@ const
   ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
 
   // Account details
-  _USERNAME       = '';
-  _PASSWORD       = '';
+  _USERNAME       = 'a';
+  _PASSWORD       = 'a';
   _PIN            = '';
   _WORLDS         = [-1];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?

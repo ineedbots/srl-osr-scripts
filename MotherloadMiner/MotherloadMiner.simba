@@ -76,6 +76,7 @@ begin
   Script.TakeScreenshot(Self.Name, 'Ending_');
 
   FreeDTM(Self.DTM_PayDirt);
+  Self.HeightMapBMP.Free();
 end;
 
 {
@@ -152,6 +153,9 @@ begin
   Self.RSW.Setup({$MACRO CURRENT_DIRECTORY} + '\maps\mlm.png');
   Self.RSW.ScreenWalk     := MSWALKING;
 
+  Self.HeightMapBMP.Init();
+  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png');
+
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';
   // flight!
@@ -185,7 +189,7 @@ begin
       RSObject.ClusterDistance := 3;
 
       FilterSize := 0;
-      RadiusExpand := 1.0;
+      RadiusExpand := 1.5;
     end;
 
     with NoColor do
@@ -196,7 +200,6 @@ begin
       RSObject.ClusterDistance := 255;
 
       FilterSize := 0;
-      RadiusExpand := 0.25;
     end;
 
     Tile := [242, 102];
@@ -224,21 +227,21 @@ begin
   SetLength(Self.Veins, 3);
   with Self.Veins[0] do
   begin
-    Tile := [266, 78];
+    Tile := [265, 78];
     Angle := 90.0;
     Height := 5;
   end;
 
   with Self.Veins[1] do
   begin
-    Tile := [266, 82];
+    Tile := [265, 82];
     Angle := 90.0;
     Height := 5;
   end;
 
   with Self.Veins[2] do
   begin
-    Tile := [266, 86];
+    Tile := [265, 86];
     Angle := 90.0;
     Height := 5;
   end;
