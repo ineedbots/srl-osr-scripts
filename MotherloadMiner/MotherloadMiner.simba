@@ -173,7 +173,7 @@ begin
   Self.RockfallUptext := ['Mine Rockfall'];
   Self.RockfallOptions := ['Mine Rockfall'];
 
-  SetLength(Self.Rockfalls, 1);
+  SetLength(Self.Rockfalls, 3);
   with Self.Rockfalls[0] do
   begin
     with Color do
@@ -207,6 +207,72 @@ begin
     Height := 7 + 1;
   end;
 
+  with Self.Rockfalls[1] do
+  begin
+    with Color do
+    begin
+      // flight's color values
+      RSObject.ColorClusters += [
+        CTS2(1459023, 7, 0.07, 0.78),
+        CTS2(2121069, 1, 0.01, 0.01),
+        3
+      ];
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
+      RSObject.ClusterDistance := 3;
+
+      FilterSize := 0;
+      RadiusExpand := 0.15;
+    end;
+
+    with NoColor do
+    begin
+      RSObject.Colors += CTS2(476761, 6, 0.13, 2.90);
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
+      RSObject.ClusterDistance := 255;
+
+      FilterSize := 0;
+    end;
+
+    Tile := [206, 74];
+    Zones := [[[207, 75], [199, 75], [200, 90], [155, 91], [140, 77], [140, 62], [156, 60], [160, 65], [171, 65], [175, 60], [184, 61], [188, 56], [193, 61], [201, 61], [207, 68]]];
+    Height := 8 + 1;
+  end;
+
+  with Self.Rockfalls[2] do
+  begin
+    with Color do
+    begin
+      // flight's color values
+      RSObject.ColorClusters += [
+        CTS2(1459023, 7, 0.07, 0.78),
+        CTS2(2121069, 1, 0.01, 0.01),
+        3
+      ];
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
+      RSObject.ClusterDistance := 3;
+
+      FilterSize := 0;
+      RadiusExpand := 0.15;
+    end;
+
+    with NoColor do
+    begin
+      RSObject.Colors += CTS2(476761, 6, 0.13, 2.90);
+      RSObject.Grow := 0;
+      RSObject.Erode := 0;
+      RSObject.ClusterDistance := 255;
+
+      FilterSize := 0;
+    end;
+
+    Tile := [262, 138];
+    Zones := [[[264, 136], [263, 123], [275, 123], [277, 145], [275, 163], [271, 171], [280, 180], [280, 190], [258, 189], [252, 175], [252, 155], [260, 148], [260, 144]]];
+    Height := 8 + 1;
+  end;
+
 
   Self.VeinUptext := ['Mine Ore vein'];
   Self.VeinOptions := ['Mine Ore vein'];
@@ -225,7 +291,7 @@ begin
   end;
 
 
-  SetLength(Self.Zones, 6);
+  SetLength(Self.Zones, 8);
   with Self.Zones[0] do
   begin
     Angle := 90.0;
@@ -411,10 +477,149 @@ begin
     end;
   end;
 
-  // straglers
   with Self.Zones[5] do
   begin
-    SetLength(Veins, 5);
+    Angle := 135.0;
+    Area := [[200, 83], [200, 72], [219, 72], [219, 84]];
+    WalkTile := [213, 78];
+
+    SetLength(Veins, 4);
+    with Veins[0] do
+    begin
+      Tile := [213, 82];
+      Angle := 180.0;
+      Height := 8 + 5;
+      NextTo := [1];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [209, 82];
+      Angle := 180.0;
+      Height := 8 + 5;
+      NextTo := [0, 2];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [205, 82];
+      Angle := 180.0;
+      Height := 8 + 5;
+      NextTo := [1];
+    end;
+    with Veins[3] do
+    begin
+      Tile := [201, 78];
+      Angle := 90.0;
+      Height := 7 + 5;
+      NextTo := [];
+    end;
+  end;
+
+  with Self.Zones[6] do
+  begin
+    Angle := 270.0;
+    Area := [[222, 73], [230, 73], [230, 92], [221, 93]];
+    WalkTile := [226, 98];
+
+    SetLength(Veins, 4);
+    with Veins[0] do
+    begin
+      Tile := [230, 98];
+      Angle := 270.0;
+      Height := 6 + 5;
+      NextTo := [];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [226, 89];
+      Angle := 270.0;
+      Height := 7 + 5;
+      NextTo := [];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [230, 82];
+      Angle := 270.0;
+      Height := 8 + 5;
+      NextTo := [3];
+    end;
+    with Veins[3] do
+    begin
+      Tile := [230, 78];
+      Angle := 270.0;
+      Height := 8 + 5;
+      NextTo := [2];
+    end;
+  end;
+
+  with Self.Zones[7] do
+  begin
+    Angle := 315.0;
+    Area := [[244, 112], [263, 112], [263, 135], [252, 133], [252, 122], [244, 121]];
+    WalkTile := [249, 118];
+
+    SetLength(Veins, 7);
+    with Veins[0] do
+    begin
+      Tile := [249, 114];
+      Angle := 0.0;
+      Height := 7 + 5;
+      NextTo := [1];
+    end;
+
+    with Veins[1] do
+    begin
+      Tile := [253, 114];
+      Angle := 0.0;
+      Height := 8 + 5;
+      NextTo := [0, 2];
+    end;
+
+    with Veins[2] do
+    begin
+      Tile := [257, 114];
+      Angle := 0.0;
+      Height := 9 + 5;
+      NextTo := [1];
+    end;
+
+
+    with Veins[3] do
+    begin
+      Tile := [262, 118];
+      Angle := 270.0;
+      Height := 9 + 5;
+      NextTo := [4];
+    end;
+
+    with Veins[4] do
+    begin
+      Tile := [262, 122];
+      Angle := 270.0;
+      Height := 9 + 5;
+      NextTo := [3, 5];
+    end;
+
+    with Veins[5] do
+    begin
+      Tile := [262, 126];
+      Angle := 270.0;
+      Height := 9 + 5;
+      NextTo := [4, 6];
+    end;
+
+    with Veins[6] do
+    begin
+      Tile := [262, 130];
+      Angle := 270.0;
+      Height := 8 + 5;
+      NextTo := [5];
+    end;
+  end;
+
+  // straglers
+  {with Self.Zones[5] do
+  begin
+    SetLength(Veins, 11);
     with Veins[0] do
     begin
       Tile := [245, 70];
@@ -454,7 +659,59 @@ begin
       Height := 9 + 5;
       NextTo := [3];
     end;
+
+
+    with Veins[5] do
+    begin
+      Tile := [246, 111];
+      Angle := 270.0;
+      Height := 7 + 5;
+      NextTo := [];
+    end;
+
+    with Veins[6] do
+    begin
+      Tile := [233, 101];
+      Angle := 0.0;
+      Height := 6 + 5;
+      NextTo := [];
+    end;
+
+
+    with Veins[7] do
+    begin
+      Tile := [218, 89];
+      Angle := 90.0;
+      Height := 7 + 5;
+      NextTo := [8];
+    end;
+
+    with Veins[8] do
+    begin
+      Tile := [218, 85];
+      Angle := 90.0;
+      Height := 7 + 5;
+      NextTo := [7];
+    end;
+
+
+    with Veins[9] do
+    begin
+      Tile := [222, 74];
+      Angle := 90.0;
+      Height := 8 + 5;
+      NextTo := [10];
+    end;
+
+    with Veins[10] do
+    begin
+      Tile := [226, 74];
+      Angle := 90.0;
+      Height := 7 + 5;
+      NextTo := [9];
+    end;
   end;
+  }
 
   Self.BankTiles := [[250, 154]];
   Self.BankWalkTile := [246, 154];
