@@ -29,9 +29,19 @@ type
     Tile                                                      : TPoint;
     Height                                                    : Int32;
     Angle                                                     : Double;
+    NextTo                                                    : TIntegerArray;
   end;
 
   TVeinArray = array of TVein;
+
+  TZone = record
+    Angle                                                     : Double;
+    Veins                                                     : TVeinArray;
+    Area                                                      : TPointArray;
+    WalkTile                                                  : TPoint;
+  end;
+
+  TZoneArray = array of TZone;
 
   TBot = record
     Name                                                      : String;
@@ -53,7 +63,7 @@ type
     OreItems, ToolItems                                       : TRSItemArray;
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
     Rockfalls                                                 : TRockfallArray;
-    Veins                                                     : TVeinArray;
+    Zones                                                     : TZoneArray;
     HeightMapBMP                                              : TMufasaBitmap;
   end;
 

@@ -206,6 +206,7 @@ var
   Bool, Upper: Boolean;
   Rockfall: TRockfall;
   Vein: TVein;
+  Zone: TZone;
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
@@ -359,20 +360,28 @@ begin
       end;
     end;
 
-    // veins
-    for Vein in Self.Veins do
+    // zones
+    for Zone in Self.Zones do
     begin
-      TileRect := Self.FindVeinTile(OurTile, Height, Vein);
-      B := Self.GetVeinSearchBox(TileRect);
-      ATPA := Self.FindVeinColor(B);
+      TPA := Copy(Zone.Area);
+      for i := Low(TPA) to High(TPA) do
+        TPA[i] := Self.RSW.WorldToMM(OurTile, TPA[i], CompAng);
+      RSClient.Image.DrawPoly(TPA, clGreen);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
+      for Vein in Zone.Veins do
+      begin
+        TileRect := Self.FindVeinTile(OurTile, Height, Vein);
+        B := Self.GetVeinSearchBox(TileRect);
+        ATPA := Self.FindVeinColor(B);
 
-      if Self.FindVein(OurTile, Height, Vein, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image.DrawBox(B, clGreen);
+        RSClient.Image.DrawATPA(ATPA);
+        RSClient.Image.DrawRect(TileRect, clRed);
+        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
+
+        if Self.FindVein(OurTile, Height, Vein, B) then
+          RSClient.Image.DrawBox(B, clBlue);
+      end;
     end;
   end;
 

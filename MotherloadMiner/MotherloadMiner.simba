@@ -225,28 +225,236 @@ begin
   end;
 
 
-  SetLength(Self.Veins, 3);
-  with Self.Veins[0] do
+  SetLength(Self.Zones, 6);
+  with Self.Zones[0] do
   begin
-    Tile := [265, 78];
     Angle := 90.0;
-    Height := 13 + 5;
+    Area := [[263, 73], [271, 73], [276, 80], [276, 91], [264, 90]];
+    WalkTile := [269, 85];
+
+    SetLength(Veins, 3);
+    with Veins[0] do
+    begin
+      Tile := [265, 78];
+      Angle := 90.0;
+      Height := 13 + 5;
+      NextTo := [1];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [265, 82];
+      Angle := 90.0;
+      Height := 13 + 5;
+      NextTo := [0, 2];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [265, 86];
+      Angle := 90.0;
+      Height := 13 + 5;
+      NextTo := [1];
+    end;
   end;
 
-  with Self.Veins[1] do
+  with Self.Zones[1] do
   begin
-    Tile := [265, 82];
-    Angle := 90.0;
-    Height := 13 + 5;
+    Angle := 180.0;
+    Area := [[246, 107], [246, 100], [263, 99], [271, 94], [280, 94], [279, 105], [264, 113], [252, 112]];
+    WalkTile := [250, 102];
+
+    SetLength(Veins, 5);
+    with Veins[0] do
+    begin
+      Tile := [275, 102];
+      Angle := 180.0;
+      Height := 13 + 5;
+      NextTo := [1];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [270, 102];
+      Angle := 180.0;
+      Height := 13 + 5;
+      NextTo := [0];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [262, 109];
+      Angle := 180.0;
+      Height := 11 + 5;
+      NextTo := [3];
+    end;
+    with Veins[3] do
+    begin
+      Tile := [258, 109];
+      Angle := 180.0;
+      Height := 10 + 5;
+      NextTo := [2];
+    end;
+    with Veins[4] do
+    begin
+      Tile := [249, 106];
+      Angle := 180.0;
+      Height := 8 + 5;
+      NextTo := [];
+    end;
   end;
 
-  with Self.Veins[2] do
+  with Self.Zones[2] do
   begin
-    Tile := [265, 86];
-    Angle := 90.0;
-    Height := 13 + 5;
+    Angle := 0.0;
+    Area := [[250, 96], [250, 89], [265, 88], [265, 97]];
+    WalkTile := [254, 94];
+
+    SetLength(Veins, 3);
+    with Veins[0] do
+    begin
+      Tile := [253, 89];
+      Angle := 0.0;
+      Height := 9 + 5;
+      NextTo := [1];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [257, 89];
+      Angle := 0.0;
+      Height := 11 + 5;
+      NextTo := [0, 2];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [261, 89];
+      Angle := 0.0;
+      Height := 12 + 5;
+      NextTo := [1];
+    end;
   end;
 
+  with Self.Zones[3] do
+  begin
+    Angle := 90.0;
+    Area := [[243, 103], [234, 102], [231, 90], [232, 73], [239, 73]];
+    WalkTile := [242, 98];
+
+    SetLength(Veins, 5);
+    with Veins[0] do
+    begin
+      Tile := [238, 98];
+      Angle := 90.0;
+      Height := 8 + 5;
+      NextTo := [1];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [238, 94];
+      Angle := 90.0;
+      Height := 8 + 5;
+      NextTo := [0];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [234, 87];
+      Angle := 90.0;
+      Height := 8 + 5;
+      NextTo := [3];
+    end;
+    with Veins[3] do
+    begin
+      Tile := [234, 82];
+      Angle := 90.0;
+      Height := 9 + 5;
+      NextTo := [2, 4];
+    end;
+    with Veins[4] do
+    begin
+      Tile := [234, 78];
+      Angle := 90.0;
+      Height := 9 + 5;
+      NextTo := [3];
+    end;
+  end;
+
+  with Self.Zones[4] do
+  begin
+    Angle := 215.0;
+    Area := [[246, 84], [246, 77], [255, 76], [263, 74], [263, 85], [251, 86]];
+    WalkTile := [249, 78];
+
+    SetLength(Veins, 4);
+    with Veins[0] do
+    begin
+      Tile := [249, 82];
+      Angle := 180.0;
+      Height := 11 + 5;
+      NextTo := [];
+    end;
+    with Veins[1] do
+    begin
+      Tile := [258, 86];
+      Angle := 180.0;
+      Height := 13 + 5;
+      NextTo := [];
+    end;
+    with Veins[2] do
+    begin
+      Tile := [262, 82];
+      Angle := 270.0;
+      Height := 13 + 5;
+      NextTo := [3];
+    end;
+    with Veins[3] do
+    begin
+      Tile := [262, 78];
+      Angle := 270.0;
+      Height := 13 + 5;
+      NextTo := [2];
+    end;
+  end;
+
+  // straglers
+  with Self.Zones[5] do
+  begin
+    SetLength(Veins, 5);
+    with Veins[0] do
+    begin
+      Tile := [245, 70];
+      Angle := 90.0;
+      Height := 13 + 5;
+      NextTo := [];
+    end;
+
+    with Veins[1] do
+    begin
+      Tile := [238, 74];
+      Angle := 0.0;
+      Height := 9 + 5;
+      NextTo := [2];
+    end;
+
+    with Veins[2] do
+    begin
+      Tile := [242, 74];
+      Angle := 0.0;
+      Height := 9 + 5;
+      NextTo := [1];
+    end;
+
+    with Veins[3] do
+    begin
+      Tile := [246, 85];
+      Angle := 270.0;
+      Height := 9 + 5;
+      NextTo := [4];
+    end;
+
+    with Veins[4] do
+    begin
+      Tile := [246, 89];
+      Angle := 270.0;
+      Height := 9 + 5;
+      NextTo := [3];
+    end;
+  end;
 
   Self.BankTiles := [[250, 154]];
   Self.BankWalkTile := [246, 154];
@@ -359,7 +567,7 @@ begin
   Self.LadderUptext := ['Climb'];
   Self.LadderOptions := ['Climb'];
 
-  Self.LowerLadderTile := [233, 115];
+  Self.LowerLadderTile := [233, 116];
   Self.UpperLadderTile := [233, 112];
 
   Self.LowerLadderHeight := 4 + 1;
@@ -369,7 +577,12 @@ begin
   begin
     RSObject.ColorClusters += [
       CTS2(4939368, 7, 0.08, 0.06),
-      CTS2(1654613, 2, 0.07, 1.49),
+      CTS2(1588819, 2, 0.25, 2.49),
+      5
+    ];
+    RSObject.ColorClusters += [
+      CTS2(4939368, 7, 0.08, 0.06),
+      CTS2(1987939, 2, 0.18, 1.91),
       5
     ];
 
@@ -378,7 +591,7 @@ begin
     RSObject.ClusterDistance := 4;
 
     FilterSize := 10;
-    RadiusExpand := 0.5;
+    RadiusExpand := 0.666;
     NoColorTileExpand := 5;
   end;
 
@@ -390,7 +603,7 @@ begin
     RSObject.ClusterDistance := 4;
 
     FilterSize := 10;
-    RadiusExpand := 0.5;
+    RadiusExpand := 0.75;
     NoColorTileExpand := 5;
   end;
 
