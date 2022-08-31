@@ -6,7 +6,7 @@
   Mines at Motherload Mine
 }
 
-program MotherloadMiner;
+program MotherlodeMiner;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
@@ -729,7 +729,13 @@ begin
     NoColorTileExpand := 5;
   end;
 
-  Self.ToBankPaths := [];
+  // from sack
+  Self.ToBankPaths := [
+    [[216, 173], [225, 166], [239, 160], [247, 155]],
+    [[214, 171], [224, 169], [242, 164], [245, 156]],
+    [[214, 169], [217, 154], [230, 156], [248, 158]],
+    [[215, 171], [218, 148], [219, 127], [234, 130], [244, 156]]
+  ];
 
 
   Self.SackTile := [206, 174];
@@ -820,7 +826,14 @@ begin
   end;
 
 
-  Self.ToLadderPaths := [];
+  // from bank
+  Self.ToLadderPaths := [
+    [[246, 156], [240, 140], [235, 126]],
+    [[243, 152], [243, 139], [232, 126]],
+    [[246, 156], [236, 145], [246, 133], [232, 130]],
+    [[244, 154], [227, 157], [216, 145], [227, 125]]
+  ];
+
   Self.LadderUptext := ['Climb'];
   Self.LadderOptions := ['Climb'];
 

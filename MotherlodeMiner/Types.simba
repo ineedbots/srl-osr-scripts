@@ -71,7 +71,7 @@ var
   Bot: TBot;
 
 begin
-  Bot.Name := 'ineedbot''s Motherload Miner';
+  Bot.Name := 'ineedbot''s Motherlode Miner';
 end;
 
 {$ENDIF} // INEEDBOT_MLM_TYPES
