@@ -1257,6 +1257,35 @@ begin
 end;
 
 {
+  overrides
+}
+function TRSMainScreen.DidRedClick(): Boolean; override;
+begin
+  Result := Mouse.DidClick(True);
+end;
+
+{
+  overrides
+}
+function TRSMainScreen.DidYellowClick(): Boolean; override;
+begin
+  Result := Mouse.DidClick(False);
+end;
+
+{
+  override
+}
+function TRSMainScreen.FindClick(Area: TBox): ERSClickType; override;
+begin
+  if Self.DidRedClick() then
+    Result := ERSClickType.RED
+  else if Self.DidYellowClick() then
+    Result := ERSClickType.YELLOW
+  else 
+    Result := ERSClickType.NONE;
+end;
+
+{
   thanks wasplib for the colors and values to test against
 }
 function TRSMainScreen.AnyInterfaceOpen(): Boolean;
