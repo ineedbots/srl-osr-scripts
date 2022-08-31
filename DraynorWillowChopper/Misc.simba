@@ -109,7 +109,7 @@ begin
   if MainScreen.IsUpText(Self.NestOptions) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
-    Result := Mouse.DidClick(True);
+    Result := MainScreen.DidRedClick();
   end
   else if MainScreen.IsUpText('options') then
     Result := ChooseOption.Select(Self.NestOptions);

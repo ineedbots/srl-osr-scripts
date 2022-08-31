@@ -201,7 +201,7 @@ begin
   if MainScreen.IsUpText(Self.DispenserOptionsTextsStr, Random(100, 250)) and (Random() < 0.9) then
   begin
     Mouse.Click(MOUSE_LEFT);
-    WasClicked := Mouse.DidClick(True);
+    WasClicked := MainScreen.DidRedClick();
   end
   else if MainScreen.IsUpText('options') then
     WasClicked := ChooseOption.Select(Self.DispenserOptionsTextsStr);

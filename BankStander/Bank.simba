@@ -159,7 +159,7 @@ begin
     else
     begin
       Mouse.Click(MOUSE_LEFT);
-      WasClicked := Mouse.DidClick(True);
+      WasClicked := MainScreen.DidRedClick();
     end;
 
     if not WasClicked then
