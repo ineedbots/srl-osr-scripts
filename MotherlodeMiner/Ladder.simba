@@ -18,6 +18,8 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+
 {
   Finds the Ladder tile
 }
@@ -92,24 +94,37 @@ end;
 {
   Returns true if found the Ladder, WasClicked true if clicked it
 }
-function TBot.ClickLadder(out WasClicked: Boolean; Upper: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
+function TBot.ClickLadder(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
 var
   B: TBox;
   Height: Int32;
+  Upper, Clicked: Boolean;
+  Tile: TPoint;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
   Height := Self.GetHeight(OurTile);
+  Upper := Self.IsOnUpperLevel(OurTile);
 
-  // find the sink
+  // handle rocks
+  Tile := Self.UpperLadderTile;
+  if not Upper then
+    Tile := Self.LowerLadderTile;
+  if Self.HandleRockfalls(OurTile, Tile, Height, Upper, Clicked, Velocity, False) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+  end;
+
+  // find the ladder
   if not Self.FindLadder(OurTile, Height, Upper, B) then
   begin
-    Script.WriteMsg('ClickLadder: sink not visible', True);
+    Script.WriteMsg('ClickLadder: not visible', True);
     exit();
   end;
 
-  Script.WriteMsg('ClickLadder: Found sink, checking uptext', True);
+  Script.WriteMsg('ClickLadder: Found, checking uptext', True);
 
   Result := True;
 
@@ -168,7 +183,7 @@ end;
 }
 procedure WalkingToLadder(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
 var
-  WasClicked, Upper: Boolean;
+  WasClicked: Boolean;
   S: Int32;
   Velocity: TDoubleArray;
   MSVel: TPoint;
@@ -184,10 +199,9 @@ begin
     Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
 
     MSVel := Script.WalkerVelToMSVel(Velocity);
-    Upper := Bot.IsOnUpperLevel(Position);
 
     // if we clicked the fish spot, then stop the walker
-    if Bot.ClickLadder(WasClicked, Upper, Position, MSVel) and WasClicked then
+    if Bot.ClickLadder(WasClicked, Position, MSVel) and WasClicked then
     begin
       Script.WriteMsg('Clicked the Ladder while moving, nice!');
       Walker^.Enabled := False;
@@ -206,7 +220,7 @@ var
   Walked, Upper: Boolean;
   OurPos, Where: TPoint;
   PathIdx, Height: Int32;
-  BeforeCallback: TRSWalker_OnWalkEvent;
+  BeforeCallback, BeforeCallback2: TRSWalker_OnWalkEvent;
   B: TBox;
 begin
   Script.WriteMsg('Going to Ladder....', True);
@@ -228,6 +242,8 @@ begin
     Script.SetStatus('Going to Ladder...');
 
     BeforeCallback := @Self.RSW.OnWalkingEvent;
+    BeforeCallback2 := @Self.RSW.OnWalkEvent;
+    Self.RSW.OnWalkEvent := @WalkHandleRockfall;
     if Clicking then
       Self.RSW.OnWalkingEvent := @WalkingToLadder;
     try
@@ -248,12 +264,18 @@ begin
     except
       Walked := False;
     end;
+    Self.RSW.OnWalkEvent := @BeforeCallback2;
     Self.RSW.OnWalkingEvent := @BeforeCallback;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to Ladder!');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+      OurPos := Self.RSW.GetMyPos();
+      Height := Self.GetHeight(OurPos);
+      Upper := Self.IsOnUpperLevel(OurPos);
+      Self.HandleRockfalls(OurPos, Where, Height, Upper, Walked, [0, 0], True);
       exit();
     end;
 
@@ -261,6 +283,72 @@ begin
     if not Self.RSW.Enabled then
       Result := True;
   end;
+end;
+
+{
+  Does the ladder!
+}
+function TBot.DoLadder(): Boolean;
+var
+  Clicked, Upper: Boolean;
+  CountDown: TCountDown;
+  OurPos, Where: TPoint;
+begin
+  Script.WriteMsg('Need to do ladder!!', True);
+  Upper := Self.IsOnUpperLevel();
+
+  // click it
+  if not ((Self.ClickLadder(Clicked) and Clicked)
+    or Self.GoToLadder()
+    or (Self.ClickLadder(Clicked) and Clicked)
+    or Self.GoToLadder(True)
+    or (Self.ClickLadder(Clicked) and Clicked)) then
+  begin
+    Script.WriteMsg('Failed to click ladder');
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+
+  // ok we clicked it, wait until we are changed state
+  CountDown.Init(SRL.SkewedRand(5000, 2000, 7000));
+  while RSClient.IsLoggedIn() do
+  begin
+    // did we change state??
+    if Upper <> Self.IsOnUpperLevel() then
+    begin
+      Script.WriteMsg('DoLadder: Changed state!', True);
+      Result := True;
+      break;
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('DoLadder: Still moving...', True);
+      CountDown.Restart();
+    end;
+
+    // did we timeout?
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('DoLadder: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to ladder....', False);
+  end;
+
+  if not Result then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    Where := Self.UpperLadderTile;
+    if not Upper then
+      Where := Self.LowerLadderTile;
+    Self.HandleRockfalls(OurPos, Where, Self.GetHeight(OurPos), Upper, Clicked, [0, 0], True);
+  end;
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_LADDER

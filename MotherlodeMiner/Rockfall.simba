@@ -85,4 +85,39 @@ begin
   end;
 end;
 
+{
+  Handles this rockfall
+}
+function TBot.HandleRockfall(Rockfall: TRockfall; OurTile: TPoint; Height: Int32; out Clicked: Boolean; Velocity: TPoint = [0, 0]; Force: Boolean = False): Boolean;
+begin
+  writeln('handling');
+  wait(10000);
+end;
+
+{
+  Handles rockfalls
+}
+function TBot.HandleRockfalls(OurTile, DestTile: TPoint; Height: Int32; Upper: Boolean; out Clicked: Boolean; Velocity: TPoint = [0, 0]; Force: Boolean = False): Boolean;
+var
+  Rockfall: TRockfall;
+  OurZone, DestZone: Int32;
+begin
+  Clicked := False;
+
+  for Rockfall in Self.Rockfalls do
+  begin
+    if Upper <> Rockfall.IsUpper then
+      continue;
+
+    OurZone := Rockfall.Zones.PointInAnyArea(OurTile);
+    DestZone := Rockfall.Zones.PointInAnyArea(DestTile);
+
+    if OurZone = DestZone then
+      continue;
+
+    if Self.HandleRockfall(Rockfall, OurTile, Height, Clicked, Velocity, Force) then
+      exit(True);
+  end;
+end;
+
 {$ENDIF} // INEEDBOT_MLM_ROCKFALL

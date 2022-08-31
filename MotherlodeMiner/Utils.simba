@@ -18,6 +18,16 @@
 {$include_once Types.simba}
 {$include_once Config.simba}
 
+{
+  Handles the rockfalls while walking
+}
+procedure WalkHandleRockfall(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+begin
+  Walker := Walker;
+  Position := Position;
+  Destination := Destination;
+end;
+
 {$include_once Bank.simba}
 {$include_once Crate.simba}
 {$include_once Hopper.simba}
@@ -460,6 +470,28 @@ begin
     Script.CheckActivity();
 
   Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{
+  Handles the rookfall while walking
+}
+procedure WalkHandleRockfall(Walker: PRSWalker; Position: TPoint; Destination: TPoint); override;
+var
+  Clicked: Boolean;
+  Velocity: TDoubleArray;
+begin
+  while RSClient.IsLoggedIn() do
+  begin
+    Velocity := Script.GetVelocity(Position);
+
+    if not Bot.HandleRockfalls(Position, Destination, Bot.GetHeight(Position), Bot.IsOnUpperLevel(Position), Clicked, Script.WalkerVelToMSVel(Velocity)) then
+      break;
+
+    Position := Walker^.GetMyPos();
+
+    if not Clicked then
+      break;
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_MLM_UTILS

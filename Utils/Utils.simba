@@ -1306,15 +1306,22 @@ var
   PosDelta: TPoint;
 begin
   // calcuate move velocity
-  TimeDelta := GetTimeRunning() - Script.LastPosTime;
-  PosDelta := Position - Script.LastPos;
+  TimeDelta := GetTimeRunning() - Self.LastPosTime;
+  PosDelta := Position - Self.LastPos;
 
   SetLength(Result, 2);
   Result[0] := PosDelta.X / (TimeDelta / 1000);
   Result[1] := PosDelta.Y / (TimeDelta / 1000);
 
-  Script.LastPos := Position;
-  Script.LastPosTime := GetTimeRunning();
+  Self.LastPos := Position;
+  Self.LastPosTime := GetTimeRunning();
+
+  // prob junk...
+  if TimeDelta > 1500 then
+  begin
+    Result[0] := 0;
+    Result[1] := 0;
+  end;
 end;
 
 {

@@ -71,4 +71,12 @@ begin
   end;
 end;
 
+{
+  Gathers!
+}
+procedure TBot.DoGathering();
+begin
+
+end;
+
 {$ENDIF} // INEEDBOT_MLM_VEIN

@@ -26,6 +26,14 @@ program MotherlodeMiner;
 {$include_once Vein.simba}
 
 {
+  Handles full inv!
+}
+procedure TBot.DoFullInv();
+begin
+
+end;
+
+{
   Main loop of the script.
 }
 procedure TBot.Run();
@@ -34,6 +42,7 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
+      Self.DoLadder();
     end
     else
     begin
@@ -205,6 +214,7 @@ begin
     Tile := [242, 102];
     Zones := [[[236, 103], [232, 96], [231, 72], [238, 61], [272, 62], [280, 80], [287, 106], [271, 111], [251, 111], [246, 105]]];
     Height := 7 + 1;
+    IsUpper := True;
   end;
 
   with Self.Rockfalls[1] do
@@ -238,6 +248,7 @@ begin
     Tile := [206, 74];
     Zones := [[[207, 75], [199, 75], [200, 90], [155, 91], [140, 77], [140, 62], [156, 60], [160, 65], [171, 65], [175, 60], [184, 61], [188, 56], [193, 61], [201, 61], [207, 68]]];
     Height := 8 + 1;
+    IsUpper := True;
   end;
 
   with Self.Rockfalls[2] do
@@ -271,6 +282,7 @@ begin
     Tile := [262, 138];
     Zones := [[[264, 136], [263, 123], [275, 123], [277, 145], [275, 163], [271, 171], [280, 180], [280, 190], [258, 189], [252, 175], [252, 155], [260, 148], [260, 144]]];
     Height := 8 + 1;
+    IsUpper := True;
   end;
 
 
