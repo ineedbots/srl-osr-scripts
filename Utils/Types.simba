@@ -11,6 +11,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 const
   DROP_PATTERN_MKEYS: TIntegerArray = [0,1,5,4,8,9,13,12,16,17,21,20,24,25,
                                        2,3,7,6,10,11,15,14,18,19,23,22,26,27];

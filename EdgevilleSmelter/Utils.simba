@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -237,7 +239,7 @@ begin
   CompAng := Minimap.GetCompassAngle(False);
 
   Text := 'Pos: ' + ToStr(OurTile);
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if not MainScreen.AnyInterfaceOpen() then
   begin
@@ -247,13 +249,13 @@ begin
       B := Self.GetBankSearchBox(TileRect);
       ATPA := Self.FindBankColor(B);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawATPA(ATPA);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
 
       if Self.FindBank(OurTile, TP, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
     end;
 
     for TP in Self.StationTiles do
@@ -262,13 +264,13 @@ begin
       B := Self.GetStationSearchBox(TileRect);
       ATPA := Self.FindStationColor(B);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawATPA(ATPA);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clWhite);
 
       if Self.FindStation(OurTile, TP, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
     end;
 
     for Door in Self.Doors do
@@ -277,13 +279,13 @@ begin
       B := Self.GetDoorSearchBox(TileRect, Door.ClosedColor);
       ATPA := Self.FindDoorColor(B, Door.ClosedColor);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Door.ClosedTile, CompAng), 4, clWhite);
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawATPA(ATPA);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Door.ClosedTile, CompAng), 4, clWhite);
 
       if Self.FindDoor(OurTile, Door.ClosedTile, Door.ClosedColor, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
 
       for TPA in Door.Zones do
       begin
@@ -291,7 +293,7 @@ begin
         for i := Low(TPA2) to High(TPA2) do
           TPA2[i] := Self.RSW.WorldToMM(OurTile, TPA2[i], CompAng);
 
-        RSClient.Image.DrawPoly(TPA2, clRed);
+        RSClient.Image().DrawPoly(TPA2, clRed);
       end;
 
       if Door.HasOpenDoorData then
@@ -300,13 +302,13 @@ begin
         B := Self.GetDoorSearchBox(TileRect, Door.OpenedColor);
         ATPA := Self.FindDoorColor(B, Door.OpenedColor);
 
-        RSClient.Image.DrawBox(B, clRed);
-        RSClient.Image.DrawRect(TileRect, clGreen);
-        RSClient.Image.DrawATPA(ATPA);
-        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Door.OpenedTile, CompAng), 4, clBlack);
+        RSClient.Image().DrawBox(B, clRed);
+        RSClient.Image().DrawRect(TileRect, clGreen);
+        RSClient.Image().DrawATPA(ATPA);
+        RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Door.OpenedTile, CompAng), 4, clBlack);
 
         if Self.FindDoor(OurTile, Door.OpenedTile, Door.OpenedColor, B) then
-          RSClient.Image.DrawBox(B, clOrange);
+          RSClient.Image().DrawBox(B, clOrange);
       end;
     end;
 
@@ -317,7 +319,7 @@ begin
       if (Self.MakeOption >= 0) and (Length(BtnArr) > Self.MakeOption) then
       begin
         B := BtnArr[Self.MakeOption].Bounds;
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
       end;
     end;
   end
@@ -328,7 +330,7 @@ begin
       for Item in Self.MaterialItems do
       begin
         if Bank.FindItem(Item, B) then
-          RSClient.Image.DrawBox(B, clPurple);
+          RSClient.Image().DrawBox(B, clPurple);
       end;
     end;
   end;
@@ -342,11 +344,11 @@ begin
     for i := 0 to 27 do
     begin
       if P.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if T.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed)
       else if M.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple);
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clPurple);
     end;
   end;
 end;
@@ -359,7 +361,7 @@ begin
   if not Script.CanDraw() then
     exit();
 
-  RSClient.Image.Clear();
+  RSClient.Image().Clear();
   // TODO complete
 
   if Script.Debug then
@@ -416,7 +418,7 @@ var
   Clicked: Boolean;
   Velocity: TDoubleArray;
 begin
-  if @Bot.OldWalkCallback <> nil then
+  if Bot.OldWalkCallback <> nil then
   begin
     Bot.OldWalkCallback(Walker, Position, Destination);
 

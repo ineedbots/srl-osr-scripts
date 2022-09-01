@@ -10,6 +10,8 @@ program AlcherHelper;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
+{$F-}
+
 {$include_once Utils/Utils.simba}
 
 var

@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -129,15 +131,15 @@ begin
       B.LimitTo(MainScreen.Bounds());
 
       if Script.Debug and Script.Drawing then
-        RSClient.Image.DrawBox(B, clMoneyGreen);
+        RSClient.Image().DrawBox(B, clMoneyGreen);
     end;
 
     Result := True;
     Self.CurrentChoppingTreeTile := TT;
 
     // hover over the banktile and see if it is actually a bank
-    Script.OldMouseMovingCallback := @Mouse.OnMoving;
-    Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+    Script.OldMouseMovingCallback := Mouse.OnMoving;
+    Mouse.OnMoving := WhileMouseMovesLookForUpText;
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.TreeUptexts;
 
@@ -162,7 +164,7 @@ begin
     end;
 
     Script.MouseLooksForUpText := [];
-    Mouse.OnMoving := @Script.OldMouseMovingCallback;
+    Mouse.OnMoving := Script.OldMouseMovingCallback;
     Script.OldMouseMovingCallback := nil;
     
 
@@ -210,7 +212,7 @@ var
   MSVel, ClickPt: TPoint;
   B: TBox;
 begin
-  if @Bot.OldWalkingCallback <> nil then
+  if Bot.OldWalkingCallback <> nil then
   begin
     Bot.OldWalkingCallback(Walker, Position, Destination);
 
@@ -271,9 +273,9 @@ begin
       
     Script.SetStatus('Going to trees spot...');
 
-    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
     Self.ClickWhileWalking := Click;
-    Self.RSW.OnWalkingEvent := @WalkingToTrees;
+    Self.RSW.OnWalkingEvent := WalkingToTrees;
 
     try
       Walked := True;
@@ -294,7 +296,7 @@ begin
       Walked := False;
     end;
     
-    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkingCallback := nil;
 
     if not Walked then
@@ -325,7 +327,7 @@ var
   FColor: TOCRColorRule;
 begin
   exit();
-  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+  B := [MainScreen.X1(), MainScreen.Y1(), MainScreen.X1() + 150, MainScreen.Y1() + 200];
 
   FColor := TOCRColorRule.Create([65280, 10]);
   if OCR.LocateText(B, 'Woodcutting', RS_FONT_PLAIN_12, FColor, B) = 1 then

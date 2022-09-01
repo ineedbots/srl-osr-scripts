@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -325,7 +327,7 @@ var
 begin
   // look for the runelite plugin
   // TODO store in init?
-  _B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+  _B := [MainScreen.X1(), MainScreen.Y1(), MainScreen.X1() + 150, MainScreen.Y1() + 200];
   FColor := TOCRColorRule.Create([16777215, 10]);
 
   // find the text
@@ -656,7 +658,7 @@ begin
   Self.GetWorkingInvCount(Self.WorkingInvCount);
   Text += 'Working inv count: ' + ToStr(Self.WorkingInvCount) + LineEnding;
 
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   // MM
   for Color in Self.MeltingPotMMColor.RSObject.Colors do
@@ -664,25 +666,25 @@ begin
     SRL.FindColors(TPA2, Color, Minimap.Bounds());
     TPA := TPA.Combine(TPA2);
   end;
-  RSClient.Image.DrawTPA(TPA, clBlue);
+  RSClient.Image().DrawTPA(TPA, clBlue);
 
   if MainScreen.AnyInterfaceOpen() then
   begin
     if Bank.IsOpen() then
     begin
       if Bank.FindItem(Self.CoalItem, B) then
-        RSClient.Image.DrawBox(B, clNavy);
+        RSClient.Image().DrawBox(B, clNavy);
 
       if Bank.FindItem(Self.OreItem, B) then
-        RSClient.Image.DrawBox(B, clGray);
+        RSClient.Image().DrawBox(B, clGray);
 
       if Bank.FindItem(Self.CoinsItem, B) then
-        RSClient.Image.DrawBox(B, clTeal);
+        RSClient.Image().DrawBox(B, clTeal);
 
       for Item in Self.StaminaPotItems do
       begin
         if Bank.FindItem(Item, B) then
-          RSClient.Image.DrawBox(B, clPurple);
+          RSClient.Image().DrawBox(B, clPurple);
       end;
     end;
   end
@@ -691,88 +693,88 @@ begin
     // melting pot
     RectTile := Self.FindMeltingPotTile(OurPos, Height);
     B := Self.GetMeltingPotSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindMeltingPotColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.MeltingPotTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.MeltingPotTile, Angle), 4, clWhite);
     if Self.FindMeltingPot(OurPos, Height, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
     TPA := [B.Middle()];
 
     // belt
     RectTile := Self.FindConveyorTile(OurPos, Height);
     B := Self.GetConveyorSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindConveyorColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.ConveyorTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.ConveyorTile, Angle), 4, clWhite);
     if Self.FindConveyor(OurPos, Height, B, True, TPA.Mean()) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // bank
     RectTile := Self.FindBankTile(OurPos, Height);
     B := Self.GetBankSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindBankColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.BankTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.BankTile, Angle), 4, clWhite);
     if Self.FindBank(OurPos, Height, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // coffer
     RectTile := Self.FindCofferTile(OurPos, Height);
     B := Self.GetCofferSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindCofferColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.CofferTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.CofferTile, Angle), 4, clWhite);
     if Self.FindCoffer(OurPos, Height, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // sink
     RectTile := Self.FindSinkTile(OurPos, Height);
     B := Self.GetSinkSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindSinkColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.SinkTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.SinkTile, Angle), 4, clWhite);
     if Self.FindSink(OurPos, Height, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
     TPA := [B.Middle()];
 
 
     // foreman
     ATPA := Self.FindForemanColor(MainScreen.Bounds());
-    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image().DrawATPA(ATPA);
     if Self.FindForeman(B, True, TPA.Mean()) then
-      RSClient.Image.DrawBox(B, clYellow);
+      RSClient.Image().DrawBox(B, clYellow);
 
 
     // dispenser
     RectTile := Self.FindDispenserTile(OurPos, Height);
     B := Self.GetDispenserSearchBox(RectTile);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindDispenserColor(B);
-    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image().DrawATPA(ATPA);
     ATPA := Self.FindHotDispenserColor(B);
-    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image().DrawATPA(ATPA);
     ATPA := Self.FindCoolDispenserColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(RectTile, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurPos, Self.DispenserTile, Angle), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(RectTile, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurPos, Self.DispenserTile, Angle), 4, clWhite);
     if Self.FindDispenser(OurPos, Height, B, i) then
     begin
       if i = 0 then
-        RSClient.Image.DrawBox(B, clWhite)
+        RSClient.Image().DrawBox(B, clWhite)
       else if i = 1 then
-        RSClient.Image.DrawBox(B, clOrange)
+        RSClient.Image().DrawBox(B, clOrange)
       else
-        RSClient.Image.DrawBox(B, clAqua);
+        RSClient.Image().DrawBox(B, clAqua);
     end;
   end;
 
@@ -792,25 +794,25 @@ begin
     for i := 0 to 27 do
     begin
       if C.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if CO.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clNavy)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clNavy)
       else if BAR.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clYellow)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clYellow)
       else if ORE.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clGray)
       else if STAM.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clPurple)
       else if COIN.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clTeal)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clTeal)
       else if BUCKET.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGreen)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clGreen)
       else if WBUCKET.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clOrange)
       else if ICE.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clBlue)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clBlue)
       else if GOLD.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed);
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed);
     end;
   end;
 end;
@@ -824,7 +826,7 @@ begin
     exit();
 
   // TODO complete
-  RSClient.Image.Clear();
+  RSClient.Image().Clear();
 
   if Script.Debug then
     Self.DebugDraw();

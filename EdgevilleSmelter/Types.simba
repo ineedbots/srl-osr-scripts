@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 type

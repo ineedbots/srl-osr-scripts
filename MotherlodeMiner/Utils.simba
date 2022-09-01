@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -70,7 +72,7 @@ begin
   // flight's motherload!
 
   // look for the border
-  if SRL.FindColors(TPA, CTS1(2306104, 0), [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 100, MainScreen.Y1 + 100]) <= 0 then
+  if SRL.FindColors(TPA, CTS1(2306104, 0), [MainScreen.X1(), MainScreen.Y1(), MainScreen.X1() + 100, MainScreen.Y1() + 100]) <= 0 then
   begin
     // runelite?
     exit(-1);
@@ -244,7 +246,7 @@ begin
     TPA := Copy(Self.UpperArea);
     for i := Low(TPA) to High(TPA) do
       TPA[i] := Self.RSW.WorldToMM(OurTile, TPA[i], CompAng);
-    RSClient.Image.DrawPoly(TPA, clRed);
+    RSClient.Image().DrawPoly(TPA, clRed);
 
     // bank
     for TP in Self.BankTiles do
@@ -253,13 +255,13 @@ begin
       B := Self.GetBankSearchBox(TileRect);
       ATPA := Self.FindBankColor(B);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawATPA(ATPA);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
 
       if Self.FindBank(OurTile, Height, TP, B) then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
     end;
 
     // sack
@@ -267,67 +269,67 @@ begin
     B := Self.GetSackSearchBox(TileRect);
     ATPA := Self.FindSackColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.SackTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.SackTile, CompAng), 4, clBlue);
 
     if Self.FindSack(OurTile, Height, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
 
     // crate
     TileRect := Self.FindCrateTile(OurTile, Height);
     B := Self.GetCrateSearchBox(TileRect);
     ATPA := Self.FindCrateColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.CrateTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.CrateTile, CompAng), 4, clBlue);
 
     if Self.FindCrate(OurTile, Height, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
 
     // hopper
     TileRect := Self.FindHopperTile(OurTile, Height);
     B := Self.GetHopperSearchBox(TileRect);
     ATPA := Self.FindHopperColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.HopperTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.HopperTile, CompAng), 4, clBlue);
 
     if Self.FindHopper(OurTile, Height, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
 
     // strut
     TileRect := Self.FindStrutTile(OurTile, Height);
     B := Self.GetStrutSearchBox(TileRect);
     ATPA := Self.FindStrutColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.StrutTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.StrutTile, CompAng), 4, clBlue);
 
     if Self.FindStrut(OurTile, Height, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
 
     // water
     TileRect := Self.FindWaterTile(OurTile, Height);
     B := Self.GetWaterSearchBox(TileRect);
     ATPA := Self.FindWaterColor(B);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.WaterTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.WaterTile, CompAng), 4, clBlue);
 
     if Self.FindWater(OurTile, Height, B, Bool) and Bool then
     begin
       Text += 'Water running!';
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
     end;
 
     // ladder
@@ -335,13 +337,13 @@ begin
     B := Self.GetLadderSearchBox(TileRect, Upper);
     ATPA := Self.FindLadderColor(B, Upper);
 
-    RSClient.Image.DrawBox(B, clGreen);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clRed);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.LowerLadderTile, CompAng), 4, clBlue);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clRed);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.LowerLadderTile, CompAng), 4, clBlue);
 
     if Self.FindLadder(OurTile, Height, Upper, B) then
-      RSClient.Image.DrawBox(B, clBlue);
+      RSClient.Image().DrawBox(B, clBlue);
 
     // rockfall
     for Rockfall in Self.Rockfalls do
@@ -350,23 +352,23 @@ begin
       B := Self.GetRockfallSearchBox(TileRect, Rockfall);
       ATPA := Self.FindRockfallColor(B, Rockfall);
 
-      RSClient.Image.DrawBox(B, clGreen);
-      RSClient.Image.DrawATPA(ATPA);
-      RSClient.Image.DrawRect(TileRect, clRed);
-      RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Rockfall.Tile, CompAng), 4, clBlue);
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawATPA(ATPA);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Rockfall.Tile, CompAng), 4, clBlue);
 
       ATPA := Self.FindRockfallNoColor(B, Rockfall);
-      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image().DrawATPA(ATPA);
 
       if Self.FindRockfall(OurTile, Height, Rockfall, B, Bool) and Bool then
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
 
       for TPA in Rockfall.Zones do
       begin
         TPA2 := Copy(TPA);
         for i := Low(TPA2) to High(TPA2) do
           TPA2[i] := Self.RSW.WorldToMM(OurTile, TPA2[i], CompAng);
-        RSClient.Image.DrawPoly(TPA2, clGreen);
+        RSClient.Image().DrawPoly(TPA2, clGreen);
       end;
     end;
 
@@ -376,7 +378,7 @@ begin
       TPA := Copy(Zone.Area);
       for i := Low(TPA) to High(TPA) do
         TPA[i] := Self.RSW.WorldToMM(OurTile, TPA[i], CompAng);
-      RSClient.Image.DrawPoly(TPA, clGreen);
+      RSClient.Image().DrawPoly(TPA, clGreen);
 
       for Vein in Zone.Veins do
       begin
@@ -384,18 +386,18 @@ begin
         B := Self.GetVeinSearchBox(TileRect);
         ATPA := Self.FindVeinColor(B);
 
-        RSClient.Image.DrawBox(B, clGreen);
-        RSClient.Image.DrawATPA(ATPA);
-        RSClient.Image.DrawRect(TileRect, clRed);
-        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
+        RSClient.Image().DrawBox(B, clGreen);
+        RSClient.Image().DrawATPA(ATPA);
+        RSClient.Image().DrawRect(TileRect, clRed);
+        RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
 
         if Self.FindVein(OurTile, Height, Vein, B) then
-          RSClient.Image.DrawBox(B, clBlue);
+          RSClient.Image().DrawBox(B, clBlue);
       end;
     end;
   end;
 
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if Inventory.IsOpen() then
   begin
@@ -406,11 +408,11 @@ begin
     for i := 0 to 27 do
     begin
       if T.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if O.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed)
       else if P.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPurple)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clPurple)
     end;
   end;
 end;
@@ -423,7 +425,7 @@ begin
   if not Script.CanDraw() then
     exit();
 
-  RSClient.Image.Clear();
+  RSClient.Image().Clear();
   // TODO complete
 
   if Script.Debug then
@@ -480,7 +482,7 @@ var
   Clicked: Boolean;
   Velocity: TDoubleArray;
 begin
-  if @Bot.OldWalkCallback <> nil then
+  if Bot.OldWalkCallback <> nil then
   begin
     Bot.OldWalkCallback(Walker, Position, Destination);
 

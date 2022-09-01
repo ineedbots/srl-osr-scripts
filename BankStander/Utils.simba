@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -174,7 +176,7 @@ begin
   CompAng := Minimap.GetCompassAngle(False);
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if MainScreen.AnyInterfaceOpen() then
   begin
@@ -183,7 +185,7 @@ begin
       for Item in Self.MaterialItems do
       begin
         if Bank.FindItem(Item, B) then
-          RSClient.Image.DrawBox(B, clWhite);
+          RSClient.Image().DrawBox(B, clWhite);
       end;
     end;
   end
@@ -195,23 +197,23 @@ begin
       B := Self.GetBankSearchBox(TileRect); 
       ATPA := Self.FindBankColor(B);
 
-      RSClient.Image.DrawBox(B, clGreen);  
-      RSClient.Image.DrawRect(TileRect, clBlue);
-      RSClient.Image.DrawATPA(ATPA);
+      RSClient.Image().DrawBox(B, clGreen);  
+      RSClient.Image().DrawRect(TileRect, clBlue);
+      RSClient.Image().DrawATPA(ATPA);
 
       if TP.X <> -1 then
       begin
-        RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+        RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
 
         if Self.FindBank(OurTile, TP, B, ATPA) then
-          RSClient.Image.DrawBox(B, clYellow);
+          RSClient.Image().DrawBox(B, clYellow);
       end
       else
       begin
         if Self.FindBank(OurTile, TP, B, ATPA) then
         begin
           for TPA in ATPA do
-            RSClient.Image.DrawBox(TPA.Bounds(), clYellow);
+            RSClient.Image().DrawBox(TPA.Bounds(), clYellow);
         end;
       end;
     end;
@@ -223,7 +225,7 @@ begin
       if (Self.MakeNum >= 0) and (Length(BtnArr) > Self.MakeNum) then
       begin
         B := BtnArr[Self.MakeNum].Bounds;
-        RSClient.Image.DrawBox(B, clBlue);
+        RSClient.Image().DrawBox(B, clBlue);
       end;
     end;
   end;
@@ -237,11 +239,11 @@ begin
     for i := 0 to 27 do
     begin
       if T.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if M.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed)
       else if P.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
     end;
   end;
 end;
@@ -254,7 +256,7 @@ begin
   if not Script.CanDraw() then
     exit();
 
-  RSClient.Image.Clear();
+  RSClient.Image().Clear();
   // TODO complete
 
   if Script.Debug then

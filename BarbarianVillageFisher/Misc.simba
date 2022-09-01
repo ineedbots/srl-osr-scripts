@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -102,21 +104,21 @@ begin
     B.LimitTo(MainScreen.Bounds());
 
     if Script.Debug and Script.Drawing then
-      RSClient.Image.DrawBox(B, clMoneyGreen);
+      RSClient.Image().DrawBox(B, clMoneyGreen);
   end;
 
   Result := True;
 
   // check up text
-  Script.OldMouseMovingCallback := @Mouse.OnMoving;
-  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+  Script.OldMouseMovingCallback := Mouse.OnMoving;
+  Mouse.OnMoving := WhileMouseMovesLookForUpText;
   if Velocity <> Point(0, 0) then
     Script.MouseLooksForUpText := Self.FireUpText;
 
   Mouse.Move(B);
 
   Script.MouseLooksForUpText := [];
-  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Mouse.OnMoving := Script.OldMouseMovingCallback;
   Script.OldMouseMovingCallback := nil;
 
 
@@ -182,7 +184,7 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
-  if @Bot.OldWalkingCallback <> nil then
+  if Bot.OldWalkingCallback <> nil then
   begin
     Bot.OldWalkingCallback(Walker, Position, Destination);
 
@@ -251,16 +253,16 @@ begin
 
     Bot.CurrentCookingItem := RSItem;
 
-    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
     Self.ClickWhileWalking := Clicking;
-    Self.RSW.OnWalkingEvent := @WalkingToFire;
+    Self.RSW.OnWalkingEvent := WalkingToFire;
 
     try
       Walked := Self.RSW.WalkBlind(Self.FireTile.Random(-6, 6, True), 0);
     except
     end;
 
-    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkingCallback := nil;
 
     Self.FireUpText := OldUpTexts;
@@ -289,7 +291,7 @@ var
   B: TBox;
   FColor: TOCRColorRule;
 begin
-  B := [MainScreen.X1, MainScreen.Y1, MainScreen.X1 + 150, MainScreen.Y1 + 200];
+  B := [MainScreen.X1(), MainScreen.Y1(), MainScreen.X1() + 150, MainScreen.Y1() + 200];
 
   FColor := TOCRColorRule.Create([65280, 10]);
   if OCR.LocateText(B, 'Cooking', RS_FONT_PLAIN_12, FColor, B) = 1 then

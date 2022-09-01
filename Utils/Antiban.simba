@@ -11,6 +11,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once Types.simba}  
 {$include_once Bank.simba}
 {$include_once Utils.simba}

@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -31,7 +33,7 @@ var
   B: TBox;
   FColor: TOCRColorRule;
 begin
-  B := [MainScreen.X1, MainScreen.Y2 - 200, MainScreen.X1 + 150, MainScreen.Y2];
+  B := [MainScreen.X1(), MainScreen.Y2() - 200, MainScreen.X1() + 150, MainScreen.Y2()];
 
   FColor := TOCRColorRule.Create([65280, 10]);
   if OCR.LocateText(B, 'Feeding', RS_FONT_PLAIN_12, FColor, B) = 1 then
@@ -190,7 +192,7 @@ begin
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
   Text += 'Boss HP: ' + ToStr(Self.GetWinterTodtEnergyPerc()) + LineEnding;
-  RSClient.Image.DrawText(Text, [MainScreen.X1, MainScreen.Y1 + 20], clGreen);
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if MainScreen.AnyInterfaceOpen() then
   begin
@@ -199,7 +201,7 @@ begin
       for Item in Self.FoodItems do
       begin
         if Bank.FindItem(Item, B) then
-          RSClient.Image.DrawBox(B, clPurple);
+          RSClient.Image().DrawBox(B, clPurple);
       end;
     end;
   end
@@ -208,64 +210,64 @@ begin
     // roots
     TileRect := Self.FindRootsTile(OurTile);
     B := Self.GetRootsSearchBox(TileRect);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindRootsColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.RootsTile, CompAng), 4, clWhite);
     if Self.FindRoots(OurTile, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // braz
     TileRect := Self.FindBrazierTile(OurTile);
     B := Self.GetBrazierSearchBox(TileRect);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindUnlitBrazierColor(B);
-    RSClient.Image.DrawATPA(ATPA);
+    RSClient.Image().DrawATPA(ATPA);
     ATPA := Self.FindLitBrazierColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.BrazierTile, CompAng), 4, clWhite);
     if Self.FindBrazier(OurTile, isLit, B) then
     begin
       if isLit then
-        RSClient.Image.DrawBox(B, clOrange)
+        RSClient.Image().DrawBox(B, clOrange)
       else
-        RSClient.Image.DrawBox(B, clAqua);
+        RSClient.Image().DrawBox(B, clAqua);
     end;
 
     // bank
     TileRect := Self.FindBankTile(OurTile);
     B := Self.GetBankSearchBox(TileRect);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindBankColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.BankTile, CompAng), 4, clWhite);
     if Self.FindBank(OurTile, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // exit
     TileRect := Self.FindExitTile(OurTile);
     B := Self.GetExitSearchBox(TileRect);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindExitColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.ExitTile, CompAng), 4, clWhite);
     if Self.FindExitDoor(OurTile, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
 
     // entrance
     TileRect := Self.FindEntraceTile(OurTile);
     B := Self.GetEntraceSearchBox(TileRect);
-    RSClient.Image.DrawBox(B, clGreen);
+    RSClient.Image().DrawBox(B, clGreen);
     ATPA := Self.FindEntraceColor(B);
-    RSClient.Image.DrawATPA(ATPA);
-    RSClient.Image.DrawRect(TileRect, clBlue);
-    RSClient.Image.DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clWhite);
+    RSClient.Image().DrawATPA(ATPA);
+    RSClient.Image().DrawRect(TileRect, clBlue);
+    RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Self.EnterTile, CompAng), 4, clWhite);
     if Self.FindEnterDoor(OurTile, B) then
-      RSClient.Image.DrawBox(B, clWhite);
+      RSClient.Image().DrawBox(B, clWhite);
   end;
 
   if Inventory.IsOpen() then
@@ -284,25 +286,25 @@ begin
     for i := 0 to 27 do
     begin
       if L.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clWhite)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
       else if A.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clRed)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed)
       else if HE.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clMoneyGreen)
       else if F.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOrange)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clOrange)
       else if K.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGray)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clGray)
       else if P.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clGreen)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clGreen)
       else if H.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clNavy)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clNavy)
       else if T.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clOlive)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clOlive)
       else if U.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clPink)
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clPink)
       else if KL.Find(i) <> -1 then
-        RSClient.Image.DrawBox(Inventory.GetSlotBox(i), clCream);
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clCream);
     end;
   end;
 end;
@@ -315,7 +317,7 @@ begin
   if not Script.CanDraw() then
     exit();
 
-  RSClient.Image.Clear();
+  RSClient.Image().Clear();
   // TODO complete
 
   if Script.Debug then

@@ -10,6 +10,8 @@ program AlKharidMiner;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -103,7 +105,7 @@ begin
   Script.ScriptName := Self.Name;
 
   Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
-  AddOnTerminate(@Self.Free);
+  AddOnTerminate(Self.Free);
 
   // init the player
   if _WORLDS[0] <> -1 then
@@ -141,18 +143,18 @@ begin
   Bank.FINDER_OPTION.Append('Deposit');
   
   // init the antiban stuff
-  Script.Antiban.OnStartBreak    := @PauseRunTime;
-  Script.Antiban.OnFinishBreak   := @ResumeRunTime;
+  Script.Antiban.OnStartBreak    := PauseRunTime;
+  Script.Antiban.OnFinishBreak   := ResumeRunTime;
   
-  Script.Antiban.AddTask(ONE_MINUTE*1, @Mouse.RandomMovement);
-  Script.Antiban.AddTask(ONE_SECOND*90, @Antiban.SetCompassNorth);
-  //Script.Antiban.AddTask(ONE_MINUTE*1,  @Antiban.RandomRotate);
-  Script.Antiban.AddTask(ONE_MINUTE*4,  @Antiban.DoLoseFocus);
-  Script.Antiban.AddTask(ONE_MINUTE*45,  @Script.UpdateZoomLevel);
-  Script.Antiban.AddTask(ONE_MINUTE*8,  @Antiban.HoverMSItems);
-  Script.Antiban.AddTask(ONE_MINUTE*12,  @Antiban.HoverMSNPCs);
-  Script.Antiban.AddTask(ONE_MINUTE*16,  @Antiban.HoverMSPlayers);
-  Script.Antiban.AddTask(ONE_MINUTE*10,  @Self.DoSkillHover);
+  Script.Antiban.AddTask(ONE_MINUTE*1, Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*90, Antiban.SetCompassNorth);
+  //Script.Antiban.AddTask(ONE_MINUTE*1,  Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*12,  Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*16,  Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*10,  Self.DoSkillHover);
   Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*40, 0.2, 0.0);
   
   if TAKEBREAKS then

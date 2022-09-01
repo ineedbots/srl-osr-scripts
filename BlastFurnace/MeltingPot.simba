@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -108,19 +110,19 @@ begin
     B.LimitTo(MainScreen.Bounds());
 
     if Script.Debug and Script.Drawing then
-      RSClient.Image.DrawBox(B, clMoneyGreen);
+      RSClient.Image().DrawBox(B, clMoneyGreen);
   end;
 
   // hover over the banktile and see if it is actually a bank
-  Script.OldMouseMovingCallback := @Mouse.OnMoving;
-  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+  Script.OldMouseMovingCallback := Mouse.OnMoving;
+  Mouse.OnMoving := WhileMouseMovesLookForUpText;
   if Velocity <> Point(0, 0) then
     Script.MouseLooksForUpText := Self.MeltingPotUpTextsStr;
 
   Mouse.Move(B);
 
   Script.MouseLooksForUpText := [];
-  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Mouse.OnMoving := Script.OldMouseMovingCallback;
   Script.OldMouseMovingCallback := nil;
 
 
@@ -161,7 +163,7 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
-  if @Bot.OldWalkingCallback <> nil then
+  if Bot.OldWalkingCallback <> nil then
   begin
     Bot.OldWalkingCallback(Walker, Position, Destination);
 
@@ -217,16 +219,16 @@ begin
 
     Script.SetStatus('Going to pot...');
 
-    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
     Self.ClickWhileWalking := Clicking;
-    Self.RSW.OnWalkingEvent := @WalkingToMeltingPot;
+    Self.RSW.OnWalkingEvent := WalkingToMeltingPot;
 
     try
       Walked := Self.RSW.WalkBlind(Self.MeltingPotTile.Random(-6, 6, True), 0);
     except
     end;
     
-    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkingCallback := nil;
 
     if not Walked then

@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
@@ -126,19 +128,19 @@ begin
       B.LimitTo(MainScreen.Bounds());
 
       if Script.Debug and Script.Drawing then
-        RSClient.Image.DrawBox(B, clMoneyGreen);
+        RSClient.Image().DrawBox(B, clMoneyGreen);
     end;
 
     // uptext
-    Script.OldMouseMovingCallback := @Mouse.OnMoving;
-    Mouse.OnMoving := @WhileMouseMovesLookForUpText;
+    Script.OldMouseMovingCallback := Mouse.OnMoving;
+    Mouse.OnMoving := WhileMouseMovesLookForUpText;
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.StationUptexts;
 
     Mouse.Move(B);
 
     Script.MouseLooksForUpText := [];
-    Mouse.OnMoving := @Script.OldMouseMovingCallback;
+    Mouse.OnMoving := Script.OldMouseMovingCallback;
     Script.OldMouseMovingCallback := nil;
 
     Script.RareSmallWait();
@@ -187,7 +189,7 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
-  if @Bot.OldWalkingCallback <> nil then
+  if Bot.OldWalkingCallback <> nil then
   begin
     Bot.OldWalkingCallback(Walker, Position, Destination);
 
@@ -245,11 +247,11 @@ begin
 
     Script.SetStatus('Going to station spot...');
 
-    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
-    Self.OldWalkCallback := @Self.RSW.OnWalkEvent;
+    Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
+    Self.OldWalkCallback := Self.RSW.OnWalkEvent;
     Self.ClickWhileWalking := Click;
-    Self.RSW.OnWalkEvent := @WalkHandleDoor;
-    Self.RSW.OnWalkingEvent := @WalkingToStation;
+    Self.RSW.OnWalkEvent := WalkHandleDoor;
+    Self.RSW.OnWalkingEvent := WalkingToStation;
 
     try
       Walked := True;
@@ -270,8 +272,8 @@ begin
       Walked := False;
     end;                               
 
-    Self.RSW.OnWalkEvent := @Self.OldWalkCallback;
-    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.RSW.OnWalkEvent := Self.OldWalkCallback;
+    Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkCallback := nil;
     Self.OldWalkingCallback := nil;
 

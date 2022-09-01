@@ -11,6 +11,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
@@ -94,7 +96,7 @@ end;
 }
 procedure WatchForClearUptext(Sender: PMouse; var X, Y: Double; var Done: Boolean);
 begin
-  if @Script.OldMouseMovingCallback <> nil then
+  if Script.OldMouseMovingCallback <> nil then
   begin
     Script.OldMouseMovingCallback(Sender, X, Y, Done);
 
@@ -121,12 +123,12 @@ begin
   if MainScreen.GetUpText() = '' then
     exit(True);
 
-  Script.OldMouseMovingCallback := @Mouse.OnMoving;
-  Mouse.OnMoving := @WatchForClearUptext;
+  Script.OldMouseMovingCallback := Mouse.OnMoving;
+  Mouse.OnMoving := WatchForClearUptext;
 
   Mouse.Move(Minimap.Bounds());
 
-  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Mouse.OnMoving := Script.OldMouseMovingCallback;
   Script.OldMouseMovingCallback := nil;
 
   Result := (MainScreen.GetUpText() = '');

@@ -13,6 +13,8 @@
   {$I SRL/OSR.simba}
 {$ENDIF}
 
+{$F-}
+
 {$include_once Types.simba}
 {$include_once Antiban.simba}
 
@@ -261,13 +263,13 @@ function TRSWalker.WalkFinalStep(PlayerPoint, WorldPoint: TPoint; WaitUntilDista
 var
   MinimapPoint: TPoint;
 begin
-  if (@Self.OnWalkEvent <> nil) then
+  if (Self.OnWalkEvent <> nil) then
   begin
     Self.OnWalkEvent(@Self, PlayerPoint, WorldPoint);
     PlayerPoint := Self.GetMyPos();
   end;
 
-  if (@Self.OnWalkEventEx <> nil) then
+  if (Self.OnWalkEventEx <> nil) then
   begin
     Self.OnWalkEventEx(@Self, PlayerPoint, WorldPoint);
     PlayerPoint := Self.GetMyPos();
@@ -295,13 +297,13 @@ var
   MinimapPoint: TPoint;
   WaitUntilDistance: Int32;
 begin
-  if (@Self.OnWalkEvent <> nil) then
+  if (Self.OnWalkEvent <> nil) then
   begin
     Self.OnWalkEvent(@Self, PlayerPoint, WorldPoint);
     PlayerPoint := Self.GetMyPos();
   end;
 
-  if (@Self.OnWalkEventEx <> nil) then
+  if (Self.OnWalkEventEx <> nil) then
   begin
     Self.OnWalkEventEx(@Self, PlayerPoint, WorldPoint);
     PlayerPoint := Self.GetMyPos();
@@ -363,7 +365,7 @@ begin
     if Position.Current <> Position.Previous then
       Countdown.Restart();
 
-    if (@OnWalkingEvent <> nil) then
+    if (OnWalkingEvent <> nil) then
     begin
       OnWalkingEvent(@Self, Position.Current, Destination);  
       Position.Current := Self.GetMyPos();
@@ -1440,7 +1442,7 @@ procedure WhileMouseMovesLookForUpText(Sender: PMouse; var X, Y: Double; var Don
 var
   UpText: String;
 begin
-  if @Script.OldMouseMovingCallback <> nil then
+  if Script.OldMouseMovingCallback <> nil then
   begin
     Script.OldMouseMovingCallback(Sender, X, Y, Done);
 
