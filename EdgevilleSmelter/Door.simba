@@ -74,12 +74,14 @@ end;
 {
   Handles this door
 }
-function TBot.HandleDoor(Door: TDoor; OurTile: TPoint; out Clicked: Boolean; Force: Boolean = False): Boolean;
+function TBot.HandleDoor(Door: TDoor; OurTile: TPoint; out Clicked: Boolean; Velocity: TPoint = [0, 0]; Force: Boolean = False): Boolean;
 var
   B: TBox;
   CountDown: TCountDown;
   Walked: Boolean;
 begin
+  Velocity := Velocity;
+  
   // check if we have opened door colors!
   if not Force then
   begin
@@ -170,7 +172,7 @@ end;
 {
   Handles the doors
 }
-function TBot.HandleDoors(OurTile, DestTile: TPoint; out Clicked: Boolean; Force: Boolean = False): Boolean;
+function TBot.HandleDoors(OurTile, DestTile: TPoint; out Clicked: Boolean; Velocity: TPoint = [0, 0]; Force: Boolean = False): Boolean;
 var
   Door: TDoor;
   OurZone, DestZone: Int32;
@@ -185,7 +187,7 @@ begin
     if OurZone = DestZone then
       continue;
 
-    if Self.HandleDoor(Door, OurTile, Clicked, Force) then
+    if Self.HandleDoor(Door, OurTile, Clicked, Velocity, Force) then
       exit(True);
   end;
 end;

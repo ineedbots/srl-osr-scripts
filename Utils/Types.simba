@@ -43,6 +43,7 @@ type
     AntiBan                                                   : TAntiban;
     AntiBanEnergy                                             : TAntiBanEnergy;
     LastPos                                                   : TPoint;
+    LastVel                                                   : TDoubleArray;
   end;
 
 var

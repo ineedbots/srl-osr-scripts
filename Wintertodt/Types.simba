@@ -21,7 +21,7 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
-      InBossFight, SkipBankCheck                              : Boolean;
+      InBossFight, SkipBankCheck, ClickWhileWalking           : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
       RandomGoodHPPerc, Did, UnlitWaitTime,
@@ -44,6 +44,7 @@ type
     BrazierTileWalkOffsets, RootsTileWalkOffsets              : TPointArray;
     ToBankPaths, ToEntranceDoorPaths, ToBrazierPaths,
       ToExitDoorPaths                                         : T2DPointArray;
+    OldWalkingCallback                                        : TRSWalker_OnWalkEvent;
   end;
 
 var

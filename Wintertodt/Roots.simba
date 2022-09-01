@@ -171,11 +171,21 @@ var
   MSVel: TPoint;
   B: TBox;
 begin
+  if @Bot.OldWalkingCallback <> nil then
+  begin
+    Bot.OldWalkingCallback(Walker, Position, Destination);
+
+    if not Walker^.Enabled then
+      exit();
+
+    Position := Walker^.GetMyPos();
+  end;
+
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if Destination = Walker^.Path[High(Walker^.Path)] then
+  if Bot.ClickWhileWalking and (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
     if Position.DistanceTo(Destination) < 8 then
     begin
@@ -220,7 +230,6 @@ function TBot.GoToLogs(Force: Boolean = False; DoClick: Boolean = True): Boolean
 var
   Walked: Boolean;
   OurPos: TPoint;
-  BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
 begin
   Script.WriteMsg('Going to roots....', True);
@@ -234,14 +243,17 @@ begin
       
     Script.SetStatus('Going to roots...');
 
-    BeforeCallback := @Self.RSW.OnWalkingEvent;
-    if DoClick then
-      Self.RSW.OnWalkingEvent := @WalkingToLogs;
+    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.ClickWhileWalking := DoClick;
+    Self.RSW.OnWalkingEvent := @WalkingToLogs;
+
     try
       Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.GetRootsTileWalkOffset()).Random(-3, 3, True), 2);
     except
     end;
-    Self.RSW.OnWalkingEvent := @BeforeCallback;
+    
+    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.OldWalkingCallback := nil;
 
     if not Walked then
     begin

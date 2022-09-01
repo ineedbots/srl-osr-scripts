@@ -50,8 +50,9 @@ type
       ForemanChatOptionsTexts, ConveyorChatCollectTexts,
       ConveyorChatOreSmeltsTexts                                 : TStringArray;
     UsingIceGloves, PayingForeman, NeedToPayForeman,
-      NeedToCollect, NeedToDoBelt                                : Boolean;
+      NeedToCollect, NeedToDoBelt, ClickWhileWalking             : Boolean;
     ForemanTimer                                                 : TCountDown;
+    OldWalkingCallback                                           : TRSWalker_OnWalkEvent;
   end;
 
 var

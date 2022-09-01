@@ -250,11 +250,21 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
+  if @Bot.OldWalkingCallback <> nil then
+  begin
+    Bot.OldWalkingCallback(Walker, Position, Destination);
+
+    if not Walker^.Enabled then
+      exit();
+
+    Position := Walker^.GetMyPos();
+  end;
+
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if (Destination = Walker^.Path[High(Walker^.Path)]) and Bot.ShouldClickDispenser(Position) then
+  if Bot.ClickWhileWalking and (Destination = Walker^.Path[High(Walker^.Path)]) and Bot.ShouldClickDispenser(Position) then
   begin
     // make the mouse fast, because we are moving, its harder to keep up with objs
     S := Mouse.Speed;
@@ -284,7 +294,6 @@ var
   Walked: Boolean;
   PathIdx, Height, DType: Int32;
   OurPos: TPoint;
-  BeforeCallback: TRSWalker_OnWalkEvent;
   B: TBox;
 begin
   Script.WriteMsg('Going to dispenser....', True);
@@ -299,9 +308,10 @@ begin
 
     Script.SetStatus('Going to dispenser...');
 
-    BeforeCallback := @Self.RSW.OnWalkingEvent;
-    if Clicking then
-      Self.RSW.OnWalkingEvent := @WalkingToDispenser;
+    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.ClickWhileWalking := Clicking;
+    Self.RSW.OnWalkingEvent := @WalkingToDispenser;
+
     try
       PathIdx := SRL.TruncatedGauss(Low(Self.ToDispenserPaths), High(Self.ToDispenserPaths));
 
@@ -319,7 +329,9 @@ begin
     except
       Walked := False;
     end;
-    Self.RSW.OnWalkingEvent := @BeforeCallback;
+    
+    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.OldWalkingCallback := nil;
 
     if not Walked then
     begin

@@ -66,6 +66,8 @@ type
     Rockfalls                                                 : TRockfallArray;
     Zones                                                     : TZoneArray;
     HeightMapBMP                                              : TMufasaBitmap;
+    IsOnUpper, ClickWhileWalking                              : Boolean;
+    OldWalkingCallback, OldWalkCallback                       : TRSWalker_OnWalkEvent;
   end;
 
 var

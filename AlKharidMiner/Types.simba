@@ -18,7 +18,7 @@
 type
   TBot = record
     Name                                                      : String;
-    WalkedRockForward, Banking                                : Boolean;
+    WalkedRockForward, Banking, ClickWhileWalking             : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
       DidMove                                                 : Int32;
@@ -29,6 +29,7 @@ type
     RockWalkTile, BankWalkTile, CurrentMiningRockTile         : TPoint;
     BankColor, RockColor                                      : TScriptColor;
     ToBankPaths, ToRocksPaths                                 : T2DPointArray;
+    OldWalkingCallback                                        : TRSWalker_OnWalkEvent;
   end;
 
 var

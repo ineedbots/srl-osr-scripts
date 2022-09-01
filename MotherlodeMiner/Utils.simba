@@ -480,6 +480,16 @@ var
   Clicked: Boolean;
   Velocity: TDoubleArray;
 begin
+  if @Bot.OldWalkCallback <> nil then
+  begin
+    Bot.OldWalkCallback(Walker, Position, Destination);
+
+    if not Walker^.Enabled then
+      exit();
+
+    Position := Walker^.GetMyPos();
+  end;
+
   while RSClient.IsLoggedIn() do
   begin
     Velocity := Script.GetVelocity(Position);

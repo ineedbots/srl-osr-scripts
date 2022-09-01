@@ -18,7 +18,7 @@
 type
   TBot = record
     Name                                                      : String;
-    WalkedTreeForward, Banking                                : Boolean;
+    WalkedTreeForward, Banking, ClickWhileWalking             : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime, MakeOption,
@@ -37,6 +37,7 @@ type
     end;
     BankColor, TreeColor, FireColor, BirdNestColor            : TScriptColor;
     ToBankPaths, ToTreesPaths                                 : T2DPointArray;
+    OldWalkingCallback                                        : TRSWalker_OnWalkEvent;
   end;
 
 var

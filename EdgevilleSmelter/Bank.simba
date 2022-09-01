@@ -370,13 +370,16 @@ begin
   // search for every bank
   for BankTile in BankTiles do
   begin
-    // make sure the door is opened if we need it to be
-    if (Velocity = Point(0, 0)) and Self.HandleDoors(OurTile, BankTile, Clicked) then
-      OurTile := Self.RSW.GetMyPos();
-
     // try see if we can find this bank
     if not Self.FindBank(OurTile, BankTile, B) then
       continue;
+
+    // make sure the door is opened if we need it to be
+    if Self.HandleDoors(OurTile, BankTile, Clicked, Velocity) then
+    begin
+      OurTile := Self.RSW.GetMyPos();
+      Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    end;
 
     // apply velocity
     if Velocity <> Point(0, 0) then
@@ -453,11 +456,21 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
+  if @Bot.OldWalkingCallback <> nil then
+  begin
+    Bot.OldWalkingCallback(Walker, Position, Destination);
+
+    if not Walker^.Enabled then
+      exit();
+
+    Position := Walker^.GetMyPos();
+  end;
+
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if Destination = Walker^.Path[High(Walker^.Path)] then
+  if Bot.ClickWhileWalking and (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
     // make the mouse fast, because we are moving, its harder to keep up with objs
     S := Mouse.Speed;
@@ -488,7 +501,6 @@ var
   OurPos: TPoint;
   PathIdx: Int32;
   Walked: Boolean;
-  BeforeCallback, BeforeCallback2: TRSWalker_OnWalkEvent;
 begin
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
     exit(True);
@@ -501,11 +513,12 @@ begin
   begin
     Script.SetStatus('Going to bank spot...');
 
-    BeforeCallback := @Self.RSW.OnWalkingEvent;
-    BeforeCallback2 := @Self.RSW.OnWalkEvent;
+    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.OldWalkCallback := @Self.RSW.OnWalkEvent;
+    Self.ClickWhileWalking := Banking;
     Self.RSW.OnWalkEvent := @WalkHandleDoor;
-    if Banking then
-      Self.RSW.OnWalkingEvent := @WalkingToBank;
+    Self.RSW.OnWalkingEvent := @WalkingToBank;
+
     try
       Walked := True;
       Self.RSW.Enabled := True;
@@ -524,13 +537,16 @@ begin
     except
       Walked := False;
     end;
-    Self.RSW.OnWalkEvent := @BeforeCallback2;
-    Self.RSW.OnWalkingEvent := @BeforeCallback;
+
+    Self.RSW.OnWalkEvent := @Self.OldWalkCallback;
+    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.OldWalkCallback := nil;
+    Self.OldWalkingCallback := nil;
 
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bank spot');
-      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, Walked, True);
+      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, Walked, [0, 0], True);
       exit();
     end;
 
@@ -561,7 +577,7 @@ begin
       Result := True;
     end
     else
-      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, WasClicked, True);
+      Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, WasClicked, [0, 0], True);
   end;
 end;
 

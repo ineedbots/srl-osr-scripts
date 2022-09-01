@@ -37,7 +37,8 @@ type
     Name                                                      : String;
     StationType                                               : EStationType;
     StoppedShort, UsingInterfaceMake, UsingRingOfForging,
-      NeedToRefillRingOfForging, NeedToCheckCharges           : Boolean;
+      NeedToRefillRingOfForging, NeedToCheckCharges,
+      ClickWhileWalking                                       : Boolean;
     StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
       MaterialRatio, RingOfForgingCharges                     : Int32;
     RSW                                                       : TRSWalker;
@@ -52,6 +53,7 @@ type
     Doors                                                     : TDoorArray;
     InterfaceMakeBox                                          : TBox;
     RingOfForgingCountdown                                    : TCountdown;
+    OldWalkingCallback, OldWalkCallback                       : TRSWalker_OnWalkEvent;
   end;
 
 var

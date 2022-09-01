@@ -221,11 +221,21 @@ var
   Velocity: TDoubleArray;
   MSVel: TPoint;
 begin
+  if @Bot.OldWalkingCallback <> nil then
+  begin
+    Bot.OldWalkingCallback(Walker, Position, Destination);
+
+    if not Walker^.Enabled then
+      exit();
+
+    Position := Walker^.GetMyPos();
+  end;
+
   // calcuate move velocity
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if Destination = Walker^.Path[High(Walker^.Path)] then
+  if Bot.ClickWhileWalking and (Destination = Walker^.Path[High(Walker^.Path)]) then
   begin
     // make the mouse fast, because we are moving, its harder to keep up with objs
     S := Mouse.Speed;
@@ -253,7 +263,6 @@ var
   Where, OurPos: TPoint;
   PathIdx: Int32;
   Walked: Boolean;
-  BeforeCallback: TRSWalker_OnWalkEvent;
 begin
   Script.WriteMsg('Going to fish spot...', True);
   OurPos := Self.RSW.GetMyPos();
@@ -270,9 +279,10 @@ begin
 
     Script.SetStatus('Going to fish spot...');
 
-    BeforeCallback := @Self.RSW.OnWalkingEvent;
-    if Click then
-      Self.RSW.OnWalkingEvent := @WalkingToFish;
+    Self.OldWalkingCallback := @Self.RSW.OnWalkingEvent;
+    Self.ClickWhileWalking := Click;
+    Self.RSW.OnWalkingEvent := @WalkingToFish;
+
     try
       Walked := True;
       Self.RSW.Enabled := True;
@@ -291,7 +301,9 @@ begin
     except
       Walked := False;
     end;
-    Self.RSW.OnWalkingEvent := @BeforeCallback;
+    
+    Self.RSW.OnWalkingEvent := @Self.OldWalkingCallback;
+    Self.OldWalkingCallback := nil;
 
     if not Walked then
     begin

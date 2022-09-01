@@ -1277,6 +1277,8 @@ end;
 }
 function TRSMainScreen.FindClick(Area: TBox): ERSClickType; override;
 begin
+  Area := Area;
+  
   if Self.DidRedClick() then
     Result := ERSClickType.RED
   else if Self.DidYellowClick() then
@@ -1336,6 +1338,13 @@ var
 begin
   // calcuate move velocity
   TimeDelta := GetTimeRunning() - Self.LastPosTime;
+
+  if TimeDelta < 100 then
+  begin
+    // too fast! use last result
+    exit(Self.LastVel);
+  end;
+
   PosDelta := Position - Self.LastPos;
 
   SetLength(Result, 2);
@@ -1346,11 +1355,13 @@ begin
   Self.LastPosTime := GetTimeRunning();
 
   // prob junk...
-  if TimeDelta > 1500 then
+  if TimeDelta > 2500 then
   begin
     Result[0] := 0;
     Result[1] := 0;
   end;
+
+  Self.LastVel := Result;
 end;
 
 {
