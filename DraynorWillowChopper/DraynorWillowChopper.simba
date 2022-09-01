@@ -162,7 +162,6 @@ begin
   Script.FastMouseAdd    := 20;
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := ITEMFINDER_SIMILARITY;
-  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
 
   Script.AllowBreaks := True;
   

@@ -135,6 +135,9 @@ begin
     Result := True;
     Self.CurrentChoppingTreeTile := TT;
 
+    // hover over the banktile and see if it is actually a bank
+    Script.OldMouseMovingCallback := @Mouse.OnMoving;
+    Mouse.OnMoving := @WhileMouseMovesLookForUpText;
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.TreeUptexts;
 
@@ -159,6 +162,9 @@ begin
     end;
 
     Script.MouseLooksForUpText := [];
+    Mouse.OnMoving := @Script.OldMouseMovingCallback;
+    Script.OldMouseMovingCallback := nil;
+    
 
     if not MainScreen.IsUpText(Self.TreeUptexts, Random(100, 250)) then
     begin

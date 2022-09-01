@@ -318,7 +318,7 @@ var
 begin
   S := Self.Speed;
   Self.Speed := 4;
-  Self.Move(Box(Mouse.Position, 75, 75), True);
+  Self.Move(Box(Mouse.Position(), 75, 75), True);
   Self.Speed := S;
 end;
 
@@ -341,18 +341,18 @@ begin
     inc(Tries);
     rDot := tpa[random(low(tpa),high(tpa))];
     msRect := Minimap.VecToMSRect(Vec3(rDot.X + 2, rDot.Y + 2, 0), a);
-    if MainScreen.Bounds.Contains(msRect) then
+    if MainScreen.Bounds().Contains(msRect) then
     begin
       Self.DebugLn('Hovering random ' + toStr(DotType));
       // Get all colors on the tile
       // Extract the rarest
       // Gather points
       // Mouse to random point
-      cArr := getColors(tpaFromBox(msRect.Bounds));
+      cArr := getColors(tpaFromBox(msRect.Bounds()));
       cArr.Sort();
       cArr.ClearDuplicates();
-      for i := 0 to cArr.Len-1 do
-        if (SRL.FindColors(cTPA, CTS1(cArr[i], 10), msRect.Bounds) > 5) then
+      for i := 0 to Length(cArr)-1 do
+        if (SRL.FindColors(cTPA, CTS1(cArr[i], 10), msRect.Bounds()) > 5) then
         begin
           Mouse.Move(cTPA.Mean());
           if RightClick then

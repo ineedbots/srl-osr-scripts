@@ -74,7 +74,7 @@ var
   RearrangeText: String;
 begin
   // fixes the issue where uptext can cover the button, making isopen fail
-  if (MainScreen.GetUpText <> '') then
+  if (MainScreen.GetUpText() <> '') then
   begin
     B := Self.Bounds();
     RearrangeText := OCR.RecognizeStatic([B.X1 + 7, B.Y2 - 41, B.X1 + 102, B.Y2 - 24], TOCRColorRule.Create([2070783, 5]), RS_FONT_PLAIN_12);
@@ -94,6 +94,14 @@ end;
 }
 procedure WatchForClearUptext(Sender: PMouse; var X, Y: Double; var Done: Boolean);
 begin
+  if @Script.OldMouseMovingCallback <> nil then
+  begin
+    Script.OldMouseMovingCallback(Sender, X, Y, Done);
+
+    if Done then
+      exit();
+  end;
+
   Sender := Sender;
   X := X;
   Y := Y;
@@ -106,8 +114,6 @@ end;
   Fixes the problem with uptext covering the bank interface, only when the bank tag plugin is used on runelite
 }
 function TRSBank.FixUpText(): Boolean;
-var
-  BeforeCallback: TMouseMovingEvent;
 begin
   if ChooseOption.IsOpen() then
     ChooseOption.Close();
@@ -115,10 +121,13 @@ begin
   if MainScreen.GetUpText() = '' then
     exit(True);
 
-  BeforeCallback := @Mouse.OnMoving;
+  Script.OldMouseMovingCallback := @Mouse.OnMoving;
   Mouse.OnMoving := @WatchForClearUptext;
+
   Mouse.Move(Minimap.Bounds());
-  Mouse.OnMoving := @BeforeCallback;
+
+  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Script.OldMouseMovingCallback := nil;
 
   Result := (MainScreen.GetUpText() = '');
 end;
@@ -253,7 +262,7 @@ begin
     begin
       Button := Self.GetButton(ERSBankButton.QUANTITY_CUSTOM);
 
-      if not Button.Enabled then
+      if not Button.Enabled() then
       begin
         Mouse.Move(Button.Bounds);
         NeedToInput := MainScreen.IsUpText('Set custom quantity');

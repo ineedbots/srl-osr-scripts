@@ -111,10 +111,18 @@ begin
       RSClient.Image.DrawBox(B, clMoneyGreen);
   end;
 
+  // uptext
+  Script.OldMouseMovingCallback := @Mouse.OnMoving;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
   if Velocity <> Point(0, 0) then
     Script.MouseLooksForUpText := Self.HopperUptext;
+
   Mouse.Move(B);
+
   Script.MouseLooksForUpText := [];
+  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Script.OldMouseMovingCallback := nil;
+  
 
   Script.RareSmallWait();
 

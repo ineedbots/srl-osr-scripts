@@ -107,10 +107,18 @@ begin
 
   Result := True;
 
+  // check up text
+  Script.OldMouseMovingCallback := @Mouse.OnMoving;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
   if Velocity <> Point(0, 0) then
     Script.MouseLooksForUpText := Self.FireUpText;
+
   Mouse.Move(B);
+
   Script.MouseLooksForUpText := [];
+  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Script.OldMouseMovingCallback := nil;
+
 
   Script.RareSmallWait();
 

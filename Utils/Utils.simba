@@ -130,8 +130,8 @@ begin
 
   if Self.Debug and Self.Drawing then
   begin
-    RSClient.Image.DrawBox(OurBox, clRed);
-    RSClient.Image.DrawCross(OurBox.Middle(), 5, clRed);
+    RSClient.Image().DrawBox(OurBox, clRed);
+    RSClient.Image().DrawCross(OurBox.Middle(), 5, clRed);
   end;
 
   HPBars := MainScreen.FindHPBars(OurBox);
@@ -243,7 +243,7 @@ end;
 }
 function TRSMinimap.GetHPCircle: TCircle; override;
 begin
-  Result := [Self.X1 + Self.HitpointsCircleOffset.X, Self.Y1 + Self.HitpointsCircleOffset.Y, 11];
+  Result := [Self.X1() + Self.HitpointsCircleOffset.X, Self.Y1() + Self.HitpointsCircleOffset.Y, 11];
 end;
 
 {
@@ -251,7 +251,7 @@ end;
 }
 function TRSMinimap.IsRunEnabled: Boolean; override;
 begin
-  Result := SRL.CountColor(CTS2(4606022, 8, 2.24, 0.11), Self.GetRunCircle().Bounds) <= 50;
+  Result := SRL.CountColor(CTS2(4606022, 8, 2.24, 0.11), Self.GetRunCircle().Bounds()) <= 50;
 end;
 
 {
@@ -279,7 +279,7 @@ begin
   MinimapPoint := Self.WorldToMM(PlayerPoint, WorldPoint, Minimap.GetCompassAngle(False));
   if (not Minimap.IsPointOn(MinimapPoint)) then
     Exit(False);
-  if (Minimap.Center.DistanceTo(MinimapPoint) < 5) then
+  if (Minimap.Center().DistanceTo(MinimapPoint) < 5) then
     Exit(True);
 
   Result := Self.Click(MinimapPoint, 0);
@@ -314,7 +314,7 @@ begin
   MinimapPoint := Self.WorldToMM(PlayerPoint, WorldPoint, Minimap.GetCompassAngle(False));
   if (not Minimap.IsPointOn(MinimapPoint)) then
     Exit(False);
-  if (Minimap.Center.DistanceTo(MinimapPoint) < 5) then
+  if (Minimap.Center().DistanceTo(MinimapPoint) < 5) then
     Exit(True);
 
   Result := Self.Click(MinimapPoint, Self.ClickRandomness);
@@ -322,9 +322,9 @@ begin
   if Result then
   begin
     if (Random() < 0.15) then // 15% chance of randomness else mean
-      WaitUntilDistance := Random(Distance(Minimap.Center, MinimapPoint))
+      WaitUntilDistance := Random(Distance(Minimap.Center(), MinimapPoint))
     else
-      WaitUntilDistance := SRL.NormalRange(0, Distance(Minimap.Center, MinimapPoint) + 10);
+      WaitUntilDistance := SRL.NormalRange(0, Distance(Minimap.Center(), MinimapPoint) + 10);
 
     Self.WaitMoving(WorldPoint, WaitUntilDistance);
   end
@@ -516,7 +516,7 @@ var
   Boxes: TBoxArray;
   B: TBox;
 begin
-  Result := Self.Bounds.Contains(P);
+  Result := Self.Bounds().Contains(P);
 
   if Result then
   begin
@@ -524,12 +524,12 @@ begin
       Exit(False);
     if ChatButtons.Bounds().Contains(P) then
       Exit(False);
-    if Minimap.Bounds.Expand(50).Contains(P) then
+    if Minimap.Bounds().Expand(50).Contains(P) then
       Exit(False);
     if GameTabs.Bounds().Contains(P) then
       Exit(False);
 
-    if (GameTabs.Mode = ERSClientMode.RESIZABLE_MODERN) and (RootInterface.Width >= 948) then
+    if (GameTabs.Mode = ERSClientMode.RESIZABLE_MODERN) and (RootInterface.Width() >= 948) then
     begin
       Boxes := GameTabs.GetTabBoxes();
 
@@ -550,8 +550,8 @@ function TRSXPBar.IsOpen: Boolean; override;
     COLOR_BORDER = $233038;
   var C: Int32;
   begin
-    C := SRL.CountColor(COLOR_BORDER, Self.Bounds);
-    case Self.Width of   // With / without progress bar
+    C := SRL.CountColor(COLOR_BORDER, Self.Bounds());
+    case Self.Width() of   // With / without progress bar
 {Smallest} 119: Result := (C = 292) or (C = 175);
 {Medium}   129: Result := (C = 312) or (C = 185);
 {Large}    140: Result := (C = 334) or (C = 196);
@@ -661,7 +661,7 @@ begin
   if not Frozen then
     Freeze();
 
-  Area.LimitTo(Self.Bounds);
+  Area.LimitTo(Self.Bounds());
 
   try
     for Color in COLOR_BARS do
@@ -1440,6 +1440,14 @@ procedure WhileMouseMovesLookForUpText(Sender: PMouse; var X, Y: Double; var Don
 var
   UpText: String;
 begin
+  if @Script.OldMouseMovingCallback <> nil then
+  begin
+    Script.OldMouseMovingCallback(Sender, X, Y, Done);
+
+    if Done then
+      exit();
+  end;
+
   if Length(Script.MouseLooksForUpText) <= 0 then
     exit();
 

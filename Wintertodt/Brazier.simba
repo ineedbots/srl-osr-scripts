@@ -137,10 +137,18 @@ begin
   UpTexts := UpTexts.Combine(Self.LightBrazUpText);
   UpTexts := UpTexts.Combine(Self.FeedBrazUpText);
 
+  // hover over the banktile and see if it is actually a bank
+  Script.OldMouseMovingCallback := @Mouse.OnMoving;
+  Mouse.OnMoving := @WhileMouseMovesLookForUpText;
   if Velocity <> Point(0, 0) then
     Script.MouseLooksForUpText := UpTexts;
+
   Mouse.Move(B);
+
   Script.MouseLooksForUpText := [];
+  Mouse.OnMoving := @Script.OldMouseMovingCallback;
+  Script.OldMouseMovingCallback := nil;
+
 
   Script.RareSmallWait();
 
