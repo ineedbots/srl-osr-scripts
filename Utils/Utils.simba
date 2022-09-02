@@ -365,9 +365,9 @@ begin
     if Position.Current <> Position.Previous then
       Countdown.Restart();
 
-    if (OnWalkingEvent <> nil) then
+    if (Self.OnWalkingEvent <> nil) then
     begin
-      OnWalkingEvent(@Self, Position.Current, Destination);  
+      Self.OnWalkingEvent(@Self, Position.Current, Destination);  
       Position.Current := Self.GetMyPos();
     end;
 
@@ -547,7 +547,7 @@ end;
 }
 function TRSXPBar.IsOpen: Boolean; override;
 
-  function FindBorder: Boolean;
+  function FindBorder(): Boolean;
   const
     COLOR_BORDER = $233038;
   var C: Int32;
@@ -560,7 +560,7 @@ function TRSXPBar.IsOpen: Boolean; override;
     end;
   end;
 
-  function UpdateLocation: Boolean;
+  function UpdateLocation(): Boolean;
   var
     Location: ERSXPBarLocation;
     Size: ERSXPBarSize;
@@ -1023,7 +1023,7 @@ begin
   begin
     Wait(0, 1000, wdLeft);
 
-    Choices := GetOptions();
+    Choices := Self.GetOptions();
 
     for I := 0 to High(Choices) do
       for J := 0 to High(Text) do
@@ -1312,7 +1312,7 @@ begin
     exit();
 
   // wasplib !
-  Buttons := FindButtons([[21,21], [24,23]]);
+  Buttons := Self.FindButtons([[21,21], [24,23]]);
   if Buttons <> [] then
   begin
     if PressEscape then
@@ -1497,4 +1497,3 @@ begin
 end;
 
 {$ENDIF} // INEEDBOT_UTILS
-
