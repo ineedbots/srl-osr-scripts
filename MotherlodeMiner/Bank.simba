@@ -20,6 +20,8 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+
 {
   Finds the bank tile
 }
@@ -101,6 +103,12 @@ begin
       BankPin.Enter(Login.GetPlayer().Pin);
       Wait(500, 1000);
       BankOpenCountDown.Restart();
+    end;
+
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Couldn''t reach...', True);
+      break;
     end;
 
     // only countdown if we are not moving
@@ -243,6 +251,7 @@ var
   BankTile: TPoint;
   B: TBox;
   Height: Int32;
+  Clicked: Boolean;
 begin
   // bank might be already opened, lets return true
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
@@ -254,7 +263,22 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // bank is on lower part
+  if Self.IsOnUpperLevel(OurTile) then
+  begin
+    Script.WriteMsg('ClickBank: On Upper! should be on lower', True);
+    exit();
+  end;
+
   Height := Self.GetHeight(OurTile);
+
+  // handle rocks
+  if Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity, False) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    Height := Self.GetHeight(OurTile);
+  end;
 
   // randomize the tiles a bit, shake em up
   BankTiles := Copy(Self.BankTiles);
@@ -386,6 +410,10 @@ begin
 
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
     Walker^.Enabled := False;
+
+  // should be on lower
+  if Bot.IsOnUpperLevel(Position) then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -438,12 +466,15 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bank spot');
+
+      OurPos := Self.RSW.GetMyPos();
+      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := (not Self.IsOnUpperLevel(Self.RSW.GetMyPos()));
   end;
 end;
 
@@ -453,7 +484,15 @@ end;
 function TBot.DoBank(): Boolean;
 var
   WasClicked: Boolean;
+  OurPos: TPoint;
 begin
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Self.AfterActionAntiBan(True, True, True);
+    exit();
+  end;
+
   if (Self.ClickBank(WasClicked) and WasClicked)
     or Self.GoToBank()
     or (Self.ClickBank(WasClicked) and WasClicked)
@@ -466,6 +505,11 @@ begin
     begin
       Result := True;
       Self.DoBanking();
+    end
+    else
+    begin
+      OurPos := Self.RSW.GetMyPos();
+      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
     end;
   end;
 end;

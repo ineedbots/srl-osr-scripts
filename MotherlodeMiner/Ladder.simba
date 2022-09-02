@@ -117,6 +117,8 @@ begin
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    Height := Self.GetHeight(OurTile);
+    Upper := Self.IsOnUpperLevel(OurTile);
   end;
 
   // find the ladder
