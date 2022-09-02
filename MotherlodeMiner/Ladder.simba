@@ -315,7 +315,7 @@ end;
 {
   Does the ladder!
 }
-function TBot.DoLadder(): Boolean;
+function TBot.DoLadder(GoingToUpper: Boolean): Boolean;
 var
   Clicked, Upper: Boolean;
   CountDown: TCountDown;
@@ -323,6 +323,13 @@ var
 begin
   Script.WriteMsg('Need to do ladder!!', True);
   Upper := Self.IsOnUpperLevel();
+
+  if GoingToUpper = Upper then
+  begin
+    Script.WriteMsg('Already on level!', True);
+    exit(True);
+  end;
+
   Self.IsOnUpper := Upper;
 
   // click it

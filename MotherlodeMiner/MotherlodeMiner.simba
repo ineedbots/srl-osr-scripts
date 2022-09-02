@@ -44,7 +44,8 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.DoLadder();
+      Self.DoLadder(True);
+      Self.DoLadder(False);
     end
     else
     begin
@@ -312,6 +313,7 @@ begin
     Angle := 90.0;
     Area := [[263, 73], [271, 73], [276, 80], [276, 91], [264, 90]];
     WalkTile := [269, 85];
+    IsUpper := True;
 
     SetLength(Veins, 3);
     with Veins[0] do
@@ -320,6 +322,7 @@ begin
       Angle := 90.0;
       Height := 13 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -327,6 +330,7 @@ begin
       Angle := 90.0;
       Height := 13 + 5;
       NextTo := [0, 2];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -334,6 +338,7 @@ begin
       Angle := 90.0;
       Height := 13 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
   end;
 
@@ -342,6 +347,7 @@ begin
     Angle := 180.0;
     Area := [[246, 107], [246, 100], [263, 99], [271, 94], [280, 94], [279, 105], [264, 113], [252, 112]];
     WalkTile := [250, 102];
+    IsUpper := True;
 
     SetLength(Veins, 5);
     with Veins[0] do
@@ -350,6 +356,7 @@ begin
       Angle := 180.0;
       Height := 13 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -357,6 +364,7 @@ begin
       Angle := 180.0;
       Height := 13 + 5;
       NextTo := [0];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -364,6 +372,7 @@ begin
       Angle := 180.0;
       Height := 11 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
     with Veins[3] do
     begin
@@ -371,6 +380,7 @@ begin
       Angle := 180.0;
       Height := 10 + 5;
       NextTo := [2];
+      IsUpper := True;
     end;
     with Veins[4] do
     begin
@@ -378,6 +388,7 @@ begin
       Angle := 180.0;
       Height := 8 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
   end;
 
@@ -386,6 +397,7 @@ begin
     Angle := 0.0;
     Area := [[250, 96], [250, 89], [265, 88], [265, 97]];
     WalkTile := [254, 94];
+    IsUpper := True;
 
     SetLength(Veins, 3);
     with Veins[0] do
@@ -394,6 +406,7 @@ begin
       Angle := 0.0;
       Height := 9 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -401,6 +414,7 @@ begin
       Angle := 0.0;
       Height := 11 + 5;
       NextTo := [0, 2];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -408,6 +422,7 @@ begin
       Angle := 0.0;
       Height := 12 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
   end;
 
@@ -416,6 +431,7 @@ begin
     Angle := 90.0;
     Area := [[243, 103], [234, 102], [231, 90], [232, 73], [239, 73]];
     WalkTile := [242, 98];
+    IsUpper := True;
 
     SetLength(Veins, 5);
     with Veins[0] do
@@ -424,6 +440,7 @@ begin
       Angle := 90.0;
       Height := 8 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -431,6 +448,7 @@ begin
       Angle := 90.0;
       Height := 8 + 5;
       NextTo := [0];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -438,6 +456,7 @@ begin
       Angle := 90.0;
       Height := 8 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
     with Veins[3] do
     begin
@@ -445,6 +464,7 @@ begin
       Angle := 90.0;
       Height := 9 + 5;
       NextTo := [2, 4];
+      IsUpper := True;
     end;
     with Veins[4] do
     begin
@@ -452,6 +472,7 @@ begin
       Angle := 90.0;
       Height := 9 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
   end;
 
@@ -460,6 +481,7 @@ begin
     Angle := 215.0;
     Area := [[246, 84], [246, 77], [255, 76], [263, 74], [263, 85], [251, 86]];
     WalkTile := [249, 78];
+    IsUpper := True;
 
     SetLength(Veins, 4);
     with Veins[0] do
@@ -468,6 +490,7 @@ begin
       Angle := 180.0;
       Height := 11 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -475,6 +498,7 @@ begin
       Angle := 180.0;
       Height := 13 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -482,6 +506,7 @@ begin
       Angle := 270.0;
       Height := 13 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
     with Veins[3] do
     begin
@@ -489,6 +514,7 @@ begin
       Angle := 270.0;
       Height := 13 + 5;
       NextTo := [2];
+      IsUpper := True;
     end;
   end;
 
@@ -497,6 +523,7 @@ begin
     Angle := 135.0;
     Area := [[200, 83], [200, 72], [219, 72], [219, 84]];
     WalkTile := [213, 78];
+    IsUpper := True;
 
     SetLength(Veins, 4);
     with Veins[0] do
@@ -505,6 +532,7 @@ begin
       Angle := 180.0;
       Height := 8 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -512,6 +540,7 @@ begin
       Angle := 180.0;
       Height := 8 + 5;
       NextTo := [0, 2];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -519,6 +548,7 @@ begin
       Angle := 180.0;
       Height := 8 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
     with Veins[3] do
     begin
@@ -526,6 +556,7 @@ begin
       Angle := 90.0;
       Height := 7 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
   end;
 
@@ -534,6 +565,7 @@ begin
     Angle := 270.0;
     Area := [[222, 73], [230, 73], [230, 92], [221, 93]];
     WalkTile := [226, 98];
+    IsUpper := True;
 
     SetLength(Veins, 4);
     with Veins[0] do
@@ -542,6 +574,7 @@ begin
       Angle := 270.0;
       Height := 6 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
     with Veins[1] do
     begin
@@ -549,6 +582,7 @@ begin
       Angle := 270.0;
       Height := 7 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
     with Veins[2] do
     begin
@@ -556,6 +590,7 @@ begin
       Angle := 270.0;
       Height := 8 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
     with Veins[3] do
     begin
@@ -563,6 +598,7 @@ begin
       Angle := 270.0;
       Height := 8 + 5;
       NextTo := [2];
+      IsUpper := True;
     end;
   end;
 
@@ -571,6 +607,7 @@ begin
     Angle := 315.0;
     Area := [[244, 112], [263, 112], [263, 135], [252, 133], [252, 122], [244, 121]];
     WalkTile := [249, 118];
+    IsUpper := True;
 
     SetLength(Veins, 7);
     with Veins[0] do
@@ -579,6 +616,7 @@ begin
       Angle := 0.0;
       Height := 7 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
 
     with Veins[1] do
@@ -587,6 +625,7 @@ begin
       Angle := 0.0;
       Height := 8 + 5;
       NextTo := [0, 2];
+      IsUpper := True;
     end;
 
     with Veins[2] do
@@ -595,6 +634,7 @@ begin
       Angle := 0.0;
       Height := 9 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
 
 
@@ -604,6 +644,7 @@ begin
       Angle := 270.0;
       Height := 9 + 5;
       NextTo := [4];
+      IsUpper := True;
     end;
 
     with Veins[4] do
@@ -612,6 +653,7 @@ begin
       Angle := 270.0;
       Height := 9 + 5;
       NextTo := [3, 5];
+      IsUpper := True;
     end;
 
     with Veins[5] do
@@ -620,6 +662,7 @@ begin
       Angle := 270.0;
       Height := 9 + 5;
       NextTo := [4, 6];
+      IsUpper := True;
     end;
 
     with Veins[6] do
@@ -628,6 +671,7 @@ begin
       Angle := 270.0;
       Height := 8 + 5;
       NextTo := [5];
+      IsUpper := True;
     end;
   end;
 
@@ -641,6 +685,7 @@ begin
       Angle := 90.0;
       Height := 13 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
 
     with Veins[1] do
@@ -649,6 +694,7 @@ begin
       Angle := 0.0;
       Height := 9 + 5;
       NextTo := [2];
+      IsUpper := True;
     end;
 
     with Veins[2] do
@@ -657,6 +703,7 @@ begin
       Angle := 0.0;
       Height := 9 + 5;
       NextTo := [1];
+      IsUpper := True;
     end;
 
     with Veins[3] do
@@ -665,6 +712,7 @@ begin
       Angle := 270.0;
       Height := 9 + 5;
       NextTo := [4];
+      IsUpper := True;
     end;
 
     with Veins[4] do
@@ -673,6 +721,7 @@ begin
       Angle := 270.0;
       Height := 9 + 5;
       NextTo := [3];
+      IsUpper := True;
     end;
 
 
@@ -682,6 +731,7 @@ begin
       Angle := 270.0;
       Height := 7 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
 
     with Veins[6] do
@@ -690,6 +740,7 @@ begin
       Angle := 0.0;
       Height := 6 + 5;
       NextTo := [];
+      IsUpper := True;
     end;
 
 
@@ -699,6 +750,7 @@ begin
       Angle := 90.0;
       Height := 7 + 5;
       NextTo := [8];
+      IsUpper := True;
     end;
 
     with Veins[8] do
@@ -707,6 +759,7 @@ begin
       Angle := 90.0;
       Height := 7 + 5;
       NextTo := [7];
+      IsUpper := True;
     end;
 
 
@@ -716,6 +769,7 @@ begin
       Angle := 90.0;
       Height := 8 + 5;
       NextTo := [10];
+      IsUpper := True;
     end;
 
     with Veins[10] do
@@ -724,6 +778,7 @@ begin
       Angle := 90.0;
       Height := 7 + 5;
       NextTo := [9];
+      IsUpper := True;
     end;
   end;
   }

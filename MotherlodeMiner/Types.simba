@@ -33,6 +33,7 @@ type
     Height                                                    : Int32;
     Angle                                                     : Double;
     NextTo                                                    : TIntegerArray;
+    IsUpper                                                   : Boolean;
   end;
 
   TVeinArray = array of TVein;
@@ -42,6 +43,7 @@ type
     Veins                                                     : TVeinArray;
     Area                                                      : TPointArray;
     WalkTile                                                  : TPoint;
+    IsUpper                                                   : Boolean;
   end;
 
   TZoneArray = array of TZone;
