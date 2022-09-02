@@ -44,8 +44,7 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.DoLadder(True);
-      Self.DoLadder(False);
+      Self.DoBank();
     end
     else
     begin

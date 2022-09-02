@@ -193,6 +193,7 @@ begin
     begin
       Script.WriteMsg('Clicked the sink while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -226,6 +227,8 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToSink;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := Self.RSW.WalkBlind(Self.SinkTile.Random(-6, 6, True), 0);
     except
@@ -243,7 +246,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

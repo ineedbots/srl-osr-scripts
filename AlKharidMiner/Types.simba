@@ -20,7 +20,8 @@
 type
   TBot = record
     Name                                                      : String;
-    WalkedRockForward, Banking, ClickWhileWalking             : Boolean;
+    WalkedRockForward, Banking, ClickWhileWalking,
+      WalkerWasEarlySuccess                                   : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
       DidMove                                                 : Int32;

@@ -209,6 +209,7 @@ begin
       begin
         Script.WriteMsg('Clicked the roots while moving, nice!');
         Walker^.Enabled := False;
+        Bot.WalkerWasEarlySuccess := True;
       end;
 
       // reset the mosue speed back
@@ -257,6 +258,8 @@ begin
     Self.ClickWhileWalking := DoClick;
     Self.RSW.OnWalkingEvent := WalkingToLogs;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := Self.RSW.WalkBlind(Self.RootsTile.Offset(Self.GetRootsTileWalkOffset()).Random(-3, 3, True), 2);
     except
@@ -274,7 +277,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

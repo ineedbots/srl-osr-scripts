@@ -23,7 +23,8 @@ type
     RSW                                                       : TRSWalker;
     CameraAngle                                               : Double;
     ShouldBank, Specing, BrazIsLit, WaitingForDeadBoss,
-      InBossFight, SkipBankCheck, ClickWhileWalking           : Boolean;
+      InBossFight, SkipBankCheck, ClickWhileWalking,
+      WalkerWasEarlySuccess                                   : Boolean;
     EatHpPerc, RandomEatHpPerc, NumFood, ChopWaitTime,
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
       RandomGoodHPPerc, Did, UnlitWaitTime,

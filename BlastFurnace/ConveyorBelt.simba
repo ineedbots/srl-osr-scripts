@@ -206,6 +206,7 @@ begin
     begin
       Script.WriteMsg('Clicked the belt while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -239,6 +240,8 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToConveyor;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       PathIdx := SRL.TruncatedGauss(Low(Self.ToConveyorPaths), High(Self.ToConveyorPaths));
 
@@ -269,7 +272,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

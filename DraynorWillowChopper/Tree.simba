@@ -238,6 +238,7 @@ begin
     begin
       Script.WriteMsg('Clicked the tree while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -277,6 +278,8 @@ begin
     Self.ClickWhileWalking := Click;
     Self.RSW.OnWalkingEvent := WalkingToTrees;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := True;
       Self.RSW.Enabled := True;
@@ -308,7 +311,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 
   // set the 'next' fish spot...

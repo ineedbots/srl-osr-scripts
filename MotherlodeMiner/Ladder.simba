@@ -227,6 +227,7 @@ begin
     begin
       Script.WriteMsg('Clicked the Ladder while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -235,7 +236,10 @@ begin
 
   // watch the levels
   if Bot.IsOnUpper <> Bot.IsOnUpperLevel(Position) then
+  begin
     Walker^.Enabled := False;
+    Bot.WalkerWasEarlySuccess := True;
+  end;
 end;
 
 {
@@ -275,6 +279,7 @@ begin
     try
       Walked := True;
       Self.RSW.Enabled := True;
+      Self.WalkerWasEarlySuccess := False;
 
       if (Length(Self.ToLadderPaths) > 0) and not Upper then
       begin
@@ -310,7 +315,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

@@ -20,7 +20,8 @@
 type
   TBot = record
     Name                                                      : String;
-    WalkedTreeForward, Banking, ClickWhileWalking             : Boolean;
+    WalkedTreeForward, Banking, ClickWhileWalking,
+      WalkerWasEarlySuccess                                   : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime, MakeOption,

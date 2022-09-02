@@ -187,6 +187,7 @@ begin
     begin
       Script.WriteMsg('Clicked the enter door while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -225,6 +226,8 @@ begin
     Self.ClickWhileWalking := DoClick;
     Self.RSW.OnWalkingEvent := WalkingToEnterDoor;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       PathIdx := SRL.TruncatedGauss(Low(Self.ToEntranceDoorPaths), High(Self.ToEntranceDoorPaths));
 
@@ -255,7 +258,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 
@@ -478,6 +481,7 @@ begin
       begin
         Script.WriteMsg('Clicked the exit door while moving, nice!');
         Walker^.Enabled := False;
+        Bot.WalkerWasEarlySuccess := True;
       end;
 
       // reset the mosue speed back
@@ -517,6 +521,8 @@ begin
     Self.ClickWhileWalking := DoClick;
     Self.RSW.OnWalkingEvent := WalkingToExitDoor;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       PathIdx := SRL.TruncatedGauss(Low(Self.ToExitDoorPaths), High(Self.ToExitDoorPaths));
 
@@ -547,7 +553,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

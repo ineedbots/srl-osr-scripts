@@ -285,6 +285,7 @@ begin
       begin
         Script.WriteMsg('Clicked the rock while moving, nice!');
         Walker^.Enabled := False;
+        Bot.WalkerWasEarlySuccess := True;
       end;
 
       // reset the mosue speed back
@@ -330,6 +331,7 @@ begin
     try
       Walked := True;
       Self.RSW.Enabled := True;
+      Self.WalkerWasEarlySuccess := False;
 
       if (Length(Self.ToRocksPaths) > 0) and Force then
       begin
@@ -358,7 +360,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 
   // set the 'next' rock spot...

@@ -496,6 +496,7 @@ begin
     begin
       Script.WriteMsg('Clicked the bank while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -503,7 +504,10 @@ begin
   end;
 
   if Bank.IsOpen() or BankPin.IsOpen() or DepositBox.IsOpen() then
+  begin
     Walker^.Enabled := False;
+    Bot.WalkerWasEarlySuccess := True;
+  end;
 end;
 
 {
@@ -525,6 +529,10 @@ begin
   if Force or (OurPos.DistanceTo(Self.BankWalkTile) > 30) or
     not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.BankWalkTile).Mean()) then
   begin
+    // mainscreen bank fix
+    if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
     Script.SetStatus('Going to bank spot...');
 
     Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
@@ -536,6 +544,7 @@ begin
     try
       Walked := True;
       Self.RSW.Enabled := True;
+      Self.WalkerWasEarlySuccess := False;
 
       if Length(Self.ToBankPaths) > 0 then
       begin
@@ -560,13 +569,14 @@ begin
     if not Walked then
     begin
       Script.WriteMsg('Failed to go to bank spot');
+      MainScreen.CloseInterface(Script.ShouldPressKeyboard());
       Self.HandleDoors(Self.RSW.GetMyPos(), Self.BankWalkTile, Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

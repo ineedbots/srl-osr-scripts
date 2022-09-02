@@ -215,6 +215,7 @@ begin
     begin
       Script.WriteMsg('Clicked the station while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -256,6 +257,7 @@ begin
     try
       Walked := True;
       Self.RSW.Enabled := True;
+      Self.WalkerWasEarlySuccess := False;
 
       if Length(Self.ToStationPaths) > 0 then
       begin
@@ -287,7 +289,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked a fish spot
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 

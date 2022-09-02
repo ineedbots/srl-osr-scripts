@@ -216,6 +216,7 @@ begin
       Bot.BrazIsLit := IsLit;
       Script.WriteMsg('Clicked the brazier while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
@@ -262,6 +263,8 @@ begin
     Self.ClickWhileWalking := DoClick;
     Self.RSW.OnWalkingEvent := WalkingToBrazier;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       PathIdx := SRL.TruncatedGauss(Low(Self.ToBrazierPaths), High(Self.ToBrazierPaths));
 
@@ -292,7 +295,7 @@ begin
 
     // check if the walker was killed early, it must of been it clicked
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
 end;
 
