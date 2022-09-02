@@ -273,7 +273,7 @@ begin
   Height := Self.GetHeight(OurTile);
 
   // handle rocks
-  if Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity, False) then
+  if Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));

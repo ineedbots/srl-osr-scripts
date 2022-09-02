@@ -24,14 +24,14 @@ Here is an up to date guide for installing the dependencies; https://villavu.com
 ![Add package button](/assets/addpackagebutton.png)
 3. Insert the URL of this repo (`https://github.com/ineedbots/srl-osr-scripts`) into the textbox and press OK.<br>
 ![Insert repo URL](/assets/insertlink.png)
-4. Once added, select the package (`srl-osr-scripts`) on the sidebar, select the latest version and hit the Install button.<br>
+4. Once added, select the package (`srl-osr-scripts`) on the sidebar, select the latest version (master) and hit the Install button.<br>
 ![Install button](/assets/install.png)
 5. Wait for it to install. It will be installed to `<Simba install location>/Scripts/ineedbots-srl-scripts/` folder.<br>
 ![Install dir](/assets/installloc.png)
 
 ## Dependencies
-- Simba 1400 - https://github.com/ollydev/Simba/releases/tag/autobuild-simba1400
-- SRL-Development Release 13 - https://github.com/ollydev/SRL-Development/releases/tag/13
+- Simba 1400 - https://github.com/Villavu/Simba/releases/tag/simba1400-release
+- SRL-Development Release 19 - https://github.com/Villavu/SRL-Development/releases/tag/19
 
 ## Credits
 - Torwent - https://github.com/Torwent/WaspLib

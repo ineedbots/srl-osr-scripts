@@ -113,7 +113,7 @@ begin
   Tile := Self.UpperLadderTile;
   if not Upper then
     Tile := Self.LowerLadderTile;
-  if Self.HandleRockfalls(OurTile, Tile, Height, Upper, Clicked, Velocity, False) then
+  if Self.HandleRockfalls(OurTile, Tile, Height, Upper, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
