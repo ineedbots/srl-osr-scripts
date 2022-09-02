@@ -89,6 +89,13 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // make sure the door is opened if we need it to be
+  if Self.HandleDoors(OurTile, Self.StationWalkTile, Clicked, Velocity) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+  end;
+
   // randomize the tiles a bit, shake em up
   StationTiles := Copy(Self.StationTiles);
   StationTiles.Sort(OurTile);
@@ -101,13 +108,6 @@ begin
     begin
       Script.WriteMsg('ClickStation: not visible', True);
       continue;
-    end;
-
-    // make sure the door is opened if we need it to be
-    if Self.HandleDoors(OurTile, TP, Clicked, Velocity) then
-    begin
-      OurTile := Self.RSW.GetMyPos();
-      Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
     end;
 
     Script.WriteMsg('ClickStation: Found, checking uptext', True);

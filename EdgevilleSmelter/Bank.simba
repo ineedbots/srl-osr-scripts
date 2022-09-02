@@ -368,6 +368,13 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // make sure the door is opened if we need it to be
+  if Self.HandleDoors(OurTile, Self.BankWalkTile, Clicked, Velocity) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+  end;
+
   // randomize the tiles a bit, shake em up
   BankTiles := Copy(Self.BankTiles);
   BankTiles.Sort(OurTile);
@@ -381,13 +388,6 @@ begin
     // try see if we can find this bank
     if not Self.FindBank(OurTile, BankTile, B) then
       continue;
-
-    // make sure the door is opened if we need it to be
-    if Self.HandleDoors(OurTile, BankTile, Clicked, Velocity) then
-    begin
-      OurTile := Self.RSW.GetMyPos();
-      Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
-    end;
 
     // apply velocity
     if Velocity <> Point(0, 0) then

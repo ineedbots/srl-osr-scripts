@@ -39,19 +39,18 @@ end;
 {
   Returns all object colors within the box
 }
-function TBot.FindRockfallColor(Area: TBox; Rockfall: TRockfall): T2DPointArray;
+function TBot.FindRockfallColor(Area: TBox; Rockfall: TRockfall; NotNoColor: Boolean): T2DPointArray;
 begin
-  Result := MainScreen.FindObject(Rockfall.Color.RSObject, Area);
-  Result.FilterSize(MainScreen.ConvertDistance(Rockfall.Color.FilterSize), __GT__);
-end;
-
-{
-  Returns all object colors within the box
-}
-function TBot.FindRockfallNoColor(Area: TBox; Rockfall: TRockfall): T2DPointArray;
-begin
-  Result := MainScreen.FindObject(Rockfall.NoColor.RSObject, Area);
-  Result.FilterSize(MainScreen.ConvertDistance(Rockfall.NoColor.FilterSize), __GT__);
+  if NotNoColor then
+  begin
+    Result := MainScreen.FindObject(Rockfall.Color.RSObject, Area);
+    Result.FilterSize(MainScreen.ConvertDistance(Rockfall.Color.FilterSize), __GT__);
+  end
+  else
+  begin
+    Result := MainScreen.FindObject(Rockfall.NoColor.RSObject, Area);
+    Result.FilterSize(MainScreen.ConvertDistance(Rockfall.NoColor.FilterSize), __GT__);
+  end;
 end;
 
 {
@@ -75,15 +74,27 @@ begin
 
   B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindRockfallColor(B, Rockfall);
+  ATPA := Self.FindRockfallColor(B, Rockfall, True);
 
   if Length(ATPA) > 0 then
   begin
     TPA := ATPA.Biggest();
-    ATPA := Self.FindRockfallNoColor(B, Rockfall);
 
-    B := TPA.Bounds();
-    IsThere := (Length(TPA) > Length(ATPA.Biggest()));
+    // this differs from the door on edgeville smelter,
+    // edgeville smelter checks for ANY existance of the open door color, if it finds any, door is opened.
+    // this checks another color, if it is greater than the rockfall color, its considered mined.
+    if Rockfall.HasNoColorData then
+    begin
+      ATPA := Self.FindRockfallColor(B, Rockfall, False);
+
+      B := TPA.Bounds();
+      IsThere := (Length(TPA) > Length(ATPA.Biggest()));
+    end
+    else
+    begin
+      B := TPA.Bounds();
+      IsThere := True;
+    end;
   end;
 end;
 

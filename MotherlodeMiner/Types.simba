@@ -23,7 +23,7 @@ type
     Tile                                                      : TPoint;
     Zones                                                     : T2DPointArray;
     Height                                                    : Int32;
-    IsUpper                                                   : Boolean;
+    IsUpper, HasNoColorData                                   : Boolean;
   end;
 
   TRockfallArray = array of TRockfall;
