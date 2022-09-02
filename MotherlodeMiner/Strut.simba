@@ -134,11 +134,27 @@ function TBot.ClickStrut(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Ve
 var
   B: TBox;
   Height: Int32;
+  Clicked: Boolean;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // is on lower part
+  if Self.IsOnUpperLevel(OurTile) then
+  begin
+    Script.WriteMsg('ClickCrate: On Upper! should be on lower', True);
+    exit();
+  end;
+
   Height := Self.GetHeight(OurTile);
+
+  // handle rocks
+  if Self.HandleRockfalls(OurTile, Self.StrutTile, Height, False, Clicked, Velocity) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    Height := Self.GetHeight(OurTile);
+  end;
 
   // find the sink
   if not Self.FindStrut(OurTile, Height, B) then
@@ -246,11 +262,16 @@ begin
     begin
       Script.WriteMsg('Clicked the Strut while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  // should be on lower
+  if Bot.IsOnUpperLevel(Position) then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -279,6 +300,8 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToStrut;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := Self.RSW.WalkBlind(Self.StrutTile.Random(-6, 6, True), 0);
     except
@@ -291,13 +314,119 @@ begin
     begin
       Script.WriteMsg('Failed to go to Strut!');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+      OurPos := Self.RSW.GetMyPos();
+      Self.HandleRockfalls(OurPos, Self.StrutTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
+end;
+
+{
+  Repairs strut
+}
+function TBot.DoStrut(): Boolean;
+var
+  WasClicked: Boolean;
+  OurPos: TPoint;
+  CountDown: TCountDown;
+  XPCount, xpc: Int32;
+begin
+  Script.WriteMsg('Doing strut', True);
+
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
+  // check for hammer
+  if not Inventory.FindItem(Self.HammerItem) and not Self.DoCrate() then
+  begin
+    Script.WriteMsg('Failed to do crate!');
+    exit();
+  end;
+
+  if not Inventory.FindItem(Self.HammerItem) then
+  begin
+    Script.WriteMsg('No hammer!');
+    exit();
+  end;
+
+  // xp bar
+  XPCount := XPBar.ReadXPBar();
+  if XPCount = -1 then
+  begin
+    Script.WriteMsg('Couldn''t read xp bar!');
+    exit();
+  end;
+
+  // click it
+  if not ((Self.ClickStrut(WasClicked) and WasClicked)
+    or Self.GoToStrut()
+    or (Self.ClickStrut(WasClicked) and WasClicked)
+    or Self.GoToStrut(True)
+    or (Self.ClickStrut(WasClicked) and WasClicked)) then
+  begin
+    Script.WriteMsg('Failed to click strut');
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+
+  // ok we clicked it, wait until we are changed state
+  CountDown.Init(SRL.SkewedRand(5000, 2000, 7000));
+  while RSClient.IsLoggedIn() do
+  begin
+    xpc := XPBar.ReadXPBar();
+    if xpc = -1 then
+    begin
+      Script.WriteMsg('DoStrut: Couldn''t read xp bar again...', True);
+      break;
+    end;
+
+    if xpc <> XPCount then
+    begin
+      Script.WriteMsg('DoStrut: Xp changed!', True);
+      Result := True;
+      break;
+    end;
+
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('DoStrut: Couldn''t reach...', True);
+      break;
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('DoStrut: Still moving...', True);
+      CountDown.Restart();
+    end;
+
+    // did we timeout?
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('DoStrut: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to strut....', False);
+  end;
+
+  if not Result then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    Self.HandleRockfalls(OurPos, Self.StrutTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
+  end;
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_STRUT

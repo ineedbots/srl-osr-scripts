@@ -254,6 +254,8 @@ begin
   Text += 'Upper: ' + ToStr(Upper) + LineEnding;
   Text += 'Angle: ' + ToStr(Minimap.GetCompassAngle(True)) + LineEnding;
   Text += 'Height: ' + ToStr(Height) + LineEnding;
+  if Chat.IsOpen() then
+    Text += 'ChatText: ' + Chat.GetChat() + LineEnding;
 
   for i := 0 to High(Self.Rockfalls) do
   begin

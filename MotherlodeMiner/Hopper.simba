@@ -79,11 +79,27 @@ function TBot.ClickHopper(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; V
 var
   B: TBox;
   Height: Int32;
+  Clicked: Boolean;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // is on lower part
+  if Self.IsOnUpperLevel(OurTile) then
+  begin
+    Script.WriteMsg('ClickCrate: On Upper! should be on lower', True);
+    exit();
+  end;
+
   Height := Self.GetHeight(OurTile);
+
+  // handle rocks
+  if Self.HandleRockfalls(OurTile, Self.HopperTile, Height, False, Clicked, Velocity) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    Height := Self.GetHeight(OurTile);
+  end;
 
   // find the sink
   if not Self.FindHopper(OurTile, Height, B) then
@@ -191,11 +207,16 @@ begin
     begin
       Script.WriteMsg('Clicked the Hopper while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  // should be on lower
+  if Bot.IsOnUpperLevel(Position) then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -224,6 +245,8 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToHopper;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := Self.RSW.WalkBlind(Self.HopperTile.Random(-6, 6, True), 0);
     except
@@ -236,13 +259,122 @@ begin
     begin
       Script.WriteMsg('Failed to go to Hopper!');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+      OurPos := Self.RSW.GetMyPos();
+      Self.HandleRockfalls(OurPos, Self.HopperTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
+end;
+
+{
+  Deposits paydirt into hopper
+}
+function TBot.DoHopper(out NeedWaterRunning: Boolean): Boolean;
+var
+  WasClicked: Boolean;
+  OurPos: TPoint;
+  CountDown: TCountDown;
+  PayDirtSlots: TIntegerArray;
+  PayDirtCount: Int32;
+  ChatStr: String;
+begin
+  Script.WriteMsg('Doing hopper', True);
+
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
+  if not Inventory.FindItem(Self.PayDirtItem, PayDirtSlots) then
+  begin
+    Script.WriteMsg('No paydirt!');
+    exit(True);
+  end;
+
+  PayDirtCount := Length(PayDirtSlots);
+  Script.WriteMsg('Paydirt count: ' + ToStr(PayDirtCount), True);
+
+  if not ((Self.ClickHopper(WasClicked) and WasClicked)
+    or Self.GoToHopper()
+    or (Self.ClickHopper(WasClicked) and WasClicked)
+    or Self.GoToHopper(True)
+    or (Self.ClickHopper(WasClicked) and WasClicked)) then
+  begin
+    Script.WriteMsg('Failed to click hopper');
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+
+  // ok we clicked it, wait until we are changed state
+  CountDown.Init(SRL.SkewedRand(5000, 2000, 7000));
+  while RSClient.IsLoggedIn() do
+  begin
+    PayDirtSlots.Clear();
+    if not Inventory.FindItem(Self.PayDirtItem, PayDirtSlots) then
+    begin
+      Script.WriteMsg('DoHopper: No paydirt!', True);
+      Result := True;
+      break;
+    end;
+
+    if Length(PayDirtSlots) <> PayDirtCount then
+    begin
+      Script.WriteMsg('DoHopper: Paydirt count changed!', True);
+      Result := True;
+      break;
+    end;
+
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('DoHopper: Couldn''t reach...', True);
+      break;
+    end;
+
+    if Chat.IsOpen() then
+    begin
+      ChatStr := Chat.GetChat().Strip();
+
+      if ChatStr.IsInString(Self.NeedWaterRunningTexts) then
+      begin
+        Script.WriteMsg('DoHopper: Need water running!', True);
+        NeedWaterRunning := True;
+        Result := True;
+        break;
+      end;
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('DoHopper: Still moving...', True);
+      CountDown.Restart();
+    end;
+
+    // did we timeout?
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('DoHopper: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to hopper....', False);
+  end;
+
+  if not Result then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    Self.HandleRockfalls(OurPos, Self.HopperTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
+  end;
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_HOPPER

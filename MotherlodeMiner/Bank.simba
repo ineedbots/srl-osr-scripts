@@ -497,10 +497,12 @@ var
   WasClicked: Boolean;
   OurPos: TPoint;
 begin
+  Script.WriteMsg('Doing bank', True);
+
   // we need to be on lower
   if not Self.DoLadder(False) then
   begin
-    Self.AfterActionAntiBan(True, True, True);
+    Script.WriteMsg('Failed to do ladder');
     exit();
   end;
 

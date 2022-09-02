@@ -44,6 +44,8 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
+      Self.DoSack();
+
       Self.DoBank();
     end
     else
@@ -167,6 +169,7 @@ begin
   Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png');
   
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
+  Self.NeedWaterRunningTexts := [''];
 
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';

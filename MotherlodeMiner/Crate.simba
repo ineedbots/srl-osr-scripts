@@ -79,11 +79,27 @@ function TBot.ClickCrate(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Ve
 var
   B: TBox;
   Height: Int32;
+  Clicked: Boolean;
 begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
+  // is on lower part
+  if Self.IsOnUpperLevel(OurTile) then
+  begin
+    Script.WriteMsg('ClickCrate: On Upper! should be on lower', True);
+    exit();
+  end;
+
   Height := Self.GetHeight(OurTile);
+
+  // handle rocks
+  if Self.HandleRockfalls(OurTile, Self.CrateTile, Height, False, Clicked, Velocity) then
+  begin
+    OurTile := Self.RSW.GetMyPos();
+    Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
+    Height := Self.GetHeight(OurTile);
+  end;
 
   // find the sink
   if not Self.FindCrate(OurTile, Height, B) then
@@ -191,11 +207,16 @@ begin
     begin
       Script.WriteMsg('Clicked the Crate while moving, nice!');
       Walker^.Enabled := False;
+      Bot.WalkerWasEarlySuccess := True;
     end;
 
     // reset the mosue speed back
     Mouse.Speed := S;
   end;
+
+  // should be on lower
+  if Bot.IsOnUpperLevel(Position) then
+    Walker^.Enabled := False;
 end;
 
 {
@@ -224,6 +245,8 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToCrate;
 
+    Self.WalkerWasEarlySuccess := False;
+
     try
       Walked := Self.RSW.WalkBlind(Self.CrateTile.Random(-6, 6, True), 0);
     except
@@ -236,13 +259,95 @@ begin
     begin
       Script.WriteMsg('Failed to go to Crate!');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
+
+      OurPos := Self.RSW.GetMyPos();
+      Self.HandleRockfalls(OurPos, Self.CrateTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
-      Result := True;
+      Result := Self.WalkerWasEarlySuccess;
   end;
+end;
+
+{
+  Grabs a hammer from crate
+}
+function TBot.DoCrate(): Boolean;
+var
+  WasClicked: Boolean;
+  OurPos: TPoint;
+  CountDown: TCountDown;
+begin
+  Script.WriteMsg('Doing crate', True);
+
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
+  if Inventory.FindItem(Self.HammerItem) then
+  begin
+    Script.WriteMsg('Already have hammer');
+    exit(True);
+  end;
+
+  if not ((Self.ClickCrate(WasClicked) and WasClicked)
+    or Self.GoToCrate()
+    or (Self.ClickCrate(WasClicked) and WasClicked)
+    or Self.GoToCrate(True)
+    or (Self.ClickCrate(WasClicked) and WasClicked)) then
+  begin
+    Script.WriteMsg('Failed to click crate');
+    exit();
+  end;
+
+  Self.AfterActionAntiBan(True);
+
+  // ok we clicked it, wait until we are changed state
+  CountDown.Init(SRL.SkewedRand(5000, 2000, 7000));
+  while RSClient.IsLoggedIn() do
+  begin
+    if Inventory.FindItem(Self.HammerItem) then
+    begin
+      Script.WriteMsg('DoCrate: Found hammer', True);
+      Result := True;
+      break;
+    end;
+
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('DoCrate: Couldn''t reach...', True);
+      break;
+    end;
+
+    // only countdown if we are not moving
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('DoCrate: Still moving...', True);
+      CountDown.Restart();
+    end;
+
+    // did we timeout?
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('DoCrate: Timed out', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Going to crate....', False);
+  end;
+
+  if not Result then
+  begin
+    OurPos := Self.RSW.GetMyPos();
+    Self.HandleRockfalls(OurPos, Self.CrateTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
+  end;
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_CRATE
