@@ -164,6 +164,7 @@ begin
   Self.RingOfForgingCountdown.Init(ONE_MINUTE * 10);
   Self.RingOfForgingCharges := 140;
   Self.RingOfForgingBrokeTexts := ['Ring of ', 'Your Ring of Forging has melted.'];
+  Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
 
   case Self.StationType of
     EStationType.AL_KHARID_RANGE:

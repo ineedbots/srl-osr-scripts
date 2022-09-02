@@ -47,7 +47,8 @@ type
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;
     RingOfForgingItem                                         : TRSItem;
-    StationUptexts, StationOptions, RingOfForgingBrokeTexts   : TStringArray;
+    StationUptexts, StationOptions, RingOfForgingBrokeTexts,
+      CantReachTexts                                          : TStringArray;
     StationTiles, BankTiles                                   : TPointArray;
     StationWalkTile, BankWalkTile                             : TPoint;
     BankColor, StationColor                                   : TScriptColor;

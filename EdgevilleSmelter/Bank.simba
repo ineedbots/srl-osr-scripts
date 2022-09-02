@@ -103,6 +103,12 @@ begin
       BankOpenCountDown.Restart();
     end;
 
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('WaitBankOpen: Couldn''t reach...', True);
+      exit();
+    end;
+
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin

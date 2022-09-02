@@ -48,7 +48,11 @@ begin
     begin
       Script.WriteMsg('Amulet of chem text found!', True);
 
-      Script.ExamineRandomItem();
+      if not Script.ExamineRandomItem() then
+      begin
+        Script.TogglePlayerReportOption();
+        Script.TogglePlayerReportOption();
+      end;
 
       Self.NeedToRefillAmuletOfChem := True;
       Result := True;

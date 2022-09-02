@@ -1482,6 +1482,15 @@ begin
 end;
 
 {
+  Toggles player report option, mainly for pushing chat when no items in inv
+}
+function TScript.TogglePlayerReportOption(): Boolean;
+begin
+  Mouse.Move(ChatButtons.GetButton(ERSChatButton.REPORT).Bounds);
+  Result := ChooseOption.Select('Toggle player option');
+end;
+
+{
   If the point is in any of the areas
 }
 function T2DPointArray.PointInAnyArea(PT: TPoint): Int32;

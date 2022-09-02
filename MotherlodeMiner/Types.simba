@@ -55,7 +55,7 @@ type
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,
       RockfallUptext, RockfallOptions, LadderUptext,
-      LadderOptions, VeinUptext, VeinOptions                  : TStringArray;
+      LadderOptions, VeinUptext, VeinOptions, CantReachTexts  : TStringArray;
     BankColor, SackColor, CrateColor, HopperColor, StrutColor,
       WaterColor, LowerLadderColor, UpperLadderColor,
       VeinColor                                               : TScriptColor;

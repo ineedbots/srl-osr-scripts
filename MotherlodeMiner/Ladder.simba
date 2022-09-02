@@ -350,6 +350,12 @@ begin
       break;
     end;
 
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('DoLadder: Couldn''t reach...', True);
+      break;
+    end;
+
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin

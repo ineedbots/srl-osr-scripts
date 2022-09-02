@@ -93,7 +93,6 @@ end;
 function TBot.HandleRockfall(Rockfall: TRockfall; OurTile: TPoint; Height: Int32; out Clicked: Boolean; Velocity: TPoint = [0, 0]; Force: Boolean = False): Boolean;
 begin
   writeln('handling');
-  wait(10000);
 end;
 
 {

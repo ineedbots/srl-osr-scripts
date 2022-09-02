@@ -315,6 +315,12 @@ begin
       exit(True);
     end;
 
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('WaitStationStart: Couldn''t reach...', True);
+      exit();
+    end;
+
     // only countdown if we are not moving
     if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
     begin

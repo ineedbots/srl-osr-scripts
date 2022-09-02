@@ -40,6 +40,30 @@ end;
 {$include_once Vein.simba}
 
 {
+  Found the cant reach text
+}
+function TBot.CouldntReach(): Boolean;
+var
+  Str: String;
+begin
+  if not Chat.IsOpen() then
+    exit();
+
+  Str := Chat.GetMessage(7, [CHAT_COLOR_BLACK]).Strip();
+
+  if Str.IsInString(Self.CantReachTexts) then
+  begin
+    Result := True;
+
+    if not Script.ExamineRandomItem() then
+    begin
+      Script.TogglePlayerReportOption();
+      Script.TogglePlayerReportOption();
+    end;
+  end;
+end;
+
+{
   Converts heightmap height to mm2ms height
 }
 function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;

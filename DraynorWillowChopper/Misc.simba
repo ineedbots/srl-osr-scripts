@@ -147,7 +147,12 @@ begin
             Minimap.WaitFlag();
             Minimap.WaitPlayerMoving();
             Wait(750, 1500, wdLeft);
-            Script.ExamineRandomItem();
+
+            if not Script.ExamineRandomItem() then
+            begin
+              Script.TogglePlayerReportOption();
+              Script.TogglePlayerReportOption();
+            end;
 
             break;
           end;
@@ -368,8 +373,14 @@ begin
       if S.IsInString(Self.NoLightText) then
       begin
         Script.WriteMsg('WaitPlaceLog: Cannot light a fire here text', True);
+        
         // Push the GAME chat so it doesnt false positive next time
-        Script.ExamineRandomItem();
+        if not Script.ExamineRandomItem() then
+        begin
+          Script.TogglePlayerReportOption();
+          Script.TogglePlayerReportOption();
+        end;
+        
         exit(False);
       end;
     end;

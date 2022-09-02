@@ -165,6 +165,8 @@ begin
 
   Self.HeightMapBMP.Init();
   Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png');
+  
+  Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
 
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';
