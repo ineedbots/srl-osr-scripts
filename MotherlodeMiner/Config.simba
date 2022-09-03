@@ -20,9 +20,9 @@
 {$include_once Types.simba}
 
 const
-  DEBUGMODE      = True; // For debugging purposes
+  DEBUGMODE      = False; // For debugging purposes
   DRAWING        = False; // Draw stuff on the screen? Like proggies?
-  DOREPORTS      = False;  // Do proggies onto the console?
+  DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
   MSWALKING      = False; // Use mainscreen walking?
@@ -32,9 +32,12 @@ const
 
   ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
 
+  LARGE_SACK     = True; // got a large sack?
+  SAME_ZONE       = True; // flight!  return to same zone as before?
+
   // Account details
-  _USERNAME       = 'a';
-  _PASSWORD       = 'a';
+  _USERNAME       = '';
+  _PASSWORD       = '';
   _PIN            = '';
   _WORLDS         = [-1];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?

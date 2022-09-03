@@ -165,8 +165,11 @@ begin
   Self.RSW.Setup({$MACRO CURRENT_DIRECTORY} + '\maps\mlm.png');
   Self.RSW.ScreenWalk     := MSWALKING;
 
+  Self.HasLargeSack := LARGE_SACK;
+  Self.SameZone     := SAME_ZONE; // same samers saming still online???????????????????????? L00000000000000L
+
   Self.HeightMapBMP.Init();
-  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png');
+  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png'); // unix better not complain!
   
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
   Self.NeedWaterRunningTexts := [''];

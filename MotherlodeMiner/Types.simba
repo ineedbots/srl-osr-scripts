@@ -71,7 +71,8 @@ type
     Rockfalls                                                 : TRockfallArray;
     Zones                                                     : TZoneArray;
     HeightMapBMP                                              : TMufasaBitmap;
-    IsOnUpper, ClickWhileWalking, WalkerWasEarlySuccess       : Boolean;
+    IsOnUpper, ClickWhileWalking, WalkerWasEarlySuccess,
+      HasLargeSack, SameZone                                  : Boolean;
     OldWalkingCallback, OldWalkCallback                       : TRSWalker_OnWalkEvent;
   end;
 
