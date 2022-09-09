@@ -1226,37 +1226,46 @@ end;
 
   Returns true if we did the click
 }
-function TMouse.DidClick(Red: Boolean = True; Time: integer = 200): boolean;
+function TMouse.DidClick(Red: Boolean = True; Time: Integer = 200): Boolean;
 var
-  TimeOut, x, y, w, h, R, G: integer;
+  CountDown: TCountDown;
+  w, h, R, Y: Integer;
+  Pos: TPoint;
   B: TBox;
+  Once: Boolean;
 begin
-  GetMousePos(x, y);
+  Pos := Self.Position();
   GetClientDimensions(w, h);
-  B := IntToBox(x - 15, y - 15, x + 15, y + 15);
 
+  B := IntToBox(Pos.X - 15, Pos.Y - 15, Pos.X + 15, Pos.Y + 15);
   B.LimitTo(IntToBox(0, 0, w - 1, h - 1));
 
-  TimeOut := GetSystemTime() + Time;
-  while (GetSystemTime() < TimeOut) do
+  CountDown.Init(Time);
+  while not CountDown.IsFinished() or not Once do
   begin
-    R := CountColorTolerance(255, B, 15);
-    G := CountColorTolerance(65535, B, 15);
+    Once := True;
+
+    R := CountColorTolerance(255, B, 2);
+    Y := CountColorTolerance(65535, B, 2);
+
     if Red then
     begin
-      if (G > 8) then
-        exit();
-      Result := (R > 20);
-    end else
+      // if Y > 8 then
+      //   exit();
+
+      if R > 20 then
+        exit(True);
+    end
+    else
     begin
-      if (R > 5) then
+      if R > 5 then
         exit();
-      Result := (G > 35);
+
+      if Y > 35 then
+        exit(True);
     end;
-    if Result then
-      exit();
   end;
-end;
+end; 
 
 {
   overrides
@@ -1278,15 +1287,21 @@ end;
   override
 }
 function TRSMainScreen.FindClick(Area: TBox): ERSClickType; override;
+var
+  CountDown: TCountDown;
 begin
   Area := Area;
-  
-  if Self.DidRedClick() then
-    Result := ERSClickType.RED
-  else if Self.DidYellowClick() then
-    Result := ERSClickType.YELLOW
-  else 
-    Result := ERSClickType.NONE;
+
+  CountDown.Init(200);
+  while not CountDown.IsFinished() do
+  begin
+    if Mouse.DidClick(True, 0) then
+      exit(ERSClickType.RED)
+    else if Mouse.DidClick(False, 0) then
+      exit(ERSClickType.YELLOW);
+  end;
+
+  Result := ERSClickType.NONE;
 end;
 
 {
