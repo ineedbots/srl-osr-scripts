@@ -251,7 +251,10 @@ begin
     Result := True;
   end
   else
+  begin
     DeferToOrginal := True;
+    Result := True;
+  end;
 end;
 
 {
