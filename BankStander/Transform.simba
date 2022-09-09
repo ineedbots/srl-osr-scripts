@@ -674,6 +674,7 @@ var
   B: TBox;
   CountDown: TCountDown;
   XPCount: Int32;
+  DoAB: Boolean;
 begin
   // open magic book
   if not Magic.Open() then
@@ -717,8 +718,9 @@ begin
     Mouse.Move(MainScreen.GetPlayerBox());
   end;
 
+  DoAB := Random() < 0.05;
   while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
-    Self.DoMainLoopStuff('wait for the operation to complete!!', True);
+    Self.DoMainLoopStuff('wait for the operation to complete!!', DoAB);
 
   Wait(0, 2500, wdLeft);
 
