@@ -219,29 +219,39 @@ end;
 {
   Banks for glassmake!
 }
-function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox): Boolean;
+function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox; out DeferToOrginal: Boolean): Boolean;
 var
   i: Int32;
+  MatStr: String;
 begin
   Pattern := Pattern;
+  DeferToOrginal := False;
 
-  Bank.DepositAllItems();
+  MatStr := ToStr(Self.MaterialItems[0]).Lower();
 
-  Wait(0, 1000, wdLeft);
-  Script.AntiBan.AfterBankAntiBan(7);
+  if (MatStr = 'giant seaweed') or (MatStr = '21504') then
+  begin
+    // make sure that bank fillers!!
+    Bank.DepositAllItems();
 
-  // primary SHOULD be giant seaweed
-  // runelite shift click to withdraw-1
-  for i := 1 to 3 do
-  begin   
-    Mouse.ShiftClick(MBox);
+    Wait(0, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(7);
 
-    Wait(0, 500, wdLeft);
-    Script.AntiBan.AfterBankAntiBan(2);
-  end;
+    // primary SHOULD be giant seaweed
+    // runelite shift click to withdraw-1
+    for i := 1 to 3 do
+    begin
+      Mouse.ShiftClick(MBox);
 
-  Bank.WithdrawItemFromBank(SMBox, 18, False, 18);
-  Result := True;
+      Wait(0, 500, wdLeft);
+      Script.AntiBan.AfterBankAntiBan(2);
+    end;
+
+    Bank.WithdrawItemFromBank(SMBox, 18, False, 18);
+    Result := True;
+  end
+  else
+    DeferToOrginal := True;
 end;
 
 {
@@ -253,7 +263,7 @@ var
   i, CurProducts, FreeSpace, MatsToWith: Int32;
   Item: TRSItem;
   MBox, ACBox, SMBox: TBox;
-  Found: Boolean;
+  Found, DeferToOrginal: Boolean;
 begin
   if not Bank.IsOpen(True) then
   begin
@@ -342,17 +352,19 @@ begin
   Inventory.FindItems(Self.ProductItems, ProductSlots);
   CurProducts := Length(ProductSlots);
   Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
+  DeferToOrginal := True;
 
   if Self.CreationType = ERSCreationType.GLASSMAKE then
   begin
-    if not Self.DoGlassMakeBank(Pattern, MBox, SMBox) then
+    if not Self.DoGlassMakeBank(Pattern, MBox, SMBox, DeferToOrginal) then
     begin
-      Script.WriteMsg('Failed to deposit items');
+      Script.WriteMsg('Failed to DoGlassMakeBank items');
       Bank.Close(Script.ShouldPressKeyboard());
       exit();
     end;
-  end
-  else
+  end;
+
+  if DeferToOrginal then
   begin
     // deposit our stuff
     Script.WriteMsg('Depositting our produce.', True);

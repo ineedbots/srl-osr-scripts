@@ -672,24 +672,43 @@ end;
 function TBot.DoGlassMake(): Boolean;
 var
   B: TBox;
+  CountDown: TCountDown;
+  XPCount: Int32;
 begin
   // open magic book
   if not Magic.Open() then
   begin
-    Script.WriteMsg('Failed to open magic', True);
+    Script.WriteMsg('Failed to open magic');
     exit();
   end;
 
   if not Magic.GetSpellBox(Self.Spell, B) then
   begin
-    Script.WriteMsg('Failed to GetSpellBox', True);
+    Script.WriteMsg('Failed to GetSpellBox');
     exit();
   end;
 
   // start the casts!
   Script.WriteMsg('Casting spell', True);
+
   Wait(0, 1250, wdLeft);
+
+  XPCount := XPBar.ReadXPBar();
+  if XPCount = -1 then
+  begin
+    Script.WriteMsg('Failed to read xp');
+    exit();
+  end;
+
   Mouse.Click(B, MOUSE_LEFT);
+
+  if not XPBar.WaitChange(XPCount, SRL.SkewedRand(1500, 500, 2500)) then
+  begin
+    Script.WriteMsg('xp didnt change');
+    exit();
+  end;
+
+  CountDown.Init(SRL.SkewedRand(2300, 2100, 2500));
 
   // hover next action
   if Random() < 0.8 then
@@ -698,8 +717,10 @@ begin
     Mouse.Move(MainScreen.GetPlayerBox());
   end;
 
-  // wait for the operation to complete!!
-  Wait(SRL.SkewedRand(4000, 3000, 5000));
+  while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
+    Self.DoMainLoopStuff('wait for the operation to complete!!', True);
+
+  Wait(0, 2500, wdLeft);
 
   Result := True;
 end;
