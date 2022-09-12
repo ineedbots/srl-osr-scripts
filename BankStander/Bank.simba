@@ -313,6 +313,8 @@ begin
         exit();
       end;
     end;
+
+    Wait(750, 1500, wdLeft);
     Result := True;
   end
   else
