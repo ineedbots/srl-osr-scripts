@@ -44,7 +44,7 @@ type
     MakeNum, Did, TransformWaitTime, MaterialRatio,
       SecondaryMaterialRatio                                  : Int32;
     StoppedShort, UsingAmuletOfChem, NeedToRefillAmuletOfChem,
-      GainingXP                                               : Boolean;
+      GainingXP, UsingBankFillers                             : Boolean;
     AmuletCrumbledTexts                                       : TStringArray;
     SelfBoxRadiusExpand                                       : Double;
     BankLocations                                             : TPointArray;

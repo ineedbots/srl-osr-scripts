@@ -221,37 +221,103 @@ end;
 }
 function TBot.DoGlassMakeBank(Pattern: TIntegerArray; MBox, SMBox: TBox; out DeferToOrginal: Boolean): Boolean;
 var
-  i: Int32;
+  i, IC: Int32;
   MatStr: String;
+  SandSlots: TIntegerArray;
 begin
-  Pattern := Pattern;
   DeferToOrginal := False;
 
   MatStr := ToStr(Self.MaterialItems[0]).Lower();
 
   if (MatStr = 'giant seaweed') or (MatStr = '21504') then
   begin
-    // make sure that bank fillers!!
-    Bank.DepositAllItems();
+    Script.WriteMsg('Doing giant seaweed bank!', True);
+
+    // deposit
+    if Self.UsingBankFillers and (Random() < 0.95) then
+      Bank.DepositAllItems(False)
+    else if not Bank.DepositItemsIntoBank(Pattern, 28, -2, False) then
+    begin
+      Script.WriteMsg('Failed to deposit items');
+      exit();
+    end;
 
     Wait(0, 1000, wdLeft);
     Script.AntiBan.AfterBankAntiBan(7);
 
     // primary SHOULD be giant seaweed
-    // runelite shift click to withdraw-1
-    for i := 1 to 3 do
+    if Script.ShiftClicking then
     begin
-      Mouse.ShiftClick(MBox);
+      // runelite shift click to withdraw-1
+      for i := 1 to 3 do
+      begin
+        Mouse.ShiftClick(MBox);
+
+        Wait(0, 500, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
+      end;
+
+      if not Bank.WithdrawItemFromBank(SMBox, 18, False, 18, False) then
+      begin
+        Script.WriteMsg('Failed to withdraw sand');
+        exit();
+      end;
+    end
+    else
+    begin
+      // 6x6 method
+      IC := Inventory.Count();
+
+      // withdraw 6x sand 4 times
+      for i := 1 to 4 do
+      begin
+        if not Bank.WithdrawItemFromBank(SMBox, 6, False, 6, False) then
+        begin
+          Script.WriteMsg('Failed to withdraw sand');
+          exit();
+        end;
+
+        Wait(0, 500, wdLeft);
+        Script.AntiBan.AfterBankAntiBan(2);
+      end;
+
+      // withdraw 6x giant seaweed (should only be 3)
+      if not Bank.WithdrawItemFromBank(MBox, 6, False, 6, False) then
+      begin
+        Script.WriteMsg('Failed to withdraw giant seaweed');
+        exit();
+      end;
 
       Wait(0, 500, wdLeft);
       Script.AntiBan.AfterBankAntiBan(2);
-    end;
 
-    Bank.WithdrawItemFromBank(SMBox, 18, False, 18);
+      // deposit 6 sand
+      // find the sand in the inv
+      Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+      if not Inventory.FindItems(Self.SecondaryMaterialItems, SandSlots) then
+      begin
+        Script.WriteMsg('No sand in inv??');
+        exit();
+      end;
+
+      // choose a slot
+      if Random() < 0.9 then
+        i := SandSlots[0]
+      else
+        i := SandSlots[Random(High(SandSlots))];
+
+      // deposit it
+      if not Bank.DepositItemsIntoBank([i], 6, 6, False) then
+      begin
+        Script.WriteMsg('Couldn''t deposit sand?');
+        exit();
+      end;
+    end;
     Result := True;
   end
   else
   begin
+    // do original if not using giant seaweed
     DeferToOrginal := True;
     Result := True;
   end;
@@ -371,7 +437,7 @@ begin
   begin
     // deposit our stuff
     Script.WriteMsg('Depositting our produce.', True);
-    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+    if ((Length(ToolSlots) <= 0) or Self.UsingBankFillers) and (Random() < 0.9) then
       Bank.DepositAllItems()
     else if not Bank.DepositItemsIntoBank(Pattern) then
     begin

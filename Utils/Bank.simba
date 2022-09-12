@@ -182,7 +182,7 @@ end;
 {
   Deposits our inv into the bank
 }
-function TRSBank.DepositItemsIntoBank(Pattern: TIntegerArray; CurProducts: Int32 = 28; Amount: Int32 = -2): Boolean;
+function TRSBank.DepositItemsIntoBank(Pattern: TIntegerArray; CurProducts: Int32 = 28; Amount: Int32 = -2; WaitForItems: Boolean = True): Boolean;
 var
   i, IC, QuantityAmount: Int32;
   UsingButton, Depod: Boolean;
@@ -227,7 +227,7 @@ begin
     end;
   end;
 
-  if Depod then
+  if Depod and WaitForItems then
     Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
 
   if Inventory.IsFull() and Depod then
@@ -341,7 +341,7 @@ end;
 {
   withdraw item from bank
 }
-function TRSBank.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False; AllAmount: Int32 = 28): Boolean;
+function TRSBank.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False; AllAmount: Int32 = 28; WaitForItems: Boolean = True): Boolean;
 var
   IC, QuantityAmount, i: Int32;
   UsingButton, Withdrew: Boolean;
@@ -382,14 +382,16 @@ begin
   if not Withdrew then
     exit();
 
-  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+  if WaitForItems then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
   Result := True;
 end;
 
 {
   Uses the deposit button
 }
-function TRSBank.DepositAllItems(): Boolean;
+function TRSBank.DepositAllItems(WaitForItems: Boolean = True): Boolean;
 var
   IC: Int32;
 begin
@@ -398,7 +400,9 @@ begin
   if not Self.DepositAll() then
     exit();
 
-  Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+  if WaitForItems then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
   Result := True;
 end;
 

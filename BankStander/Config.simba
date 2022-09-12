@@ -25,11 +25,12 @@ const
   DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
-  SHIFTCLICK     = True;  // Use shift key?
+  SHIFTCLICK     = False;  // Use shift key?
   MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
   ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+  USING_BANK_FILLERS = False; // if using bank fillers, will press deposit all button when depositting
 
 
   BANK_COLOR_TYPE = ERSBankColorType.BLAST_FURNACE_CHEST;
