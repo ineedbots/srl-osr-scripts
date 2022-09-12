@@ -40,7 +40,8 @@ type
     StationType                                               : EStationType;
     StoppedShort, UsingInterfaceMake, UsingRingOfForging,
       NeedToRefillRingOfForging, NeedToCheckCharges,
-      ClickWhileWalking, WalkerWasEarlySuccess                : Boolean;
+      ClickWhileWalking, WalkerWasEarlySuccess,
+      UsingBankFillers                                        : Boolean;
     StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
       MaterialRatio, RingOfForgingCharges                     : Int32;
     RSW                                                       : TRSWalker;

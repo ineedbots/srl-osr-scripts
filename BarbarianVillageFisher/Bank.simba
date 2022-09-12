@@ -354,7 +354,7 @@ begin
   // deposit our stuff
   if IsBank then
   begin
-    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+    if ((Length(ToolSlots) <= 0) or Self.UsingBankFillers) and (Random() < 0.8) then
       Bank.DepositAllItems()
     else if not Bank.DepositItemsIntoBank(Pattern, CurFish) then
     begin

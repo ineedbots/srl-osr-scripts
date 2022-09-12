@@ -153,6 +153,8 @@ begin
     Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
   end;
 
+  Self.UsingBankFillers := USING_BANK_FILLERS;
+
   Self.RSW.Setup('world');
   Self.RSW.ScreenWalk     := MSWALKING;
 

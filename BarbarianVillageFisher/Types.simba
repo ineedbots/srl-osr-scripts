@@ -21,7 +21,7 @@ type
   TBot = record
     Name                                                      : String;
     WalkedFishForward, Banking, Cooking, ClickWhileWalking,
-      WalkerWasEarlySuccess                                   : Boolean;
+      WalkerWasEarlySuccess, UsingBankFillers                 : Boolean;
     FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
       LastWalkedFish, FishDone                                : Int32;
     FishSpotUpText, FireUpText, FishSpotOptions, FireOptions,

@@ -21,7 +21,7 @@ type
   TBot = record
     Name                                                      : String;
     WalkedTreeForward, Banking, ClickWhileWalking,
-      WalkerWasEarlySuccess                                   : Boolean;
+      WalkerWasEarlySuccess, UsingBankFillers                 : Boolean;
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime, MakeOption,

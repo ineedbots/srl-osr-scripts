@@ -31,6 +31,7 @@ const
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
   ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+  USING_BANK_FILLERS = False; // if using bank fillers, will press deposit all button when depositting
 
   // use bank?
   BANKLOGS        = False;
