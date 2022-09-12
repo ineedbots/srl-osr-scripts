@@ -213,7 +213,9 @@ begin
       if Self.DepositSlot([i, QuantityAmount], UsingButton) then
       begin
         Depod := True;
-        Wait(SRL.SkewedRand(1000, 500, 2500));
+
+        if WaitForItems then
+          Wait(SRL.SkewedRand(1000, 500, 2500));
       end
       else
       begin
@@ -221,7 +223,9 @@ begin
         if Self.DepositSlot([i, QuantityAmount], UsingButton) then
         begin
           Depod := True;
-          Wait(SRL.SkewedRand(1000, 500, 2500));
+
+          if WaitForItems then
+            Wait(SRL.SkewedRand(1000, 500, 2500));
         end;
       end;
     end;
@@ -372,7 +376,10 @@ begin
     if Self.WithdrawHelper(B, QuantityAmount, Noted, UsingButton) then
     begin
       Withdrew := True;
-      Wait(SRL.SkewedRand(1000, 500, 2500));
+
+      if WaitForItems then
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+
       break;
     end
     else
