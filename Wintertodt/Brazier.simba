@@ -474,7 +474,7 @@ end;
 {
   Waits for the boss to start
 }
-procedure TBot.WaitForBossStart();
+function TBot.WaitForBossStart(): Boolean;
 var
   TimeLeftText: String;
   DidClick, WasLit, isLit: Boolean;
@@ -527,6 +527,8 @@ begin
         Self.WhileUnlitBrazier();
     end;
   end;
+
+  Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_WINTERTODT_BRAZIER

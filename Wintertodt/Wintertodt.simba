@@ -132,7 +132,11 @@ begin
       // check if we need to eat
       if OurHpPerc < (Self.EatHpPerc + Random(-Self.RandomEatHpPerc, Self.RandomEatHpPerc)) then
       begin
-        Self.EatFood();
+        if not Self.EatFood() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+        
         exit();
       end;
 
@@ -170,10 +174,16 @@ begin
       end
       else if Self.ShouldBank then
       begin
+        // wait for boss to die while at the exit door
         if not Self.GoOutsideBossArea(True) then
           Self.AfterActionAntiBan(True, True, True)
         else
           Self.ClearFailCount();
+      end
+      else
+      begin
+        // wait for boss to die while not wanting to bank!
+        Self.AfterActionAntiBan(True);
       end;
     end
     else
@@ -189,7 +199,12 @@ begin
           Self.ClearFailCount();
       end
       else
-        Self.WaitForBossStart();
+      begin
+        if not Self.WaitForBossStart() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+      end;
     end;
   end;
 end;
