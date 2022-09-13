@@ -67,9 +67,14 @@ function TBot.ShouldMakeProduct(): Boolean;
 var
   Slots: TIntegerArray;
 begin
+  // glassmake hack, because we always want to bank after clicking the spell
   if Self.CreationType = ERSCreationType.GLASSMAKE then
   begin
-    Self.DoGlassMake();
+    if not Self.DoGlassMake() then
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
+    
     exit();
   end;
 
