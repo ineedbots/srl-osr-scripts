@@ -414,7 +414,7 @@ end;
 
   Part of this is from Flight's AIOFisher
 }
-procedure TBot.DropItems();
+function TBot.DropItems(): Boolean;
 var
   Pattern, FishSlots: TIntegerArray;
   CurFish, i, S: Int32;
@@ -476,6 +476,9 @@ begin
   Script.WriteMsg('Dropped fish... Currently fished ' + IntToStr(Self.FishDone) + ' fish!');
 
   Self.AfterActionAntiBan(True);
+
+  if not Inventory.IsFull() then
+    Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_BVF_MISC

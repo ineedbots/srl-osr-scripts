@@ -150,13 +150,29 @@ end;
 }
 procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True; WasFailure: Boolean = False);
 begin
-  WaitEx(450,70);
+  Wait(0, 750, wdLeft);
 
   if DoAB then
     Self.DoAntiban(DoInterfaceClose);
 
   if WasFailure then
+  begin
+    Inc(Self.FailCount);
+    Script.WriteMsg('Failed!: ' + ToStr(Self.FailCount), True);
+
     MainScreen.SetHighestPitch();
+
+    if Self.FailCount > 10 then
+      Script.Stop('FailCount too high!');
+  end;
+end;
+
+{
+  Clears failcount
+}
+procedure TBot.ClearFailCount();
+begin
+  Self.FailCount := 0;
 end;
 
 {

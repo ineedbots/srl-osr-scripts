@@ -25,7 +25,7 @@ type
     ChopWaitTime, LogsDone,
       WalkedTree, FireWaitTime,
       LastWalkedTree, FiredTile, FletchWaitTime, MakeOption,
-      DidMove                                                 : Int32;
+      DidMove, FailCount                                      : Int32;
     SelfBoxRadiusExpand                                       : Double;
     RSW                                                       : TRSWalker;
     TinderItem, KnifeItem                                     : TRSItem;

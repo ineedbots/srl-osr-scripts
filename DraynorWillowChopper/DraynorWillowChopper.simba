@@ -43,24 +43,37 @@ begin
   if Inventory.FindItem(Self.TinderItem) then
   begin
     if not Self.FireItems() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
 
     exit();
   end;
 
   if Inventory.FindItem(Self.KnifeItem) and Inventory.FindItems(Self.LogItems) then
   begin
-    Self.FletchLogs();
+    if not Self.FletchLogs() then
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
+    
     exit();
   end;
 
   if Self.Banking then
   begin
     if not Self.DoBank() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
   end
   else
-    Self.DropItems();
+  begin
+    if not Self.DropItems() then
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
+  end;
 end;
 
 {
@@ -78,7 +91,9 @@ begin
       else
       begin
         if not Self.DoGathering() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end;
     end
     else

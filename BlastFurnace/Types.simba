@@ -32,7 +32,7 @@ type
       DispenserTileHeight, ConveyorTileHeight, SinkTileHeight,
       RCoal, ROres, RBars, WorkingInvCount, InCoalBag, Did,
       RCoffer, LastXP, CofferAmount, FixUpCoalNeeded,
-      FixUpOresNeeded                                            : Int32;
+      FixUpOresNeeded, FailCount                                 : Int32;
     OreItem, BarItem, CoalItem, CoalBagItem, CoinsItem,
       BucketItem, WaterBucketItem, IceGlovesItem, GoldGlovesItem : TRSItem;
     StaminaPotItems, ToolItems                                   : TRSItemArray;

@@ -29,7 +29,7 @@ type
       BurnWaitTime, FletchWaitTime, GoodHPPerc,
       RandomGoodHPPerc, Did, UnlitWaitTime,
       RootsTileWalkOffsetIndex, BrazierTileWalkOffsetIndex,
-      RandomAmountToOffer                                     : Int32;
+      RandomAmountToOffer, FailCount                          : Int32;
     FoodItems, AxeItems                                       : TRSItemArray;
     LogItem, KnifedLogItem, KnifeItem, HammerItem, TinderItem,
       HerbItem, UnfPotionItem, PotionItem                     : TRSItem;

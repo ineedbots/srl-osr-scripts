@@ -34,12 +34,16 @@ begin
       if Self.ShouldDoStation() then
       begin
         if not Self.DoStation() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end
       else
       begin
         if not Self.DoBank() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end;
     end
     else

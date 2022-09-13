@@ -43,7 +43,7 @@ type
       ClickWhileWalking, WalkerWasEarlySuccess,
       UsingBankFillers                                        : Boolean;
     StationWaitTime, MakeOption, Did, SecondaryMaterialRatio,
-      MaterialRatio, RingOfForgingCharges                     : Int32;
+      MaterialRatio, RingOfForgingCharges, FailCount          : Int32;
     RSW                                                       : TRSWalker;
     ToolItems, MaterialItems, ProductItems,
       SecondaryMaterialItems                                  : TRSItemArray;

@@ -80,12 +80,16 @@ begin
     if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
     begin
       if not Self.GoDoBank() then
-        Self.AfterActionAntiBan(True, True, True);
+        Self.AfterActionAntiBan(True, True, True)
+      else
+        Self.ClearFailCount();
     end
     else
     begin
       if not Self.GoInsideBossArea() then
-        Self.AfterActionAntiBan(True, True, True);
+        Self.AfterActionAntiBan(True, True, True)
+      else
+        Self.ClearFailCount();
     end;
   end
   else
@@ -118,7 +122,9 @@ begin
           (OurHpPerc < (Self.EatHpPerc - Self.RandomEatHpPerc)) then
       begin
         if not Self.GoOutsideBossArea() then 
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
 
         exit();
       end;
@@ -135,7 +141,11 @@ begin
         Inventory.FindItem(Self.KnifeItem) and
         ((TheirHpPerc - 5) >= Self.GetAmountToOffer(False)) then
       begin
-        Self.FletchLogs();
+        if not Self.FletchLogs() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+
         exit();
       end;
 
@@ -143,7 +153,9 @@ begin
       if Inventory.FindItems([Self.LogItem, Self.KnifedLogItem]) then
       begin
         if not Self.OfferStuffToBrazier() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
 
         exit();
       end;
@@ -152,12 +164,16 @@ begin
       if TheirHpPerc > 5 then
       begin
         if not Self.GatherLogs() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end
       else if Self.ShouldBank then
       begin
         if not Self.GoOutsideBossArea(True) then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end;
     end
     else
@@ -168,7 +184,9 @@ begin
       if Self.ShouldBank or not Inventory.FindItems(Self.FoodItems) then
       begin
         if not Self.GoOutsideBossArea() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end
       else
         Self.WaitForBossStart();

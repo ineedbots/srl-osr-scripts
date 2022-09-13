@@ -31,7 +31,10 @@ begin
   if Bank.IsOpen() or BankPin.IsOpen() then
   begin
     // do banking
-    Self.DoBanking();
+    if not Self.DoBanking() then
+      Self.AfterActionAntiBan(True, False, True)
+    else
+      Self.ClearFailCount();
   end
   else
   begin
@@ -48,13 +51,17 @@ begin
       end;
 
       if not DidIt then
-        Self.AfterActionAntiBan(True, True, True);
+        Self.AfterActionAntiBan(True, True, True)
+      else
+        Self.ClearFailCount();
     end
     else
     begin
       // open bank
       if not Self.DoOpenBank() then
-        Self.AfterActionAntiBan(True, True, True);
+        Self.AfterActionAntiBan(True, True, True)
+      else
+        Self.ClearFailCount();
     end;
   end;
 end;

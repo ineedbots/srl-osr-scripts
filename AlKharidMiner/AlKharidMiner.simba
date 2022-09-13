@@ -30,10 +30,17 @@ begin
   if Self.Banking then
   begin
     if not Self.DoBank() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
   end
   else
-    Self.DropItems();
+  begin
+    if not Self.DropItems() then
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
+  end;
 end;
 
 {
@@ -51,7 +58,9 @@ begin
       else
       begin
         if not Self.DoGathering() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
       end;
     end
     else

@@ -42,7 +42,7 @@ type
     AmuletOfChemItem                                          : TRSItem;
     CreationType                                              : ERSCreationType;
     MakeNum, Did, TransformWaitTime, MaterialRatio,
-      SecondaryMaterialRatio                                  : Int32;
+      SecondaryMaterialRatio, FailCount                       : Int32;
     StoppedShort, UsingAmuletOfChem, NeedToRefillAmuletOfChem,
       GainingXP, UsingBankFillers                             : Boolean;
     AmuletCrumbledTexts                                       : TStringArray;

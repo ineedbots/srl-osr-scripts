@@ -130,7 +130,9 @@ begin
     Script.WriteMsg('Need to collect!', True);
 
     if not Self.GoCollectBars() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
 
     Self.NeedToCollect := False;
     exit();
@@ -142,7 +144,9 @@ begin
     Script.WriteMsg('Need to pay foreman!', True);
 
     if not Self.GoPayForeman() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
 
     exit();
   end;
@@ -153,7 +157,9 @@ begin
     Script.WriteMsg('Need to refill coffer!', True);
 
     if not Self.GoRefillCoffer() then
-      Self.AfterActionAntiBan(True, True, True);
+      Self.AfterActionAntiBan(True, True, True)
+    else
+      Self.ClearFailCount();
 
     exit();
   end;
@@ -171,7 +177,9 @@ begin
         Script.WriteMsg('Need to put stuff on belt!', True);
 
         if not Self.GoDoConveyor() then
-          Self.AfterActionAntiBan(True, True, True);
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
 
         Self.NeedToDoBelt := False;
 
@@ -183,7 +191,9 @@ begin
   // we should bank!
   Script.WriteMsg('Need to bank! OreSlots: ' + ToStr(OreSlots) + '  CoalSlots: ' + ToStr(CoalSlots) + '  HasCoalBag: ' + ToStr(Inventory.FindItem(Self.CoalBagItem)), True);
   if not Self.GoDoBank(True, False, Item, 0) then
-    Self.AfterActionAntiBan(True, True, True);
+    Self.AfterActionAntiBan(True, True, True)
+  else
+    Self.ClearFailCount();
 end;
 
 {

@@ -234,7 +234,7 @@ end;
 
   Part of this is from Flight's AIOFisher
 }
-procedure TBot.DropItems();
+function TBot.DropItems(): Boolean;
 var
   Pattern, LogSlots: TIntegerArray;
   CurLogs, i, S: Int32;
@@ -294,6 +294,9 @@ begin
   Script.WriteMsg('Dropped logs... Currently chopped ' + IntToStr(Self.LogsDone) + ' logs!');
   
   Self.AfterActionAntiBan(True);
+
+  if not Inventory.IsFull() then
+    Result := True;
 end;
 
 {
@@ -754,7 +757,7 @@ end;
 {
   Fletches the logs
 }
-procedure TBot.FletchLogs();
+function TBot.FletchLogs(): Boolean;
 var
   KnifeSlot, LogSlot, ICount, IC: Int32;
   LogSlots: TIntegerArray;
@@ -853,6 +856,7 @@ begin
   end;
 
   Self.AfterActionAntiBan(True);
+  Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_DVC_MISC

@@ -24,7 +24,7 @@ type
       WalkerWasEarlySuccess, UsingBankFillers                 : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
-      DidMove                                                 : Int32;
+      DidMove, FailCount                                      : Int32;
     RSW                                                       : TRSWalker;
     OreItems, ToolItems                                       : TRSItemArray;
     RockOptions, RockUptexts                                  : TStringArray;

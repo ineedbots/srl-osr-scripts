@@ -328,7 +328,7 @@ end;
 {
   Banks
 }
-procedure TBot.DoBanking();
+function TBot.DoBanking(): Boolean;
 var
   ToolSlots, Pattern, ProductSlots: TIntegerArray;
   i, CurProducts, FreeSpace, MatsToWith: Int32;
@@ -548,6 +548,8 @@ begin
 
   Bank.Close(Script.ShouldPressKeyboard());
   Script.WriteMsg('Finished banking...', True);
+
+  Result := True;
 end;
 
 {
@@ -572,43 +574,32 @@ end;
   Trys to open the bank
 }
 function TBot.DoOpenBank(): Boolean;
-var
-  i: Int32;
 begin
   Script.WriteMsg('Opening bank..', True);
-  // attempt to open the bank 5 times
-  for i := 0 to 5 do
+
+  if Self.OpenBank() then
   begin
-    if not RSClient.IsLoggedIn() then
-      exit();
-
-    if Self.OpenBank() then
-    begin
-      if Self.CreationType = ERSCreationType.GLASSMAKE then
-        Self.AfterActionAntiBan(False)
-      else
-        Self.AfterActionAntiBan(True, False);
-
-      if Self.WaitBankOpen() then
-        Result := True;
-
-      exit();
-    end;
-
-    Script.WriteMsg('Failed to open bank');
-    Self.AfterActionAntiBan(True, True, True);
-
-    if i = 0 then
-      Minimap.SetCompassNorth((Random() > 0.2))
+    if Self.CreationType = ERSCreationType.GLASSMAKE then
+      Self.AfterActionAntiBan(False)
     else
-      Minimap.SetCompassAngle(Random() * 360.0);
+      Self.AfterActionAntiBan(True, False);
 
-    MainScreen.SetHighestPitch();
+    if Self.WaitBankOpen() then
+      Result := True;
 
-    Wait(1000, 2500, wdLeft);
+    exit();
   end;
 
-  Script.Stop('Failed to open bank..');
+  Script.WriteMsg('Failed to open bank');
+
+  if Self.FailCount = 0 then
+    Minimap.SetCompassNorth((Random() > 0.2))
+  else
+    Minimap.SetCompassAngle(Random() * 360.0);
+
+  MainScreen.SetHighestPitch();
+
+  Wait(1000, 2500, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_BANKSTANDER_BANK
