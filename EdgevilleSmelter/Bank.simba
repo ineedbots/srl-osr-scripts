@@ -264,14 +264,14 @@ begin
     // equip it   
     i := Inventory.Count();
 
-    Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+    Mouse.Move(Inventory.GetSlotBox(Pattern[0]));
     Wait(0, 750, wdLeft);
 
-    if not ChooseOption.Select('Wear') then
-    begin
-      Script.WriteMsg('Couldn''t select wear for ring');
-      exit();
-    end;
+    // runelite shift click bank
+    if not Script.ShiftClicking or (Random() < 0.1) then
+      ChooseOption.Select('Wear')
+    else
+      Mouse.ShiftClick();
 
     Wait(0, 500, wdLeft);
     Script.AntiBan.AfterBankAntiBan(2);

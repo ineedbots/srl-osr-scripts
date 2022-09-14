@@ -322,9 +322,15 @@ begin
         if Inventory.FindItems(Self.StaminaPotItems, Pattern) then
         begin
           // drink it
-          Mouse.Click(Inventory.GetSlotBox(Pattern[0]), MOUSE_RIGHT);
+          Mouse.Move(Inventory.GetSlotBox(Pattern[0]));
           Wait(0, 750, wdLeft);
-          ChooseOption.Select('Drink');
+
+          // runelite shift click to drink
+          if not Script.ShiftClicking or (Random() < 0.1) then
+            ChooseOption.Select('Drink')
+          else
+            Mouse.ShiftClick();
+
           Wait(0, 500, wdLeft);
 
           Script.AntiBan.AfterBankAntiBan(2);
@@ -350,30 +356,72 @@ begin
       // hopefully this doesn't fail due to lag
       Mouse.Move(Inventory.GetSlotBox(CoalBagSlot));
       Wait(0, 750, wdLeft);
-      ChooseOption.Open();
-      Wait(50, 500, wdLeft);
 
-      // check if the bag isnt empty
-      if ChooseOption.HasOption(Self.EmptyCoalBagOptionStr, False, False) then
+      if Script.ShiftClicking then
       begin
-        Script.WriteMsg('Coal bag isnt empty...');
-        ChooseOption.Select(Self.EmptyCoalBagOptionStr);
-        Wait(1500, 2500); // assume it doesn't lag right here
-        Mouse.Click(Inventory.GetSlotBox(CoalBagSlot), MOUSE_RIGHT);
-        Wait(50, 500);
-      end;
+        IsKeyDown(VK_SHIFT); // Clear cache
+        try
+          // hold shift
+          if not IsKeyDown(VK_SHIFT) then
+            KeyDown(VK_SHIFT);
 
-      // make sure we can fill it
-      if not ChooseOption.HasOption(Self.FillCoalBagOptionsStr, False) then
+          Wait(50, 500, wdLeft);
+
+          // check if the bag isnt empty
+          if MainScreen.IsUpText(Self.EmptyCoalBagOptionStr) then
+          begin
+            Script.WriteMsg('Coal bag isnt empty shiftclick...');
+            Mouse.Click(MOUSE_LEFT);
+            Wait(1500, 2500); // assume it doesn't lag right here
+          end;
+
+          CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+
+          // make sure we can fill it
+          if not MainScreen.IsUpText(Self.FillCoalBagOptionsStr) then
+          begin
+            Script.WriteMsg('No fill option on the coal bag shiftclick!');
+            // goto in a try block? not a good idea...
+            CoalBankAmount := -1;
+          end
+          else
+            Mouse.Click(MOUSE_LEFT); // fill it
+        finally
+          if IsKeyDown(VK_SHIFT) then
+            KeyUp(VK_SHIFT);
+        end;
+
+        // check if failed
+        if CoalBankAmount = -1 then
+          goto do_exit;
+      end
+      else
       begin
-        Script.WriteMsg('No fill option on the coal bag!');
-        goto do_exit;
+        ChooseOption.Open();
+        Wait(50, 500, wdLeft);
+
+        // check if the bag isnt empty
+        if ChooseOption.HasOption(Self.EmptyCoalBagOptionStr, False, False) then
+        begin
+          Script.WriteMsg('Coal bag isnt empty...');
+          ChooseOption.Select(Self.EmptyCoalBagOptionStr);
+          Wait(1500, 2500); // assume it doesn't lag right here
+          Mouse.Click(Inventory.GetSlotBox(CoalBagSlot), MOUSE_RIGHT);
+          Wait(50, 500);
+        end;
+
+        // make sure we can fill it
+        if not ChooseOption.HasOption(Self.FillCoalBagOptionsStr, False) then
+        begin
+          Script.WriteMsg('No fill option on the coal bag!');
+          goto do_exit;
+        end;
+
+        CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
+
+        // fill it
+        ChooseOption.Select(Self.FillCoalBagOptionsStr);
       end;
-
-      CoalBankAmount := SRL.GetItemAmount(CoalB.Expand(2));
-
-      // fill it
-      ChooseOption.Select(Self.FillCoalBagOptionsStr);
 
       // if over 100k, just assume it worked... really hope it dont lag
       if CoalBankAmount >= 100000 then
@@ -383,6 +431,12 @@ begin
       end
       else
       begin
+        if CoalBankAmount <= 0 then
+        begin
+          Script.WriteMsg('Bad CoalBankAmount');
+          goto do_exit;
+        end;
+
         CountDown.Init(SRL.SkewedRand(2500, 2000, 3000));
 
         // watch for the change

@@ -279,6 +279,7 @@ var
   WasClicked: Boolean;
   OurPos: TPoint;
   CountDown: TCountDown;
+  PaydirtSlots: TIntegerArray;
 begin
   Script.WriteMsg('Doing crate', True);
 
@@ -293,6 +294,26 @@ begin
   begin
     Script.WriteMsg('Already have hammer');
     exit(True);
+  end;
+
+  if Inventory.IsFull() then
+  begin
+    Script.WriteMsg('Dropping a paydirt', True);
+
+    if not Inventory.FindItem(Self.PayDirtItem, PaydirtSlots) then
+    begin
+      Script.WriteMsg('No paydirt to drop!');
+      exit();
+    end;
+
+    // drop it
+    Inventory.HoverSlot(PaydirtSlots[Random(Low(PaydirtSlots), High(PaydirtSlots))]);
+    Wait(0, 750, wdLeft);
+
+    if not Script.ShiftClicking or (Random() < 0.1) then
+      ChooseOption.Select('Drop')
+    else
+      Mouse.ShiftClick();
   end;
 
   if not ((Self.ClickCrate(WasClicked) and WasClicked)

@@ -842,8 +842,11 @@ end;
 {
   Shift clicks the box
 }
-function TMouse.ShiftClick(B: TBox): Boolean;
+function TMouse.ShiftClick(B: TBox = [-1, -1, -1, -1]): Boolean;
 begin
+  if B.X1 = -1 then
+    B := Box(Self.Position(), 1, 1);
+
   IsKeyDown(VK_SHIFT); // Clear cache
 
   try

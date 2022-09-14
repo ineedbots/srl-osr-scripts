@@ -226,7 +226,12 @@ begin
   Inventory.FindItems(Self.KnifedLogItems, Dropable);
 
   Inventory.HoverSlot(Dropable[Random(Low(Dropable), High(Dropable))]);
-  ChooseOption.Select('Drop');
+  Wait(0, 750, wdLeft);
+
+  if not Script.ShiftClicking or (Random() < 0.1) then
+    ChooseOption.Select('Drop')
+  else
+    Mouse.ShiftClick();
 end;
 
 {
