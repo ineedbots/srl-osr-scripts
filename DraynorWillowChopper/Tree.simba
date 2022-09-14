@@ -365,9 +365,8 @@ begin
   // check and see if this a far click
   if ClickPt.X <> -1 then
   begin
-    OurPos := Self.RSW.GetMyPos();
-    ClickLoc := Self.RSW.MSToWorldEx(OurPos, ClickPt);
-    Dist := ClickLoc.DistanceTo(OurPos);
+    ClickLoc := MainScreen.PointToMM(ClickPt).ToPoint();
+    Dist := ClickLoc.DistanceTo(Minimap.Center());
     Script.WriteMsg('Checking far click: ' + ToStr(Dist), True);
 
     if Dist > 8 then
