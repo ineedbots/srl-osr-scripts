@@ -361,6 +361,8 @@ begin
       begin
         IsKeyDown(VK_SHIFT); // Clear cache
         try
+          // runelite shift click bank
+
           // hold shift
           if not IsKeyDown(VK_SHIFT) then
             KeyDown(VK_SHIFT);
