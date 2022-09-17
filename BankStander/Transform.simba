@@ -727,4 +727,38 @@ begin
   Result := True;
 end;
 
+{
+  Does supercombats
+}
+function TBot.DoSupercombat(): Boolean;
+var
+  AttItem, StrItem, DefItem, Item: TRSItem;
+  MaterialSlots, SecondaryMaterialSlots: TIntegerArray;
+begin
+  AttItem := 'Super attack(4)';
+  StrItem := 'Super strength(4)';
+  DefItem := 'Super defence(4)';
+
+  if not Inventory.FindItem(AttItem, SecondaryMaterialSlots) or
+    not Inventory.FindItem(StrItem, SecondaryMaterialSlots) or
+    not Inventory.FindItem(DefItem, SecondaryMaterialSlots) then
+  begin
+    Script.WriteMsg('Missing potion!', True);
+    exit();
+  end;
+
+  Script.WriteMsg('DoSupercombat: SecondaryMaterialSlots: ' + ToStr(SecondaryMaterialSlots), True);
+  Script.WriteMsg('Doing super combat!', True);
+
+  for Item in Self.MaterialItems do
+  begin
+    if Inventory.FindItem(Item, MaterialSlots) then
+    begin
+      Script.WriteMsg('DoSupercombat: MaterialSlots: ' + ToStr(MaterialSlots), True);
+      Result := Self.Transform(Item, MaterialSlots, SecondaryMaterialSlots);
+      break;
+    end;
+  end;
+end;
+
 {$ENDIF} // INEEDBOT_BANKSTANDER_TRANSFORM

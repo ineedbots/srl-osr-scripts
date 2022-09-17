@@ -23,7 +23,8 @@ type
     COMBINE,         // combine like potions
     CLEANER,          // cleans herbs
     ENCHANTER,          // enchants
-    GLASSMAKE             // superglass make
+    GLASSMAKE,             // superglass make
+    SUPERCOMBAT             // supercombat potions
   );
 
   ERSBankColorType = (
@@ -32,7 +33,8 @@ type
     DRAYNOR_BANK_BOOTH,
     WINTERTODT_CHEST,
     VARROCK_WEST_BANK_BOOTH,
-    BLAST_FURNACE_CHEST
+    BLAST_FURNACE_CHEST,
+    NONE
   );
 
   TBot = record

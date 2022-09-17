@@ -66,6 +66,7 @@ end;
 function TBot.ShouldMakeProduct(): Boolean;
 var
   Slots: TIntegerArray;
+  AttItem, StrItem, DefItem: TRSItem;
 begin
   // glassmake hack, because we always want to bank after clicking the spell
   if Self.CreationType = ERSCreationType.GLASSMAKE then
@@ -91,6 +92,25 @@ begin
     exit();
 
   Slots.Clear();
+
+  // cehck super combat stuff
+  if Self.CreationType = ERSCreationType.SUPERCOMBAT then
+  begin
+    AttItem := 'Super attack(4)';
+    StrItem := 'Super strength(4)';
+    DefItem := 'Super defence(4)';
+
+    if not Inventory.FindItem(AttItem) then
+      exit();
+
+    if not Inventory.FindItem(StrItem) then
+      exit();
+
+    if not Inventory.FindItem(DefItem) then
+      exit();
+
+    exit(True);
+  end;
 
   if Length(Self.SecondaryMaterialItems) > 0 then
   begin

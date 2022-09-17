@@ -47,7 +47,7 @@ begin
         ERSCreationType.COMBINE: DidIt := Self.DoCombine();
         ERSCreationType.CLEANER: DidIt := Self.DoClean();
         ERSCreationType.ENCHANTER: DidIt := Self.DoEnchant();
-        //ERSCreationType.SUPERCOMBAT: Self.DoSupercombat();
+        ERSCreationType.SUPERCOMBAT: DidIt := Self.DoSupercombat();
       end;
 
       if not DidIt then
@@ -288,6 +288,10 @@ begin
         RadiusExpand := 1;
         NoColorTileExpand := 5;
       end;
+    end;
+    else
+    begin
+      Script.WriteMsg('Your pos is: ' + ToStr(Self.RSW.GetMyPos()));
     end;
   end;
 

@@ -54,6 +54,9 @@ end;
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
+  if Length(Self.BankColor.RSObject.Colors) <= 0 then
+    exit();
+
   Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
   Result.FilterSize(Self.BankColor.FilterSize, __GT__);
 end;
@@ -214,6 +217,85 @@ begin
 
   Script.WriteMsg('WaitBankOpen: Timed out...', True);
   // bank didnt open... failed.
+end;
+
+{
+  Banks for supercombats
+}
+function TBot.DoSuperCombatBank(Pattern: TIntegerArray; MBox: TBox; out DeferToOrginal: Boolean): Boolean;
+var
+  AttItem, StrItem, DefItem: TRSItem;
+  AttBox, StrBox, DefBox, SomeBox: TBox;
+  Order: TIntegerArray;
+  i: Int32;
+begin
+  DeferToOrginal := False;
+  AttItem := 'Super attack(4)';
+  StrItem := 'Super strength(4)';
+  DefItem := 'Super defence(4)';
+
+  Script.WriteMsg('Doing super combat bank!', True);
+
+  // gather info for items
+  if not Bank.FindBankItem(AttItem, AttBox) then
+  begin
+    Script.WriteMsg('Couldn''t find AttItem in bank');
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
+  if not Bank.FindBankItem(StrItem, StrBox) then
+  begin
+    Script.WriteMsg('Couldn''t find StrItem in bank');
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
+  if not Bank.FindBankItem(DefItem, DefBox) then
+  begin
+    Script.WriteMsg('Couldn''t find DefItem in bank');
+    Script.Stop('No materials left in bank!');
+    exit();
+  end;
+
+  // deposit
+  if Random() < 0.9 then
+    Bank.DepositAllItems(False)
+  else if not Bank.DepositItemsIntoBank(Pattern, 28, -2, False) then
+  begin
+    Script.WriteMsg('Failed to deposit items');
+    exit();
+  end;
+
+  Wait(0, 1000, wdLeft);
+  Script.AntiBan.AfterBankAntiBan(7);
+
+  // withdraw
+  Order := [0, 1, 2, 3];
+  for i := High(Order) downto 0 do
+    Swap(Order[i], Order[Random(0, i)]);
+
+  while Length(Order) > 0 do
+  begin
+    case Order.Pop() of
+      0: SomeBox := MBox;
+      1: SomeBox := AttBox;
+      2: SomeBox := StrBox;
+      3: SomeBox := DefBox;
+    end;
+
+    if not Bank.WithdrawItemFromBank(SomeBox, 7, False, 7, False) then
+    begin
+      Script.WriteMsg('Failed to withdraw');
+      exit();
+    end;
+
+    Wait(0, 1000, wdLeft);
+    Script.AntiBan.AfterBankAntiBan(2);
+  end;
+
+  Wait(750, 1500, wdLeft);
+  Result := True;
 end;
 
 {
@@ -425,13 +507,24 @@ begin
   Script.WriteMsg('DoBanking: ProductSlots: ' + ToStr(ProductSlots), True);
   DeferToOrginal := True;
 
-  if Self.CreationType = ERSCreationType.GLASSMAKE then
-  begin
-    if not Self.DoGlassMakeBank(Pattern, MBox, SMBox, DeferToOrginal) then
+  case Self.CreationType of
+    ERSCreationType.GLASSMAKE:
     begin
-      Script.WriteMsg('Failed to DoGlassMakeBank items');
-      Bank.Close(Script.ShouldPressKeyboard());
-      exit();
+      if not Self.DoGlassMakeBank(Pattern, MBox, SMBox, DeferToOrginal) then
+      begin
+        Script.WriteMsg('Failed to DoGlassMakeBank items');
+        Bank.Close(Script.ShouldPressKeyboard());
+        exit();
+      end;
+    end;
+    ERSCreationType.SUPERCOMBAT:
+    begin
+      if not Self.DoSuperCombatBank(Pattern, MBox, DeferToOrginal) then
+      begin
+        Script.WriteMsg('Failed to DoSuperCombatBank items');
+        Bank.Close(Script.ShouldPressKeyboard());
+        exit();
+      end;
     end;
   end;
 
