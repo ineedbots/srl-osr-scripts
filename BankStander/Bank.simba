@@ -54,7 +54,7 @@ end;
 }
 function TBot.FindBankColor(Area: TBox): T2DPointArray;
 begin
-  if Length(Self.BankColor.RSObject.Colors) <= 0 then
+  if (Length(Self.BankColor.RSObject.Colors) <= 0) and (Length(Self.BankColor.RSObject.ColorClusters) <= 0) then
     exit();
 
   Result := MainScreen.FindObject(Self.BankColor.RSObject, Area);
