@@ -285,7 +285,7 @@ begin
         Wait(0, 250, wdLeft);
         Mouse.Move(B);
 
-        MainScreen.IsUpText('Withdraw-' + ToString(Amount), SRL.SkewedRand(1250, 750, 2000));
+        MainScreen.IsUpText('Withdraw-' + ToString(Amount) + ' ', SRL.SkewedRand(1250, 750, 2000));
         Wait(0, 250, wdLeft);
       end;
 
@@ -294,7 +294,7 @@ begin
         Mouse.Move(B);
         Wait(0, 250, wdLeft);
 
-        if MainScreen.IsUpText('Withdraw-' + ToString(Amount)) then
+        if MainScreen.IsUpText('Withdraw-' + ToString(Amount) + ' ') then
         begin
           Mouse.Click(MOUSE_LEFT);
 
