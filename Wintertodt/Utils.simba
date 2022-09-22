@@ -140,9 +140,7 @@ end;
 {
   Does general checks and does antiban.
 }
-function TBot.DoAntiBan(DoInterfaceClose: Boolean = True): Boolean;
-var
-  Uptxt: String;
+function TBot.DoAntiBan(): Boolean;
 begin
   Script.DoGeneralChecks();
 
@@ -156,16 +154,6 @@ begin
     while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
       Wait(75, 500);
   end;
-
-  if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
-    MainScreen.CloseInterface();
-
-  // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
-  Inventory.SetSelectedSlot(-1);
-
-  Uptxt := MainScreen.GetUpText();
-  if Uptxt.Count('->') > 0 then
-    Mouse.Click(MOUSE_LEFT);
 
   // general antiban
   Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
@@ -332,14 +320,31 @@ begin
   Wait(0, 750, wdLeft);
 
   if DoAB then
-    Self.DoAntiban(DoInterfaceClose);
+    Self.DoAntiban();
 
   if WasFailure then
   begin
     Inc(Self.FailCount);
     Script.WriteMsg('Failed!: ' + ToStr(Self.FailCount), True);
 
+    // make sure cam is high
     MainScreen.SetHighestPitch();
+
+    // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+    Inventory.SetSelectedSlot(-1);
+
+    if MainScreen.IsUpText('->') then
+      Mouse.Click(MOUSE_LEFT);
+
+    if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface();
+
+    // fix these up
+    if Script.ShiftClicking then
+      Keyboard.KeyUp(VK_SHIFT);
+
+    if Script.MiddleClicking then
+      Mouse.Release(MOUSE_MIDDLE);
 
     if Self.FailCount > 10 then
       Script.Stop('FailCount too high!');
