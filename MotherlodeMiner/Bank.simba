@@ -21,6 +21,7 @@
 {$include_once Utils.simba}
 
 {$include_once Rockfall.simba}
+{$include_once Ladder.simba}
 
 {
   Finds the bank tile
@@ -139,7 +140,7 @@ end;
 }
 procedure TBot.DoBanking();
 var
-  ToolSlots, OreSlots, Pattern: TIntegerArray;
+  ToolSlots, OreSlots, Pattern, GemBagSlots: TIntegerArray;
   CurOres, i: Int32;
   IsBank: Boolean;
 begin
@@ -160,15 +161,18 @@ begin
   begin
     Inventory.FindItems(Self.ToolItems, ToolSlots);
     Inventory.FindItems(Self.OreItems, OreSlots);
+    Inventory.FindItems([Self.GemBagItem], GemBagSlots);
   end
   else
   begin
     DepositBox.FindItems(Self.ToolItems, ToolSlots);
     DepositBox.FindItems(Self.OreItems, OreSlots);
+    DepositBox.FindItems([Self.GemBagItem], GemBagSlots);
   end;
 
   Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
   Script.WriteMsg('DepositItems: OreSlots: ' + ToStr(OreSlots), True);
+  Script.WriteMsg('DepositItems: GemBagSlots: ' + ToStr(GemBagSlots), True);
   CurOres := Length(OreSlots);
 
   // randomize the deposit pattern
@@ -184,10 +188,28 @@ begin
   for i in ToolSlots do
     Pattern.Remove(i);
 
+  // gembag
+  if (Length(GemBagSlots) > 0) and Self.NeedToDoGemBag then
+  begin
+    Self.NeedToDoGemBag := False;
+
+    if IsBank then
+      Inventory.HoverSlot(GemBagSlots[0])
+    else
+      Mouse.Move(DepositBox.GetSlotBox(GemBagSlots[0]));
+    Wait(0, 750, wdLeft);
+
+    // runelite shift click
+    if not Script.ShiftClicking or (Random() < 0.1) then
+      ChooseOption.Select('Empty')
+    else
+      Mouse.ShiftClick();
+  end;
+
   // deposit our stuff
   if IsBank then
   begin
-    if (Length(ToolSlots) <= 0) and (Random() < 0.8) then
+    if ((Length(ToolSlots) <= 0) or Self.UsingBankFillers) and (Random() < 0.8) then
       Bank.DepositAllItems()
     else if not Bank.DepositItemsIntoBank(Pattern, CurOres) then
     begin
@@ -198,14 +220,25 @@ begin
   else
   begin
     // TODO better
-    for i in Pattern do
+    if ((Length(ToolSlots) <= 0) or Self.UsingBankFillers) and (Random() < 0.8) then
+      DepositBox.DepositAllItems()
+    else
     begin
-      if DepositBox.IsSlotUsed(i) then
+      for i in Pattern do
       begin
-        // TODO randomize using deposit buttons
-        Mouse.Move(DepositBox.GetSlotBox(i));
-        ChooseOption.Select('Deposit-All');
-        Wait(750, 1250);
+        if DepositBox.IsSlotUsed(i) then
+        begin
+          // TODO randomize using deposit buttons
+          Mouse.Move(DepositBox.GetSlotBox(i));
+          Wait(0, 500, wdLeft);
+
+          if MainScreen.IsUpText('Deposit-All') and (Random() < 0.9) then
+            Mouse.Click(MOUSE_LEFT)
+          else
+            ChooseOption.Select('Deposit-All');
+
+          Wait(SRL.SkewedRand(1000, 750, 1750));
+        end;
       end;
     end;
   end;

@@ -72,7 +72,8 @@ type
     Zones                                                     : TZoneArray;
     HeightMapBMP                                              : TMufasaBitmap;
     IsOnUpper, ClickWhileWalking, WalkerWasEarlySuccess,
-      HasLargeSack, SameZone                                  : Boolean;
+      HasLargeSack, SameZone, NeedToDoGemBag,
+      UsingBankFillers                                        : Boolean;
     OldWalkingCallback, OldWalkCallback                       : TRSWalker_OnWalkEvent;
   end;
 

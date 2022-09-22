@@ -28,14 +28,6 @@ program MotherlodeMiner;
 {$include_once Vein.simba}
 
 {
-  Handles full inv!
-}
-procedure TBot.DoFullInv();
-begin
-
-end;
-
-{
   Main loop of the script.
 }
 procedure TBot.Run();
@@ -44,9 +36,38 @@ begin
   begin
     if RSClient.IsLoggedIn() then
     begin
-      Self.DoSack();
-
-      Self.DoBank();
+      if Inventory.FindItems(Self.OreItems) then
+      begin
+        // deposit into bank
+        if not Self.DoBank() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+      end
+      else if Self.ShouldDoSack() then
+      begin
+        // take ore from sack
+        if not Self.DoTakeFromSack() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+      end
+      else if Inventory.Count() < (Inventory.HIGH_SLOT + 1) then
+      begin
+        // gather paydirt
+        if not Self.DoGathering() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+      end
+      else
+      begin
+        // insert into hopper
+        if not Self.DoInsertIntoHopper() then
+          Self.AfterActionAntiBan(True, True, True)
+        else
+          Self.ClearFailCount();
+      end;
     end
     else
     begin
@@ -165,6 +186,8 @@ begin
   Self.RSW.Setup({$MACRO CURRENT_DIRECTORY} + '\maps\mlm.png');
   Self.RSW.ScreenWalk     := MSWALKING;
 
+  Self.UsingBankFillers := USING_BANK_FILLERS;
+
   Self.HasLargeSack := LARGE_SACK;
   Self.SameZone     := SAME_ZONE; // same samers saming still online???????????????????????? L00000000000000L
 
@@ -172,7 +195,7 @@ begin
   Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png'); // unix better not complain!
   
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
-  Self.NeedWaterRunningTexts := [''];
+  Self.NeedWaterRunningTexts := ['already got some', 'You''ve already got some pay-dirt in the machine. You can put more in once the last batch comes out.'];
 
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';

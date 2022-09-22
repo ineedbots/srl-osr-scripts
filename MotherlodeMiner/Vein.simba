@@ -20,6 +20,9 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+{$include_once Ladder.simba}
+
 {
   Finds the Vein tile
 }
@@ -76,9 +79,9 @@ end;
 {
   Gathers!
 }
-procedure TBot.DoGathering();
+function TBot.DoGathering(): Boolean;
 begin
-
+  Script.WriteMsg('Gathering!', True);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_VEIN

@@ -20,6 +20,9 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+{$include_once Ladder.simba}
+
 {
   Finds the Crate tile
 }

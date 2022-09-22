@@ -59,11 +59,36 @@ begin
 end;
 
 {
+  Count items in box
+}
+function TRSDepositBox.Count(): Int32;
+var
+  TBA: TBoxArray;
+  B: TBox;
+begin
+  TBA := Self.GetSlotBoxes();
+
+  for B in TBA do
+  begin
+    if Self.IsSlotUsed(B) then
+      Inc(Result);
+  end;
+end;
+
+{
   Is the depositbox slot in use?
 }
 function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
 begin
   Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
+end;
+
+{
+  Depsoitbox
+}
+function TRSDepositBox.DepositAll: Boolean;
+begin
+  Result := Self.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
 end;
 
 {
@@ -409,6 +434,50 @@ begin
 
   if WaitForItems then
     Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  Result := True;
+end;
+
+{
+  Returns true when the inventory changed
+}
+function TRSDepositBox.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  if C = -1 then
+    C := Self.Count();
+
+  T.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    if C <> Self.Count() then
+      exit(True);
+
+    Wait(Interval);
+  end;
+end;
+
+{
+  Uses the deposit button
+}
+function TRSDepositBox.DepositAllItems(WaitForItems: Boolean = True): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Self.Count();
+
+  if not Self.DepositAll() then
+    exit();
+
+  if WaitForItems then
+    Self.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
 
   Result := True;
 end;

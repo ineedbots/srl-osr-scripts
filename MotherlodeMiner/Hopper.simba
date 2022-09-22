@@ -20,6 +20,10 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+{$include_once Ladder.simba}
+{$include_once Strut.simba}
+
 {
   Finds the Hopper tile
 }
@@ -284,6 +288,7 @@ var
   ChatStr: String;
 begin
   Script.WriteMsg('Doing hopper', True);
+  NeedWaterRunning := False;
 
   // we need to be on lower
   if not Self.DoLadder(False) then
@@ -375,6 +380,64 @@ begin
   end;
 
   Wait(0, 2000, wdLeft);
+end;
+
+{
+  Inserts into hopper
+}
+function TBot.DoInsertIntoHopper(): Boolean;
+var
+  NeedWaterRunning: Boolean;
+begin
+  Script.WriteMsg('Inserting into hopper!', True);
+
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
+  // check for paydirt!@
+  if not Inventory.FindItem(Self.PayDirtItem) then
+  begin
+    Script.WriteMsg('No paydirt!');
+    exit(True);
+  end;
+
+  // well, do it!
+  if not Self.DoHopper(NeedWaterRunning) then
+  begin
+    if not NeedWaterRunning then
+    begin
+      Script.WriteMsg('Failed to do DoHopper');
+      exit();
+    end;
+
+    Script.WriteMsg('Need water to be running!');
+
+    // make the water run!
+    if not Self.DoStrut() then
+    begin
+      // maybe someone did it already? check if the water is running here too
+      if not Self.WaterRunning() then
+      begin
+        Script.WriteMsg('Failed to do DoStrut');
+        exit();
+      end;
+    end;
+
+    // try again
+    if not Self.DoHopper(NeedWaterRunning) then
+    begin
+      Script.WriteMsg('Failed to do DoHopper');
+      exit();
+    end
+    else
+      Result := True;
+  end
+  else
+    Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_MLM_HOPPER

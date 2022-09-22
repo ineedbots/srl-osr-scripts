@@ -20,6 +20,10 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}
+{$include_once Ladder.simba}
+{$include_once Crate.simba}
+
 {
   Finds the Water tile
 }
@@ -73,6 +77,41 @@ begin
   end
   else
     Running := False;
+end;
+
+{
+  returns if the water is running
+}
+function TBot.WaterRunning(WalkToIt: Boolean = False): Boolean;
+var
+  B: TBox;
+  Running, Walked: Boolean;
+  Pos: TPoint;
+begin
+  Pos := Self.RSW.GetMyPos();
+
+  if not Self.FindWater(Pos, Self.GetHeight(Pos), B, Running) then
+  begin
+    if not WalkToIt then
+      exit();
+
+    // walk to it
+    try
+      Walked := Self.RSW.WalkBlind(Self.WaterTile, 12);
+    except
+    end;
+
+    if not Walked then
+      Script.WriteMsg('Failed to walk to water tile');
+
+    Minimap.WaitFlag();
+    Minimap.WaitPlayerMoving();
+
+    if not Self.FindWater(Pos, Self.GetHeight(Pos), B, Running) then
+      exit();
+  end;
+
+  Result := Running;
 end;
 
 {
@@ -427,6 +466,18 @@ begin
   end;
 
   Wait(0, 2000, wdLeft);
+
+  // drop hammer
+  if Inventory.FindItem(Self.HammerItem, xpc) then
+  begin
+    Inventory.HoverSlot(xpc);
+    Wait(0, 750, wdLeft);
+
+    if not Script.ShiftClicking or (Random() < 0.1) then
+      ChooseOption.Select('Drop')
+    else
+      Mouse.ShiftClick();
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_MLM_STRUT

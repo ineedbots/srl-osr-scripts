@@ -20,6 +20,12 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
+{$include_once Rockfall.simba}  
+{$include_once Ladder.simba}
+{$include_once Hopper.simba}
+{$include_once Strut.simba}
+{$include_once Bank.simba}
+
 {
   Finds the sack tile
 }
@@ -371,6 +377,139 @@ begin
   end;
 
   Wait(0, 2000, wdLeft);
+end;
+
+{
+  Should we start taking from the sack?
+}
+function TBot.ShouldDoSack(): Boolean;
+var
+  pdic, pdsc, pdl: Int32;
+begin
+  pdic := Inventory.CountItem(Self.PayDirtItem);
+  pdsc := Self.AmountOfPayDirtInSack();
+  pdl := 80;
+
+  if Self.HasLargeSack then
+    pdl := 161;
+
+  if pdsc = -1 then
+  begin
+    Script.WriteMsg('AmountOfPayDirtInSack couldn''t read! are you in mlm?');
+    exit();
+  end;
+
+  if (pdic + pdsc) >= pdl then
+    exit(True);
+end;
+
+{
+  Empties the sack completely
+}
+function TBot.DoTakeFromSack(): Boolean;
+var
+  PaydirtSlots: TIntegerArray;
+  S, i: Int32;
+begin
+  Script.WriteMsg('Empting sack!', True);
+
+  // we need to be on lower
+  if not Self.DoLadder(False) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
+  // insert these into hopper
+  if Inventory.FindItem(Self.PayDirtItem) then
+  begin
+    // make sure water is running
+    if not Self.WaterRunning(True) then
+    begin
+      // start it
+      Script.WriteMsg('Enabling the water', True);
+      Self.DoStrut();
+    end
+    else
+      Script.WriteMsg('Water is running!', True);
+
+    // insert
+    if not Self.DoInsertIntoHopper() then
+    begin
+      Script.WriteMsg('Failed to do DoInsertIntoHopper');
+      exit();
+    end;
+
+    // drop remaining paydirt
+    if Inventory.FindItem(Self.PayDirtItem, PaydirtSlots) then
+    begin
+      Script.WriteMsg('Dropping pay-dirt!', True);
+
+      S := Mouse.Speed;
+      Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+      // drop
+      if Script.ShiftClicking then
+        Inventory.ShiftDrop(PaydirtSlots)
+      else
+      begin
+        for i in PaydirtSlots do
+        begin
+          Inventory.HoverSlot(i);
+
+          if MainScreen.IsUpText('Drop') then
+            Mouse.Click(MOUSE_LEFT)
+          else
+            ChooseOption.Select('Drop');
+
+          Wait(0, 1000, wdLeft);
+        end;
+      end;
+      Mouse.Speed := S;
+    end;
+  end;
+
+  // check if full inv
+  if Inventory.IsFull() then
+  begin
+    Script.WriteMsg('inv is full');
+    exit();
+  end;
+
+  Self.NeedToDoGemBag := True;
+
+  // ok now take from sack, deposit into bank until sack is empty
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.AmountOfPayDirtInSack() = -1 then
+    begin
+      Script.WriteMsg('AmountOfPayDirtInSack bad read', True);
+      break;
+    end;
+
+    if Self.AmountOfPayDirtInSack() = 0 then
+    begin
+      Script.WriteMsg('Emptied!', True);
+      Result := True;
+      break;
+    end;
+
+    if Inventory.FindItems(Self.OreItems) then
+    begin
+      if not Self.DoBank() then
+      begin
+        Script.WriteMsg('Failed to do bank (loop)!', True);
+        break;
+      end;
+    end
+    else
+    begin
+      if not Self.DoSack() then
+      begin
+        Script.WriteMsg('Failed to do sack (loop)!', True);
+        break;
+      end;
+    end;
+  end;
 end;
 
 {$ENDIF} // INEEDBOT_MLM_SACK
