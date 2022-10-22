@@ -27,6 +27,7 @@ type
   end;
 
   TRockfallArray = array of TRockfall;
+  PRockfall = ^TRockfall;
 
   TVein = record
     Tile                                                      : TPoint;
@@ -73,8 +74,10 @@ type
     HeightMapBMP                                              : TMufasaBitmap;
     IsOnUpper, ClickWhileWalking, WalkerWasEarlySuccess,
       HasLargeSack, SameZone, NeedToDoGemBag,
-      UsingBankFillers                                        : Boolean;
-    OldWalkingCallback, OldWalkCallback                       : TRSWalker_OnWalkEvent;
+      UsingBankFillers, WalkerWasEarlySuccessRockfall         : Boolean;
+    OldWalkingCallback, OldWalkCallback,
+      OldWalkingCallbackRockfall                              : TRSWalker_OnWalkEvent;
+    ClickWhileWalkingRockfall                                 : PRockfall;
   end;
 
 var

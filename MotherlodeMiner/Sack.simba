@@ -251,7 +251,7 @@ begin
     Self.ClickWhileWalking := Clicking;
     Self.RSW.OnWalkingEvent := WalkingToSack;
 
-    Self.WalkerWasEarlySuccess := True;
+    Self.WalkerWasEarlySuccess := False;
 
     try
       Walked := Self.RSW.WalkBlind(Self.SackTile.Random(-6, 6, True), 0);
