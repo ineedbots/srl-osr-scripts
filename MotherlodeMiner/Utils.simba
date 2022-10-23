@@ -542,6 +542,10 @@ begin
     Position := Walker^.GetMyPos();
   end;
 
+  // dont recurse!
+  if Bot.RSW.OnWalkingEvent = WalkingToRockfall then
+    exit();
+
   while RSClient.IsLoggedIn() do
   begin
     Velocity := Script.GetVelocity(Position);

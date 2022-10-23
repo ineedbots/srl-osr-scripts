@@ -188,7 +188,7 @@ begin
   Height := Self.GetHeight(OurTile);
 
   // handle rocks
-  if Self.HandleRockfalls(OurTile, Self.StrutTile, Height, False, Clicked, Velocity) then
+  if (Velocity = Point(0, 0)) and Self.HandleRockfalls(OurTile, Self.StrutTile, Height, False, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
@@ -336,7 +336,9 @@ begin
     Script.SetStatus('Going to Strut...');
 
     Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
+    Self.OldWalkCallback := Self.RSW.OnWalkEvent;
     Self.ClickWhileWalking := Clicking;
+    Self.RSW.OnWalkEvent := WalkHandleRockfall;
     Self.RSW.OnWalkingEvent := WalkingToStrut;
 
     Self.WalkerWasEarlySuccess := False;
@@ -346,8 +348,10 @@ begin
     except
     end;
     
+    Self.RSW.OnWalkEvent := Self.OldWalkCallback;
     Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkingCallback := nil;
+    Self.OldWalkCallback := nil;
 
     if not Walked then
     begin

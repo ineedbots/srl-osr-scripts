@@ -44,8 +44,9 @@ type
     DrawCounter, ReportCounter                                : TCountdown;
     AntiBan                                                   : TAntiban;
     AntiBanEnergy                                             : TAntiBanEnergy;
-    LastPos                                                   : TPoint;
+    LastPos, MouseLooksForUpTextClosePt                       : TPoint;
     LastVel                                                   : TDoubleArray;
+    MouseLooksForUpTextCloseDist                              : Double;
     OldMouseMovingCallback                                    : TMouseMovingEvent;
   end;
 

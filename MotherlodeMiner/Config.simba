@@ -20,9 +20,9 @@
 {$include_once Types.simba}
 
 const
-  DEBUGMODE      = False; // For debugging purposes
-  DRAWING        = False; // Draw stuff on the screen? Like proggies?
-  DOREPORTS      = True;  // Do proggies onto the console?
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?
   MSWALKING      = False; // Use mainscreen walking?
@@ -31,10 +31,10 @@ const
   MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
 
   ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
-  USING_BANK_FILLERS = False; // if using bank fillers, will press deposit all button when depositting
+  USING_BANK_FILLERS = True; // if using bank fillers, will press deposit all button when depositting
 
 
-  LARGE_SACK     = True; // got a large sack?
+  LARGE_SACK     = False; // got a large sack?
   SAME_ZONE       = True; // flight!  return to same zone as before?
 
   // Account details

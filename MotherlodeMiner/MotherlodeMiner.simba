@@ -52,7 +52,7 @@ begin
         else
           Self.ClearFailCount();
       end
-      else if Inventory.Count() < (Inventory.HIGH_SLOT + 1) then
+      else if Inventory.Count() < Inventory.HIGH_SLOT then
       begin
         // gather paydirt
         if not Self.DoGathering() then

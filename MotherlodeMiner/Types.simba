@@ -38,6 +38,7 @@ type
   end;
 
   TVeinArray = array of TVein;
+  PVein = ^TVein;
 
   TZone = record
     Angle                                                     : Double;
@@ -48,6 +49,7 @@ type
   end;
 
   TZoneArray = array of TZone;
+  PZone = ^TZone;
 
   TBot = record
     Name                                                      : String;
@@ -78,6 +80,8 @@ type
     OldWalkingCallback, OldWalkCallback,
       OldWalkingCallbackRockfall                              : TRSWalker_OnWalkEvent;
     ClickWhileWalkingRockfall                                 : PRockfall;
+    CurrentVein                                               : PVein;
+    CurrentZone                                               : PZone;
   end;
 
 var

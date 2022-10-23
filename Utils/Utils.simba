@@ -1471,6 +1471,10 @@ begin
   if Length(Script.MouseLooksForUpText) <= 0 then
     exit();
 
+  if (Script.MouseLooksForUpTextCloseDist > 0) and
+    (Point(Round(X), Round(Y)).DistanceTo(Script.MouseLooksForUpTextClosePt) > Script.MouseLooksForUpTextCloseDist) then
+    exit();
+
   Sender := Sender;
   X := X;
   Y := Y;

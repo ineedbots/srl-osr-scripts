@@ -306,7 +306,7 @@ begin
   Height := Self.GetHeight(OurTile);
 
   // handle rocks
-  if Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity) then
+  if (Velocity = Point(0, 0)) and Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
@@ -479,7 +479,9 @@ begin
     Script.SetStatus('Going to bank spot...');
 
     Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
+    Self.OldWalkCallback := Self.RSW.OnWalkEvent;
     Self.ClickWhileWalking := Banking;
+    Self.RSW.OnWalkEvent := WalkHandleRockfall;
     Self.RSW.OnWalkingEvent := WalkingToBank;
 
     try
@@ -502,8 +504,10 @@ begin
       Walked := False;
     end;
     
+    Self.RSW.OnWalkEvent := Self.OldWalkCallback;
     Self.RSW.OnWalkingEvent := Self.OldWalkingCallback;
     Self.OldWalkingCallback := nil;
+    Self.OldWalkCallback := nil;
 
     if not Walked then
     begin
