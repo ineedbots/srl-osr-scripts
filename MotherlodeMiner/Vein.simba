@@ -77,33 +77,6 @@ begin
 end;
 
 {
-  Gets the vein pointer to the static data
-}
-function TBot.GetVeinPtr(Vein: TVein): PVein;
-var
-  i: Int32;
-begin
-  for i := 0 to High(Self.CurrentZone^.Veins) do
-  begin
-    if Vein.Tile = Self.CurrentZone^.Veins[i].Tile then
-      exit(@Self.CurrentZone^.Veins[i]);
-  end;
-end;
-
-{
-  Orders the veins!
-}
-function TBot.OrderVeins(): TVeinArray;
-var
-  Vein: TVein;
-begin
-  for Vein in Self.CurrentZone^.Veins do
-  begin
-    Result += Vein;
-  end;
-end;
-
-{
   Returns true if found the vein, WasClicked true if clicked it
 }
 function TBot.ClickVein(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Velocity: TPoint = [0, 0]): Boolean;
@@ -180,7 +153,7 @@ begin
     Mouse.OnMoving := WhileMouseMovesLookForUpText;
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.VeinUptext;
-    Script.MouseLooksForUpTextCloseDist := 25;
+    Script.MouseLooksForUpTextCloseDist := 10;
     Script.MouseLooksForUpTextClosePt := B.Middle();
 
     Mouse.Move(B);
@@ -258,6 +231,9 @@ begin
   // if this is the last node in the path
   if Bot.ClickWhileWalking then
   begin
+    if Random() < 0.4 then
+      Minimap.SetCompassAngle(Bot.CurrentZone^.Angle);
+
     if Destination = Walker^.Path[High(Walker^.Path)] then
     begin
       // make the mouse fast, because we are moving, its harder to keep up with objs
@@ -276,9 +252,7 @@ begin
 
       // reset the mosue speed back
       Mouse.Speed := S;
-    end
-    else if Random() < 0.2 then
-      Minimap.SetCompassAngle(Bot.CurrentZone^.Angle);
+    end;
   end;
 
   // should be on lower
@@ -289,34 +263,40 @@ end;
 {
   Walks to the zone, return true if we clicked it early
 }
-function TBot.GoToZone(Force: Boolean = False; Clicking: Boolean = True): Boolean;
+function TBot.GoToZone(GoToVein: Boolean = False; Force: Boolean = False; Clicking: Boolean = True): Boolean;
 var
   Walked: Boolean;
-  OurPos: TPoint;
-  B: TBox;
+  OurPos, Where: TPoint;
   Height: Int32;
 begin
   if Self.CurrentZone = nil then
+  begin
+    Script.WriteMsg('GoToZone: bad ptr');
     exit();
+  end;
 
-  Script.WriteMsg('Going to zone....', True);
+  Script.WriteMsg('Going to zone/vein....', True);
   OurPos := Self.RSW.GetMyPos();
   Height := Self.GetHeight(OurPos);
 
   if Self.IsOnUpperLevel(OurPos) <> Self.CurrentZone^.IsUpper then
   begin
-    Script.WriteMsg('Not on same level to go to zone');
+    Script.WriteMsg('Not on same level to go to zone/vein');
     exit();
   end;
 
-  if Force or (OurPos.DistanceTo(Self.CurrentZone^.WalkTile) > 50) or
-    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Self.CurrentZone^.WalkTile).Mean()) then
+  Where := Self.CurrentZone^.WalkTile;
+  if GoToVein then
+    Where := Self.OrderVeins()[0].Tile;
+
+  if Force or (OurPos.DistanceTo(Where) > 50) or
+    not MainScreen.IsVisible(Self.RSW.GetTileMSEx(OurPos, Where).Mean()) then
   begin
     // mainscreen bank fix
     if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
-    Script.SetStatus('Going to zone...');
+    Script.SetStatus('Going to zone/vein...');
 
     Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
     Self.OldWalkCallback := Self.RSW.OnWalkEvent;
@@ -327,7 +307,7 @@ begin
     Self.WalkerWasEarlySuccess := False;
 
     try
-      Walked := Self.RSW.WalkBlind(Self.CurrentZone^.WalkTile.Random(-6, 6, True), 0);
+      Walked := Self.RSW.WalkBlind(Where.Random(-6, 6, True), 0);
     except
     end;
 
@@ -338,17 +318,31 @@ begin
 
     if not Walked then
     begin
-      Script.WriteMsg('Failed to go to zone!');
+      Script.WriteMsg('Failed to go to zone/vein!');
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
       OurPos := Self.RSW.GetMyPos();
-      Self.HandleRockfalls(OurPos, Self.CurrentZone^.WalkTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
+      Self.HandleRockfalls(OurPos, Where, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
     // check if the walker was killed early, it must of been it clicked the bank
     if not Self.RSW.Enabled then
       Result := Self.WalkerWasEarlySuccess;
+  end;
+end;
+
+{
+  Gets the vein pointer to the static data
+}
+function TBot.GetVeinPtr(Vein: TVein): PVein;
+var
+  i: Int32;
+begin
+  for i := 0 to High(Self.CurrentZone^.Veins) do
+  begin
+    if Vein.Tile = Self.CurrentZone^.Veins[i].Tile then
+      exit(@Self.CurrentZone^.Veins[i]);
   end;
 end;
 
@@ -361,12 +355,98 @@ begin
 end;
 
 {
+  Orders the veins!
+}
+function TBot.OrderVeins(): TVeinArray;
+var
+  Vein: TVein;
+begin
+  for Vein in Self.CurrentZone^.Veins do
+  begin
+    Result += Vein;
+  end;
+end;
+
+{
+  Runelite
+}
+function TBot.CheckRuneliteMiningPlugin(out Mining: Boolean): Boolean;
+begin
+  Result := False;
+  Mining := False;
+end;
+
+{
   While it mines!
 }
 function TBot.WhileMining(): Boolean;
+var
+  Vein: TVein;
+  TimeoutCounter: TCountDown;
+  InvCount, IC: Int32;
+  Mining: Boolean;
 begin
-  Wait(0, 1250, wdLeft);
+  if (Self.CurrentVein = nil) or (Self.CurrentZone = nil) then
+  begin
+    Script.WriteMsg('WhileMining: bad ptr!', True);
+    exit();
+  end;
+
+  Vein := Self.CurrentVein^;
+  InvCount := Inventory.Count();
+
+  Self.AfterActionAntiBan(True);
   Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
+
+  // wait for us to stop moving before we start monitoring the tree tile.
+  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
+    Self.DoMainLoopStuff('Going to clicked vein...', False);
+
+  // we timeout if we do not gain something into our inventory
+  TimeoutCounter.Init(Self.MineWaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if Self.CheckRuneliteMiningPlugin(Mining) then
+    begin
+      if Mining then
+        Script.WriteMsg('WhileMining: Runelite says we are mining!', True)
+      else
+      begin
+        Script.WriteMsg('WhileMining: Runelite says we are not mining', True);
+        break;
+      end;
+    end
+    else
+    begin
+      // watch inv
+      IC := Inventory.Count();
+      if IC >= (Inventory.HIGH_SLOT + 1) then
+      begin
+        Script.WriteMsg('WhileMining: Inventory full', True);
+        break;
+      end;
+
+      if IC <> InvCount then
+      begin
+        Script.WriteMsg('WhileMining: Got an item! Restarting timer', True);
+        TimeoutCounter.Restart();
+      end;
+      InvCount := IC;
+
+      if TimeoutCounter.IsFinished() then
+      begin
+        Script.WriteMsg('WhileMining: Timed out', True);
+        break;
+      end;
+    end;
+
+    Self.DoMainLoopStuff('Mining vein...', True);
+  end;
+
+  if TimeoutCounter.IsFinished() then
+    Script.WriteMsg('WhileMining: No ore gained in timeout...', True);
+
+  Script.SetStatus('Vein mining completed!');
 end;
 
 {
@@ -377,6 +457,7 @@ var
   WasClicked: Boolean;
 begin
   Script.WriteMsg('Gathering!', True);
+  Result:=true;
 
   // we only support upper level
   if not Self.DoLadder(True) then
@@ -397,17 +478,20 @@ begin
 
   Wait(0, 1250, wdLeft);
   Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
+  Wait(0, 1250, wdLeft);
 
   // click the vein
-  {if (Self.ClickVein(WasClicked) and WasClicked) or
-    Self.GoToVein() or
+  if (Self.ClickVein(WasClicked) and WasClicked) or
+    Self.GoToZone(True) or
     (Self.ClickVein(WasClicked) and WasClicked) or
-    Self.GoToVein(True) or
+    Self.GoToZone(True, True) or
     (Self.ClickVein(WasClicked) and WasClicked) then
   begin
     Self.WhileMining();
     Result := True;
-  end;  }
+  end;
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {$ENDIF} // INEEDBOT_MLM_VEIN

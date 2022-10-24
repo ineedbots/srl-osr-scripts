@@ -40,6 +40,35 @@ end;
 {$include_once Vein.simba}
 
 {
+  Do perferred angle
+}
+procedure TAntiBan.SetCompassNorth(); override;
+begin
+  if Bot.CurrentZone = nil then
+  begin
+    inherited();
+    exit();
+  end;
+
+  Minimap.SetCompassAngle(Bot.CurrentZone^.Angle);
+  MainScreen.SetHighestPitch();
+end;
+
+{
+  Angle stuff
+}
+procedure TAntiban.RandomRotate(); override;
+begin
+  if Bot.CurrentZone = nil then
+  begin
+    inherited();
+    exit();
+  end;
+
+  Minimap.SetCompassAngle(Bot.CurrentZone^.Angle);
+end;
+
+{
   Found the cant reach text
 }
 function TBot.CouldntReach(): Boolean;

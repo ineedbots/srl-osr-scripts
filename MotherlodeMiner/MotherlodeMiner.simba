@@ -166,7 +166,7 @@ begin
   
   Script.Antiban.AddTask(ONE_MINUTE*1, Mouse.RandomMovement);
   Script.Antiban.AddTask(ONE_SECOND*90, Antiban.SetCompassNorth);
-  //Script.Antiban.AddTask(ONE_MINUTE*1,  Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*1,  Antiban.RandomRotate);
   Script.Antiban.AddTask(ONE_MINUTE*4,  Antiban.DoLoseFocus);
   Script.Antiban.AddTask(ONE_MINUTE*45,  Script.UpdateZoomLevel);
   Script.Antiban.AddTask(ONE_MINUTE*8,  Antiban.HoverMSItems);
@@ -187,6 +187,7 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
 
   Self.UsingBankFillers := USING_BANK_FILLERS;
+  Self.MineWaitTime := 7500;
 
   Self.HasLargeSack := LARGE_SACK;
   Self.SameZone     := SAME_ZONE; // same samers saming still online???????????????????????? L00000000000000L

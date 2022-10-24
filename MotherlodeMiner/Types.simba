@@ -55,7 +55,7 @@ type
     Name                                                      : String;
     OresDone, DTM_PayDirt, LowerLadderHeight, HopperHeight,
       UpperLadderHeight, BankHeight, SackHeight, CrateHeight,
-      StrutHeight, WaterHeight, FailCount                     : Int32;
+      StrutHeight, WaterHeight, FailCount, MineWaitTime       : Int32;
     RSW                                                       : TRSWalker;
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,
