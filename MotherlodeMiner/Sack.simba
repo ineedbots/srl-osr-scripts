@@ -414,6 +414,7 @@ function TBot.DoTakeFromSack(): Boolean;
 var
   PaydirtSlots: TIntegerArray;
   S, i: Int32;
+  Passed: Boolean;
 begin
   Script.WriteMsg('Empting sack!', True);
 
@@ -497,22 +498,37 @@ begin
       break;
     end;
 
+    Passed := False;
+
     if Inventory.FindItems(Self.OreItems) then
     begin
-      if not Self.DoBank() then
+      for i := 0 to 2 do
       begin
-        Script.WriteMsg('Failed to do bank (loop)!', True);
-        break;
+        if not Self.DoBank() then
+          Script.WriteMsg('Failed to do bank (loop)!', True)
+        else
+        begin
+          Passed := True;
+          break;
+        end;
       end;
     end
     else
     begin
-      if not Self.DoSack() then
+      for i := 0 to 2 do
       begin
-        Script.WriteMsg('Failed to do sack (loop)!', True);
-        break;
+        if not Self.DoSack() then
+          Script.WriteMsg('Failed to do sack (loop)!', True)
+        else
+        begin
+          Passed := True;
+          break;
+        end;
       end;
     end;
+
+    if not Passed then
+      break;
   end;
 end;
 

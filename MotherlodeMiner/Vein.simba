@@ -153,7 +153,7 @@ begin
     Mouse.OnMoving := WhileMouseMovesLookForUpText;
     if Velocity <> Point(0, 0) then
       Script.MouseLooksForUpText := Self.VeinUptext;
-    Script.MouseLooksForUpTextCloseDist := 10;
+    Script.MouseLooksForUpTextCloseDist := 5;
     Script.MouseLooksForUpTextClosePt := B.Middle();
 
     Mouse.Move(B);
@@ -275,6 +275,13 @@ begin
     exit();
   end;
 
+  // go to correct level
+  if not Self.DoLadder(Self.CurrentZone^.IsUpper) then
+  begin
+    Script.WriteMsg('Failed to do ladder');
+    exit();
+  end;
+
   Script.WriteMsg('Going to zone/vein....', True);
   OurPos := Self.RSW.GetMyPos();
   Height := Self.GetHeight(OurPos);
@@ -286,7 +293,7 @@ begin
   end;
 
   Where := Self.CurrentZone^.WalkTile;
-  if GoToVein then
+  if GoToVein and False then
     Where := Self.OrderVeins()[0].Tile;
 
   if Force or (OurPos.DistanceTo(Where) > 50) or
@@ -383,8 +390,10 @@ function TBot.WhileMining(): Boolean;
 var
   Vein: TVein;
   TimeoutCounter: TCountDown;
-  InvCount, IC: Int32;
+  InvCount, IC, Height: Int32;
   Mining: Boolean;
+  OurPos: TPoint;
+  B: TBox;
 begin
   if (Self.CurrentVein = nil) or (Self.CurrentZone = nil) then
   begin
@@ -402,8 +411,12 @@ begin
   while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
     Self.DoMainLoopStuff('Going to clicked vein...', False);
 
+  Result := True;
+
   // we timeout if we do not gain something into our inventory
-  TimeoutCounter.Init(Self.MineWaitTime);
+  OurPos := Self.RSW.GetMyPos();
+  Height := Self.GetHeight(OurPos);
+  TimeoutCounter.Init(SRL.SkewedRand(Self.MineWaitTime, Self.MineWaitTime - 2500, Self.MineWaitTime + 2500));
   while RSClient.IsLoggedIn() do
   begin
     if Self.CheckRuneliteMiningPlugin(Mining) then
@@ -418,6 +431,13 @@ begin
     end
     else
     begin
+      // make sure that its still there
+      if not Self.FindVein(OurPos, Height, Vein, B) then
+      begin
+        Script.WriteMsg('WhileMining: Vein not found', True);
+        break;
+      end;
+
       // watch inv
       IC := Inventory.Count();
       if IC >= (Inventory.HIGH_SLOT + 1) then
@@ -447,6 +467,8 @@ begin
     Script.WriteMsg('WhileMining: No ore gained in timeout...', True);
 
   Script.SetStatus('Vein mining completed!');
+
+  Wait(0, 2000, wdLeft);
 end;
 
 {
@@ -456,41 +478,43 @@ function TBot.DoGathering(): Boolean;
 var
   WasClicked: Boolean;
 begin
-  Script.WriteMsg('Gathering!', True);
-  Result:=true;
-
-  // we only support upper level
-  if not Self.DoLadder(True) then
+  while RSClient.IsLoggedIn() and not Inventory.IsFull() do
   begin
-    Script.WriteMsg('Failed to do ladder');
-    exit();
+    Script.WriteMsg('Gathering!', True);
+    Self.CurrentVein := nil;
+    Self.CurrentZone := nil;
+
+    // go to the zone
+    Self.CurrentZone := Self.ChooseZone();
+    if Self.GoToZone() then
+    begin
+      // if we click a vein early.
+      Self.WhileMining();
+      Result := True;
+      continue;
+    end;
+
+    Wait(0, 1250, wdLeft);
+    Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
+    Wait(0, 1250, wdLeft);
+
+    // click the vein
+    if (Self.ClickVein(WasClicked) and WasClicked) or
+      Self.GoToZone(True) or
+      (Self.ClickVein(WasClicked) and WasClicked) or
+      Self.GoToZone(True, True) or
+      (Self.ClickVein(WasClicked) and WasClicked) then
+    begin
+      Self.WhileMining();
+      Result := True;
+      continue;
+    end
+    else
+      break;
   end;
 
-  // go to the zone
-  Self.CurrentZone := Self.ChooseZone();
-  if Self.GoToZone() then
-  begin
-    // if we click a vein early.
-    Self.WhileMining();
-    Result := True;
-    exit();
-  end;
-
-  Wait(0, 1250, wdLeft);
-  Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
-  Wait(0, 1250, wdLeft);
-
-  // click the vein
-  if (Self.ClickVein(WasClicked) and WasClicked) or
-    Self.GoToZone(True) or
-    (Self.ClickVein(WasClicked) and WasClicked) or
-    Self.GoToZone(True, True) or
-    (Self.ClickVein(WasClicked) and WasClicked) then
-  begin
-    Self.WhileMining();
-    Result := True;
-  end;
-
+  Self.CurrentVein := nil;
+  Self.CurrentZone := nil;
   Wait(0, 2000, wdLeft);
 end;
 

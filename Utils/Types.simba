@@ -34,7 +34,8 @@ type
     Running, DidLogin, Debug, Drawing, Reporting, AllowBreaks,
       KeyboardMenuButtons, ShiftClicking, MiddleClicking      : Boolean;
     BaseMouseSpeed, HPAmount, ReportRate, DrawRate, SleepRate,
-      MaxTiredMouseSpeed, FastMouseAdd, LastPosTime           : Int32;
+      MaxTiredMouseSpeed, FastMouseAdd, LastPosTime,
+      MouseLooksForUpTextCloseDist                            : Int32;
     Activity: record
       XP, NoXPCountMax, NoXPCount                             : Int32;
       Countdown                                               : TCountDown;
@@ -46,7 +47,6 @@ type
     AntiBanEnergy                                             : TAntiBanEnergy;
     LastPos, MouseLooksForUpTextClosePt                       : TPoint;
     LastVel                                                   : TDoubleArray;
-    MouseLooksForUpTextCloseDist                              : Double;
     OldMouseMovingCallback                                    : TMouseMovingEvent;
   end;
 
