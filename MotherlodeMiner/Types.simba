@@ -56,7 +56,8 @@ type
     OresDone, DTM_PayDirt, LowerLadderHeight, HopperHeight,
       UpperLadderHeight, BankHeight, SackHeight, CrateHeight,
       StrutHeight, WaterHeight, FailCount, MineWaitTime,
-      MiningPixelShiftPerc, MiningPixelShiftWait              : Int32;
+      MiningPixelShiftPerc, MiningPixelShiftWait,
+      MiningPixelShiftTimeout, SkipVeinDist                   : Int32;
     RSW                                                       : TRSWalker;
     SackUptext, SackOptions, CrateUptext, CrateOptions,
       HopperUptext, HopperOptions, StrutUptext, StrutOptions,

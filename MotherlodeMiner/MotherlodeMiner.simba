@@ -188,9 +188,12 @@ begin
 
   Self.UsingBankFillers := USING_BANK_FILLERS;
 
-  Self.MineWaitTime := 7500;
+  Self.MineWaitTime := 10000;
   Self.MiningPixelShiftPerc := 15;
-  Self.MiningPixelShiftWait := 1000;
+  Self.MiningPixelShiftWait := 500;
+  Self.MiningPixelShiftTimeout := 2000;
+
+  Self.SkipVeinDist := 8;
 
   Self.HasLargeSack := LARGE_SACK;
   Self.SameZone     := SAME_ZONE; // same samers saming still online???????????????????????? L00000000000000L

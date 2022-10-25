@@ -998,6 +998,15 @@ begin
 end;
 
 {
+  Converts a MM point to world
+}
+function TRSWalker.MMToWorldEx(Me, Loc: TPoint): TPoint;
+begin
+  Result := Me + (Loc - Minimap.Center());
+  Result := Result.Rotate(-Minimap.GetCompassAngle(False), Me);
+end;
+
+{
   Sorts the bars
 }
 function TRSHPBarArray.Sort(TP: TPoint): TRSHPBarArray;

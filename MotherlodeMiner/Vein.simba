@@ -392,27 +392,154 @@ begin
   end;
 
   // lol jk, lets just use pixel shift
-  Result := SRL.PercentShift(MainScreen.GetPlayerBox(), Self.MiningPixelShiftWait) >= Self.MiningPixelShiftPerc;
+  Result := (SRL.PercentShift(MainScreen.GetPlayerBox(), Self.MiningPixelShiftWait) >= Self.MiningPixelShiftPerc);
 end;
 
 {
   Chooses a zone
 }
-function TBot.ChooseZone(): PZone;
+function TBot.ChooseZone(OurPos: TPoint = [-1, -1]): PZone;
+var
+  ExcludedZone: PZone;
+  PossibleZones: TIntegerArray;
+  Vein: TVein;
+  Height, i, PlayerCount, BestPlayerCount: Int32;
+  B: TBox;
+  IsUpper: Boolean;
+  PlayerDots: TPointArray;
+  PlayerDot: TPoint;
+  ThisDist, BestDist: Double;
 begin
-  Result := @Self.Zones[0];
+  if OurPos.X = -1 then
+    OurPos := Self.RSW.GetMyPos();
+
+  Height := Self.GetHeight(OurPos);
+  IsUpper := Self.IsOnUpperLevel(OurPos);
+
+  // first check for a zone we are already in
+  for i := 0 to High(Self.Zones) do
+  begin
+    if Self.Zones[i].IsUpper <> IsUpper then
+      continue;
+
+    // in this zone
+    if SRL.PointInPoly(OurPos, Self.Zones[i].Area) then
+    begin
+      // make sure theres an active vein
+      for Vein in Self.Zones[i].Veins do
+      begin
+        if Self.FindVein(OurPos, Height, Vein, B) then
+          exit(@Self.Zones[i]);
+      end;
+
+      // no active veins in this zone, choose a new one, exclude this one.
+      ExcludedZone := @Self.Zones[i];
+      break;
+    end;
+  end;
+
+  // choose a zone!
+  PlayerDots := Minimap.GetDots(ERSMinimapDot.PLAYER);
+  for i := 0 to High(PlayerDots) do
+  begin
+    PlayerDots[i] := Self.RSW.MMToWorldEx(OurPos, PlayerDots[i]);
+  end;
+
+  BestPlayerCount := 99;
+  for i := 0 to High(Self.Zones) do
+  begin
+    if ExcludedZone = @Self.Zones[i] then
+      continue;
+
+    // count players in this zone
+    PlayerCount := 0;
+    for PlayerDot in PlayerDots do
+    begin
+      if SRL.PointInPoly(PlayerDot, Self.Zones[i].Area) then
+        Inc(PlayerCount);
+    end;
+
+    // check if this is the next best?
+    if PlayerCount <= BestPlayerCount then
+    begin
+      if PlayerCount < BestPlayerCount then
+        PossibleZones.Clear();
+
+      BestPlayerCount := PlayerCount;
+      PossibleZones.Append(i);
+    end;
+  end;
+
+  // choose the best zone closest to us
+  for i in PossibleZones do
+  begin
+    ThisDist := OurPos.DistanceTo(Self.Zones[i].WalkTile);
+
+    if (Result = nil) or (ThisDist < BestDist) then
+    begin
+      Result := @Self.Zones[i];
+      BestDist := ThisDist;
+    end;
+  end;
 end;
 
 {
   Orders the veins!
 }
-function TBot.OrderVeins(): TVeinArray;
+function TBot.OrderVeins(OurPos: TPoint = [-1, -1]): TVeinArray;
 var
   Vein: TVein;
+  TPA, PlayerDots: TPointArray;
+  TP: TPoint;
+  i: Int32;
+  Skip: Boolean;
 begin
+  if OurPos.X = -1 then
+    OurPos := Self.RSW.GetMyPos();
+
+  PlayerDots := Minimap.GetDots(ERSMinimapDot.PLAYER);
+  for i := 0 to High(PlayerDots) do
+  begin
+    PlayerDots[i] := Self.RSW.MMToWorldEx(OurPos, PlayerDots[i]);
+  end;
+
   for Vein in Self.CurrentZone^.Veins do
   begin
-    Result += Vein;
+    // lets skip veins with players
+    Skip := False;
+    for TP in PlayerDots do
+    begin
+      if TP.DistanceTo(Vein.Tile) < Self.SkipVeinDist then
+      begin
+        Skip := True;
+        break;
+      end;
+    end;
+
+    if not Skip then
+      TPA += Vein.Tile;
+  end;
+
+  if Length(TPA) <= 0 then
+  begin
+    for Vein in Self.CurrentZone^.Veins do
+    begin
+      TPA += Vein.Tile;
+    end;
+  end;
+
+  TPA.Sort(OurPos);
+
+  for TP in TPA do
+  begin
+    for Vein in Self.CurrentZone^.Veins do
+    begin
+      if TP = Vein.Tile then
+      begin
+        Result += Vein;
+        break;
+      end;
+    end;
   end;
 end;
 
@@ -431,7 +558,7 @@ end;
 function TBot.WhileMining(): Boolean;
 var
   Vein: TVein;
-  TimeoutCounter: TCountDown;
+  TimeoutCounter, ShiftTimeout: TCountDown;
   InvCount, IC, Height: Int32;
   Mining: Boolean;
   OurPos: TPoint;
@@ -450,7 +577,7 @@ begin
   Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
 
   // wait for us to stop moving before we start monitoring the tree tile.
-  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
+  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
     Self.DoMainLoopStuff('Going to clicked vein...', False);
 
   Result := True;
@@ -459,6 +586,7 @@ begin
   OurPos := Self.RSW.GetMyPos();
   Height := Self.GetHeight(OurPos);
   TimeoutCounter.Init(SRL.SkewedRand(Self.MineWaitTime, Self.MineWaitTime - 2500, Self.MineWaitTime + 2500));
+  ShiftTimeout.Init(SRL.SkewedRand(Self.MiningPixelShiftTimeout, Self.MiningPixelShiftTimeout - 500, Self.MiningPixelShiftTimeout + 500));
   while RSClient.IsLoggedIn() do
   begin
     if Self.CheckRuneliteMiningPlugin(Mining) then
@@ -474,7 +602,7 @@ begin
     else
     begin
       // make sure that its still there
-      if not Self.FindVein(OurPos, Height, Vein, B) then
+      if False and not Self.FindVein(OurPos, Height, Vein, B) then
       begin
         Script.WriteMsg('WhileMining: Vein not found', True);
         break;
@@ -484,7 +612,17 @@ begin
       if not Self.IsMining(Vein, OurPos) then
       begin
         Script.WriteMsg('WhileMining: Not mining!', True);
-        break;
+
+        if ShiftTimeout.IsFinished() then
+        begin
+          Script.WriteMsg('WhileMining: ShiftTimeout timeout', True);
+          break;
+        end;
+      end
+      else
+      begin
+        ShiftTimeout.Restart();
+        Script.WriteMsg('WhileMining: Mining!', True);
       end;
 
       // watch inv
@@ -532,6 +670,13 @@ begin
     Script.WriteMsg('Gathering!', True);
     Self.CurrentVein := nil;
     Self.CurrentZone := nil;
+
+    // go to correct level
+    if not Self.DoLadder(True) then
+    begin
+      Script.WriteMsg('Failed to do ladder');
+      exit();
+    end;
 
     // go to the zone
     Self.CurrentZone := Self.ChooseZone();
