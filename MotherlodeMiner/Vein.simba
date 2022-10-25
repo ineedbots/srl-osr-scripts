@@ -354,6 +354,48 @@ begin
 end;
 
 {
+  Is mining?
+}
+function TBot.IsMining(Vein: TVein; OurPos: TPoint): Boolean;
+var
+  ATPA: T2DPointArray;
+  ARect: array of TRectangle;
+  Rect: TRectangle;
+  B: TBox;
+begin
+  // gather info
+  OurPos := OurPos;
+  ARect := Script.GetAdjTiles(2);
+
+  // choose the rect that is in the correct direction
+  if SRL.DeltaAngle(Vein.Angle, 90) < 45 then
+    Rect := ARect[0] // west
+  else if SRL.DeltaAngle(Vein.Angle, 0) < 45 then
+    Rect := ARect[1] // north
+  else if SRL.DeltaAngle(Vein.Angle, 270) < 45 then
+    Rect := ARect[2] // east
+  else
+    Rect := ARect[3]; // south
+
+  // check the rect for the colors
+  B := Rect.Bounds();
+  ATPA := Self.FindVeinColor(B);
+
+  if Script.Debug and Script.Drawing then
+  begin
+    RSClient.Image().DrawRect(Rect, clOrange);
+    RSClient.Image().DrawBox(B, clGreen);
+    RSClient.Image().DrawATPA(ATPA);
+
+                 
+    RSClient.Image().DrawBox(MainScreen.GetPlayerBox(), clGreen);
+  end;
+
+  // lol jk, lets just use pixel shift
+  Result := SRL.PercentShift(MainScreen.GetPlayerBox(), Self.MiningPixelShiftWait) >= Self.MiningPixelShiftPerc;
+end;
+
+{
   Chooses a zone
 }
 function TBot.ChooseZone(): PZone;
@@ -435,6 +477,13 @@ begin
       if not Self.FindVein(OurPos, Height, Vein, B) then
       begin
         Script.WriteMsg('WhileMining: Vein not found', True);
+        break;
+      end;
+
+      // make sure that theres veins beside us
+      if not Self.IsMining(Vein, OurPos) then
+      begin
+        Script.WriteMsg('WhileMining: Not mining!', True);
         break;
       end;
 

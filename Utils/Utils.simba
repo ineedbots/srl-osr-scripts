@@ -217,7 +217,7 @@ end;
 {
   Gets adjencent tiles to use right now!
 }
-function TScript.GetAdjTiles(): array of TRectangle;
+function TScript.GetAdjTiles(ED: Int32 = 0): array of TRectangle;
 var
   i: Int32;
   MMC: TPoint;
@@ -228,8 +228,8 @@ begin
   MMC := Minimap.Center();
   Ang := Minimap.GetCompassAngle(False);
   NormDist := MainScreen.ConvertDistance(3);
-
-  MMTiles := [[MMC.X-4,MMC.Y],[MMC.X,MMC.Y-4],[MMC.X+4,MMC.Y],[MMC.X,MMC.Y+4]];
+              {west,           north,          east,           south}
+  MMTiles := [[MMC.X-4 - ED,MMC.Y],[MMC.X,MMC.Y-4 - ED],[MMC.X+4 + ED,MMC.Y],[MMC.X,MMC.Y+4 + ED]];
   for i := Low(MMTiles) to High(MMTiles) do
   begin
     MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
@@ -238,6 +238,18 @@ begin
 
     Result += AdjRect;
   end;
+end;
+
+{
+  From SRL-F
+}
+function TSRL.PercentShift(Area: TBox; WaitTime: Int32): Int32;
+var
+  tLen,sLen: Int32;
+begin
+  tLen := length(TPAFromBox(Area));
+  sLen := SRL.GetPixelShift(Area, WaitTime);
+  Result := Round((sLen/tLen)*100);
 end;
 
 {
