@@ -355,7 +355,6 @@ begin
       begin
         Script.WriteMsg('DoHopper: Need water running!', True);
         NeedWaterRunning := True;
-        Result := True;
         break;
       end;
     end;
@@ -377,7 +376,7 @@ begin
     Self.DoMainLoopStuff('Going to hopper....', False);
   end;
 
-  if not Result then
+  if not Result and not NeedWaterRunning then
   begin
     OurPos := Self.RSW.GetMyPos();
     Self.HandleRockfalls(OurPos, Self.HopperTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
