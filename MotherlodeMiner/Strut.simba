@@ -288,24 +288,34 @@ begin
   Velocity := Script.GetVelocity(Position);
 
   // if this is the last node in the path
-  if Bot.ClickWhileWalking and (Destination = Walker^.Path[High(Walker^.Path)]) then
+  if Bot.ClickWhileWalking then
   begin
-    // make the mouse fast, because we are moving, its harder to keep up with objs
-    S := Mouse.Speed;
-    Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
-
-    MSVel := Script.WalkerVelToMSVel(Velocity);
-
-    // if we clicked the fish spot, then stop the walker
-    if Bot.ClickStrut(WasClicked, Position, MSVel) and WasClicked then
+    if Destination = Walker^.Path[High(Walker^.Path)] then
     begin
-      Script.WriteMsg('Clicked the Strut while moving, nice!');
+      // make the mouse fast, because we are moving, its harder to keep up with objs
+      S := Mouse.Speed;
+      Mouse.Speed := S + Script.FastMouseAdd + Random(-2, 2);
+
+      MSVel := Script.WalkerVelToMSVel(Velocity);
+
+      // if we clicked the fish spot, then stop the walker
+      if Bot.ClickStrut(WasClicked, Position, MSVel) and WasClicked then
+      begin
+        Script.WriteMsg('Clicked the Strut while moving, nice!');
+        Walker^.Enabled := False;
+        Bot.WalkerWasEarlySuccess := True;
+      end;
+
+      // reset the mosue speed back
+      Mouse.Speed := S;
+    end;
+
+    // is it running?
+    if Bot.WaterRunning() then
+    begin
       Walker^.Enabled := False;
       Bot.WalkerWasEarlySuccess := True;
     end;
-
-    // reset the mosue speed back
-    Mouse.Speed := S;
   end;
 
   // should be on lower
@@ -437,6 +447,13 @@ begin
     begin
       Script.WriteMsg('DoStrut: Xp changed!', True);
       Result := True;
+      break;
+    end;   
+
+    if Self.WaterRunning() then
+    begin
+      Result := True;
+      Script.WriteMsg('DoStrut: Water running!', True);
       break;
     end;
 

@@ -93,6 +93,41 @@ begin
 end;
 
 {
+  Drops paydirt
+}
+procedure TBot.DropPaydirt();
+var
+  PaydirtSlots: TIntegerArray;
+  S, i: Int32;
+begin
+  if Inventory.FindItem(Self.PayDirtItem, PaydirtSlots) then
+  begin
+    Script.WriteMsg('Dropping pay-dirt!', True);
+
+    S := Mouse.Speed;
+    Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
+    // drop
+    if Script.ShiftClicking then
+      Inventory.ShiftDrop(PaydirtSlots)
+    else
+    begin
+      for i in PaydirtSlots do
+      begin
+        Inventory.HoverSlot(i);
+
+        if MainScreen.IsUpText('Drop') then
+          Mouse.Click(MOUSE_LEFT)
+        else
+          ChooseOption.Select('Drop');
+
+        Wait(0, 1000, wdLeft);
+      end;
+    end;
+    Mouse.Speed := S;
+  end;
+end;
+
+{
   Converts heightmap height to mm2ms height
 }
 function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;

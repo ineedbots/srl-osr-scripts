@@ -203,6 +203,7 @@ begin
   
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
   Self.NeedWaterRunningTexts := ['already got some', 'You''ve already got some pay-dirt in the machine. You can put more in once the last batch comes out.'];
+  Self.FullSackTexts := ['sack is getting full', 'The sack is getting full. You should empty it before putting any more pay-dirt into the machine.'];
 
   Self.HammerItem := 'Hammer';
   Self.PayDirtItem := 'Pay-dirt';

@@ -303,7 +303,7 @@ begin
     if Self.RSW.ScreenWalk and MainScreen.AnyInterfaceOpen() then
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
-    Script.SetStatus('Going to zone/vein...');
+    Script.SetStatus('Going to zone/vein...' + ToStr(GoToVein));
 
     Self.OldWalkingCallback := Self.RSW.OnWalkingEvent;
     Self.OldWalkCallback := Self.RSW.OnWalkEvent;
@@ -413,6 +413,8 @@ begin
   if OurPos.X = -1 then
     OurPos := Self.RSW.GetMyPos();
 
+  Script.WriteMsg('Choosing a zone');
+
   Height := Self.GetHeight(OurPos);
   IsUpper := Self.IsOnUpperLevel(OurPos);
 
@@ -425,13 +427,18 @@ begin
     // in this zone
     if SRL.PointInPoly(OurPos, Self.Zones[i].Area) then
     begin
+      Script.WriteMsg('Already in a zone, checking to see if there are veins active');
       // make sure theres an active vein
       for Vein in Self.Zones[i].Veins do
       begin
         if Self.FindVein(OurPos, Height, Vein, B) then
+        begin
+          Script.WriteMsg('Found vein, staying in this zone');
           exit(@Self.Zones[i]);
+        end;
       end;
 
+      Script.WriteMsg('Choosing different zone');
       // no active veins in this zone, choose a new one, exclude this one.
       ExcludedZone := @Self.Zones[i];
       break;
@@ -469,6 +476,8 @@ begin
       PossibleZones.Append(i);
     end;
   end;
+
+  Script.WriteMsg('Choosing from ' + ToStr(Length(PossibleZones)) + ' zones with ' + ToStr(BestPlayerCount) + ' players in');
 
   // choose the best zone closest to us
   for i in PossibleZones do
@@ -558,7 +567,7 @@ end;
 function TBot.WhileMining(): Boolean;
 var
   Vein: TVein;
-  TimeoutCounter, ShiftTimeout: TCountDown;
+  TimeoutCounter, ShiftTimeout, MoveCountDown: TCountDown;
   InvCount, IC, Height: Int32;
   Mining: Boolean;
   OurPos: TPoint;
@@ -577,8 +586,26 @@ begin
   Minimap.SetCompassAngle(Self.CurrentZone^.Angle);
 
   // wait for us to stop moving before we start monitoring the tree tile.
-  while RSClient.IsLoggedIn() and Minimap.HasFlag() and Minimap.IsPlayerMoving() do
+  MoveCountDown.Init(SRL.SkewedRand(2000, 1000, 3000));
+  while RSClient.IsLoggedIn() do
+  begin
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WhileMining: moving', True);
+      MoveCountDown.Restart();
+    end;
+
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('WhileMining: Couldnt reach', True);
+      exit();
+    end;
+
+    if MoveCountDown.IsFinished() then
+      break;
+
     Self.DoMainLoopStuff('Going to clicked vein...', False);
+  end;
 
   Result := True;
 
@@ -683,8 +710,7 @@ begin
     if Self.GoToZone() then
     begin
       // if we click a vein early.
-      Self.WhileMining();
-      Result := True;
+      Result := Self.WhileMining();
       continue;
     end;
 
@@ -699,8 +725,7 @@ begin
       Self.GoToZone(True, True) or
       (Self.ClickVein(WasClicked) and WasClicked) then
     begin
-      Self.WhileMining();
-      Result := True;
+      Result := Self.WhileMining();
       continue;
     end
     else

@@ -357,6 +357,12 @@ begin
         NeedWaterRunning := True;
         break;
       end;
+
+      if ChatStr.IsInString(Self.FullSackTexts) then
+      begin
+        Self.DropPaydirt();
+        break;
+      end;
     end;
 
     // only countdown if we are not moving
@@ -391,6 +397,8 @@ end;
 function TBot.DoInsertIntoHopper(): Boolean;
 var
   NeedWaterRunning: Boolean;
+  i: Int32;
+  DidIt: Boolean;
 begin
   Script.WriteMsg('Inserting into hopper!', True);
 
@@ -420,14 +428,19 @@ begin
     Script.WriteMsg('Need water to be running!');
 
     // make the water run!
-    if not Self.DoStrut() then
+    for i := 0 to 2 do
     begin
-      // maybe someone did it already? check if the water is running here too
-      if not Self.WaterRunning() then
+      if Self.DoStrut() or Self.WaterRunning() then
       begin
-        Script.WriteMsg('Failed to do DoStrut');
-        exit();
+        DidIt := True;
+        break;
       end;
+    end;
+
+    if not DidIt then
+    begin
+      Script.WriteMsg('Failed to do DoStrut');
+      exit();
     end;
 
     // try again

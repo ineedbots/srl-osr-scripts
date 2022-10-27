@@ -18,6 +18,14 @@
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
+
+procedure WalkingToRockfall(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+begin
+  Walker := Walker;
+  Position := Position;
+  Destination := Destination;
+end;
+
 {$include_once Utils.simba}
 
 {
@@ -190,7 +198,7 @@ end;
 {
   While we walk to the rockfall
 }
-procedure WalkingToRockfall(Walker: PRSWalker; Position: TPoint; Destination: TPoint);
+procedure WalkingToRockfall(Walker: PRSWalker; Position: TPoint; Destination: TPoint); override;
 var
   WasClicked: Boolean;
   S: Int32;
@@ -297,20 +305,46 @@ end;
 {
   Waits to finish mining the rockfall
 }
-function TBot.WaitForRockfallClear(XP: Int32 = -1): Boolean;
+function TBot.WaitForRockfallClear(XP: Int32): Boolean;
+var
+  CountDown: TCountDown;
+  xpc: Int32;
 begin
-  if XP = -1 then
-    XP := XPBar.ReadXPBar();
-
   Script.WriteMsg('Waiting for rockfall to be cleared', True);
 
-  Minimap.WaitFlag();
-  Minimap.WaitPlayerMoving();
+  CountDown.Init(SRL.SkewedRand(4000, 3000, 6000));
+  while RSClient.IsLoggedIn() do
+  begin
+    if Minimap.HasFlag() and Minimap.IsPlayerMoving() then
+    begin
+      Script.WriteMsg('WaitForRockfallClear: Moving', True);
+      CountDown.Restart();
+    end;
 
-  if XP = -1 then
-    Wait(1250, 2500, wdLeft)
-  else
-    Result := XPBar.WaitChange(XP, SRL.SkewedRand(4000, 2000, 6000));
+    if Self.CouldntReach() then
+    begin
+      Script.WriteMsg('Couldnt reach!', True);
+      break;
+    end;
+
+    xpc := XPBar.ReadXPBar();
+    if xpc = -1 then
+      Script.WriteMsg('Bad XPBarCount', True)
+    else if XP <> xpc then
+    begin
+      Script.WriteMsg('XP Changed!', True);
+      Result := True;
+      break;
+    end;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('Timeout', True);
+      break;
+    end;
+
+    Self.DoMainLoopStuff('Waiting for rockfall to clear', False);
+  end;
 end;
 
 {

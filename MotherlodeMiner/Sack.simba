@@ -412,8 +412,7 @@ end;
 }
 function TBot.DoTakeFromSack(): Boolean;
 var
-  PaydirtSlots: TIntegerArray;
-  S, i: Int32;
+  i: Int32;
   Passed: Boolean;
 begin
   Script.WriteMsg('Empting sack!', True);
@@ -446,31 +445,7 @@ begin
     end;
 
     // drop remaining paydirt
-    if Inventory.FindItem(Self.PayDirtItem, PaydirtSlots) then
-    begin
-      Script.WriteMsg('Dropping pay-dirt!', True);
-
-      S := Mouse.Speed;
-      Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
-      // drop
-      if Script.ShiftClicking then
-        Inventory.ShiftDrop(PaydirtSlots)
-      else
-      begin
-        for i in PaydirtSlots do
-        begin
-          Inventory.HoverSlot(i);
-
-          if MainScreen.IsUpText('Drop') then
-            Mouse.Click(MOUSE_LEFT)
-          else
-            ChooseOption.Select('Drop');
-
-          Wait(0, 1000, wdLeft);
-        end;
-      end;
-      Mouse.Speed := S;
-    end;
+    Self.DropPaydirt();
   end;
 
   // check if full inv
