@@ -154,9 +154,14 @@ begin
 
   if WasFailure then
   begin
-    Inc(Self.FailCount);
     Script.WriteMsg('Failed!: ' + ToStr(Self.FailCount), True);
 
+    // fix angle
+    if Self.FailCount = 0 then
+      Minimap.SetCompassNorth((Random() > 0.2))
+    else
+      Minimap.SetCompassAngle(Random() * 360.0);
+    
     // make sure cam is high
     MainScreen.SetHighestPitch();
 
@@ -176,7 +181,8 @@ begin
     if Script.MiddleClicking then
       Mouse.Release(MOUSE_MIDDLE);
 
-    // fail safe
+    Inc(Self.FailCount);
+
     if Self.FailCount > 10 then
       Script.Stop('FailCount too high!');
   end;
