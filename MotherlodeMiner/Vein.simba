@@ -51,18 +51,21 @@ end;
 {
   Returns true if the Vein is visible, B is the bounds of the Vein on the screen
 }
-function TBot.FindVein(OurTile: TPoint; Height: Int32; Vein: TVein; out B: TBox): Boolean;
+function TBot.FindVein(OurTile: TPoint; Height: Int32; Vein: TVein; out B: TBox; out Found: Boolean): Boolean;
 var
   TileRect: TRectangle;
   ATPA: T2DPointArray;
   TPA: TPointArray;
-begin
+begin      
+  Found := False;
   TileRect := Self.FindVeinTile(OurTile, Height, Vein);
 
   B := Self.GetVeinSearchBox(TileRect);
 
   if not MainScreen.IsVisible(B.Middle()) then
     exit();
+
+  Result := True;
 
   B.LimitTo(MainScreen.Bounds());
 
@@ -72,7 +75,7 @@ begin
   begin
     TPA := ATPA.Biggest();
     B := TPA.Bounds();
-    Result := True;
+    Found := True;
   end;
 end;
 
@@ -83,7 +86,7 @@ function TBot.ClickVein(out WasClicked: Boolean; OurTile: TPoint = [-1, -1]; Vel
 var
   B: TBox;
   Height: Int32;
-  Clicked, OnUpper: Boolean;
+  Clicked, OnUpper, Found: Boolean;
   Vein: TVein;
   Veins: TVeinArray;
 begin
@@ -120,7 +123,7 @@ begin
   for Vein in Veins do
   begin
     // find the vein
-    if not Self.FindVein(OurTile, Height, Vein, B) then
+    if not Self.FindVein(OurTile, Height, Vein, B, Found) or not Found then
     begin
       Script.WriteMsg('ClickVein: not visible', True);
       continue;
@@ -405,10 +408,10 @@ var
   Vein: TVein;
   Height, i, PlayerCount, BestPlayerCount: Int32;
   B: TBox;
-  IsUpper: Boolean;
+  IsUpper, Found, HasVein: Boolean;
   PlayerDots: TPointArray;
   PlayerDot: TPoint;
-  ThisDist, BestDist: Double;
+  ThisDist, BestDist, CompAng: Double;
 begin
   if OurPos.X = -1 then
     OurPos := Self.RSW.GetMyPos();
@@ -417,6 +420,7 @@ begin
 
   Height := Self.GetHeight(OurPos);
   IsUpper := Self.IsOnUpperLevel(OurPos);
+  CompAng := Minimap.GetCompassAngle(True);
 
   // first check for a zone we are already in
   for i := 0 to High(Self.Zones) do
@@ -431,7 +435,7 @@ begin
       // make sure theres an active vein
       for Vein in Self.Zones[i].Veins do
       begin
-        if Self.FindVein(OurPos, Height, Vein, B) then
+        if Self.FindVein(OurPos, Height, Vein, B, Found) and Found then
         begin
           Script.WriteMsg('Found vein, staying in this zone');
           exit(@Self.Zones[i]);
@@ -458,6 +462,30 @@ begin
     if ExcludedZone = @Self.Zones[i] then
       continue;
 
+    // check to see if this zone has active veins
+    HasVein := False;
+    for Vein in Self.Zones[i].Veins do
+    begin
+      if not Self.FindVein(OurPos, Height, Vein, B, Found) then
+      begin
+        // cant see the tile, assume that it has it
+        HasVein := True;
+        break;
+      end;
+
+      if Found then
+      begin
+        HasVein := True;
+        break;
+      end;
+    end;
+
+    if not HasVein and (SRL.DeltaAngle(CompAng, Self.Zones[i].Angle) < 30) then
+    begin
+      Script.WriteMsg('No veins in this zone.', True);
+      continue;
+    end;
+
     // count players in this zone
     PlayerCount := 0;
     for PlayerDot in PlayerDots do
@@ -478,6 +506,9 @@ begin
   end;
 
   Script.WriteMsg('Choosing from ' + ToStr(Length(PossibleZones)) + ' zones with ' + ToStr(BestPlayerCount) + ' players in');
+
+  if Length(PossibleZones) <= 0 then
+    exit(@Self.Zones[Random(Length(Self.Zones))]);
 
   // choose the best zone closest to us
   for i in PossibleZones do
@@ -569,7 +600,7 @@ var
   Vein: TVein;
   TimeoutCounter, ShiftTimeout, MoveCountDown: TCountDown;
   InvCount, IC, Height: Int32;
-  Mining: Boolean;
+  Mining, Found: Boolean;
   OurPos: TPoint;
   B: TBox;
 begin
@@ -629,7 +660,7 @@ begin
     else
     begin
       // make sure that its still there
-      if False and not Self.FindVein(OurPos, Height, Vein, B) then
+      if False and (not Self.FindVein(OurPos, Height, Vein, B, Found) or not Found) then
       begin
         Script.WriteMsg('WhileMining: Vein not found', True);
         break;
@@ -694,6 +725,9 @@ var
 begin
   while RSClient.IsLoggedIn() and not Inventory.IsFull() do
   begin
+    if Result then
+      Self.ClearFailCount();
+
     Script.WriteMsg('Gathering!', True);
     Self.CurrentVein := nil;
     Self.CurrentZone := nil;
@@ -726,7 +760,11 @@ begin
       (Self.ClickVein(WasClicked) and WasClicked) then
     begin
       Result := Self.WhileMining();
-      continue;
+
+      if Result then
+        continue
+      else
+        break;
     end
     else
       break;

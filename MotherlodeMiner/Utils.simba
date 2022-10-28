@@ -512,7 +512,7 @@ begin
         RSClient.Image().DrawRect(TileRect, clRed);
         RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, Vein.Tile, CompAng), 4, clBlue);
 
-        if Self.FindVein(OurTile, Height, Vein, B) then
+        if Self.FindVein(OurTile, Height, Vein, B, Bool) and Bool then
           RSClient.Image().DrawBox(B, clBlue);
       end;
     end;
