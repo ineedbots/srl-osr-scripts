@@ -529,48 +529,61 @@ end;
 function TBot.OrderVeins(OurPos: TPoint = [-1, -1]): TVeinArray;
 var
   Vein: TVein;
-  TPA, PlayerDots: TPointArray;
+  OpenTPA, NearTPA, PlayerDots: TPointArray;
   TP: TPoint;
   i: Int32;
-  Skip: Boolean;
+  IsNearPlayer: Boolean;
 begin
   if OurPos.X = -1 then
     OurPos := Self.RSW.GetMyPos();
 
+  // get player dots
   PlayerDots := Minimap.GetDots(ERSMinimapDot.PLAYER);
   for i := 0 to High(PlayerDots) do
   begin
     PlayerDots[i] := Self.RSW.MMToWorldEx(OurPos, PlayerDots[i]);
   end;
 
+  // organize veins' points into ones with no players, ones with
   for Vein in Self.CurrentZone^.Veins do
   begin
-    // lets skip veins with players
-    Skip := False;
+    // check if it is near
+    IsNearPlayer := False;
     for TP in PlayerDots do
     begin
       if TP.DistanceTo(Vein.Tile) < Self.SkipVeinDist then
       begin
-        Skip := True;
+        IsNearPlayer := True;
         break;
       end;
     end;
 
-    if not Skip then
-      TPA += Vein.Tile;
+    // insert vein tile into organized bucket
+    if not IsNearPlayer then
+      OpenTPA += Vein.Tile
+    else
+      NearTPA += Vein.Tile;
   end;
 
-  if Length(TPA) <= 0 then
+  // sort them from our pos
+  OpenTPA.Sort(OurPos);
+  NearTPA.Sort(OurPos);
+
+  // constuct answer, open veins first
+  for TP in OpenTPA do
   begin
     for Vein in Self.CurrentZone^.Veins do
     begin
-      TPA += Vein.Tile;
+      if TP = Vein.Tile then
+      begin
+        Result += Vein;
+        break;
+      end;
     end;
   end;
 
-  TPA.Sort(OurPos);
-
-  for TP in TPA do
+  // busy veins last
+  for TP in NearTPA do
   begin
     for Vein in Self.CurrentZone^.Veins do
     begin
