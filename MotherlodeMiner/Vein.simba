@@ -418,6 +418,13 @@ begin
 
   Script.WriteMsg('Choosing a zone');
 
+  if (Self.LastZone <> nil) and Self.SameZone then
+  begin
+    Result := Self.LastZone;
+    Self.LastZone := nil;
+    exit();
+  end;
+
   Height := Self.GetHeight(OurPos);
   IsUpper := Self.IsOnUpperLevel(OurPos);
   CompAng := Minimap.GetCompassAngle(True);
@@ -507,8 +514,11 @@ begin
 
   Script.WriteMsg('Choosing from ' + ToStr(Length(PossibleZones)) + ' zones with ' + ToStr(BestPlayerCount) + ' players in');
 
-  if Length(PossibleZones) <= 0 then
+  if (Length(PossibleZones) <= 0) or (Random() < 0.05) then
     exit(@Self.Zones[Random(Length(Self.Zones))]);
+
+  if Random() < 0.15 then
+    exit(@Self.Zones[PossibleZones[Random(Length(PossibleZones))]]);
 
   // choose the best zone closest to us
   for i in PossibleZones do
@@ -741,6 +751,8 @@ begin
     if Result then
       Self.ClearFailCount();
 
+    Result := False;
+
     Script.WriteMsg('Gathering!', True);
     Self.CurrentVein := nil;
     Self.CurrentZone := nil;
@@ -782,6 +794,9 @@ begin
     else
       break;
   end;
+
+  if Result then
+    Self.LastZone := Self.CurrentZone;
 
   Self.CurrentVein := nil;
   Self.CurrentZone := nil;

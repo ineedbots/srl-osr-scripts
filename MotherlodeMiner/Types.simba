@@ -83,7 +83,7 @@ type
       OldWalkingCallbackRockfall                              : TRSWalker_OnWalkEvent;
     ClickWhileWalkingRockfall                                 : PRockfall;
     CurrentVein                                               : PVein;
-    CurrentZone                                               : PZone;
+    CurrentZone, LastZone                                     : PZone;
   end;
 
 var
