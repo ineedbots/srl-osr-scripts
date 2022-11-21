@@ -22,7 +22,7 @@ type
     TRANSFORM,       // transforming materials into products with a tool, like fletching bows and blowing unpowered orbs
     COMBINE,         // combine like potions
     CLEANER,          // cleans herbs
-    ENCHANTER,          // enchants
+    ENCHANTER,          // enchants, also can be used for superheat
     GLASSMAKE,             // superglass make
     SUPERCOMBAT             // supercombat potions
   );
@@ -34,6 +34,7 @@ type
     WINTERTODT_CHEST,
     VARROCK_WEST_BANK_BOOTH,
     BLAST_FURNACE_CHEST,
+    GOTR_CHEST,
     NONE
   );
 

@@ -418,12 +418,11 @@ begin
 
   Script.WriteMsg('Choosing a zone');
 
-  if (Self.LastZone <> nil) and Self.SameZone then
-  begin
-    Result := Self.LastZone;
-    Self.LastZone := nil;
+  Result := Self.LastZone;
+  Self.LastZone := nil;
+
+  if (Result <> nil) and Self.SameZone and (Random() < 0.95) then
     exit();
-  end;
 
   Height := Self.GetHeight(OurPos);
   IsUpper := Self.IsOnUpperLevel(OurPos);

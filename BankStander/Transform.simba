@@ -543,6 +543,10 @@ begin
     if Random() < (0.05 / 28) then
       Afk := True;
 
+    // cannot afk cast spells on superheat
+    if Self.Spell = ERSSpell.SUPERHEAT_ITEM then
+      Afk := False;
+
     CountDown.Init(Self.TransformWaitTime);
     while RSClient.IsLoggedIn() do
     begin

@@ -289,6 +289,20 @@ begin
         NoColorTileExpand := 5;
       end;
     end;
+    ERSBankColorType.GOTR_CHEST:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(6257031, 9, 0.06, 0.16);
+        RSObject.Erode := 2;
+        RSObject.Grow := 2;
+        RSObject.ClusterDistance := 1;
+
+        FilterSize := 5;
+        RadiusExpand := 1;
+        NoColorTileExpand := 5;
+      end;
+    end;
     else
     begin
       Script.WriteMsg('Your pos is: ' + ToStr(Self.RSW.GetMyPos()));
