@@ -118,7 +118,7 @@ begin
   end;
 
   // reorder veins
-  Veins := Self.OrderVeins();
+  Veins := Self.OrderVeins(OurTile, Self.CurrentZone);
 
   for Vein in Veins do
   begin
@@ -412,6 +412,7 @@ var
   PlayerDots: TPointArray;
   PlayerDot: TPoint;
   ThisDist, BestDist, CompAng: Double;
+  Veins: TVeinArray;
 begin
   if OurPos.X = -1 then
     OurPos := Self.RSW.GetMyPos();
@@ -439,7 +440,8 @@ begin
     begin
       Script.WriteMsg('Already in a zone, checking to see if there are veins active');
       // make sure theres an active vein
-      for Vein in Self.Zones[i].Veins do
+      Veins := Self.OrderVeins(OurPos, @Self.Zones[i]);
+      for Vein in Veins do
       begin
         if Self.FindVein(OurPos, Height, Vein, B, Found) and Found then
         begin
@@ -470,7 +472,8 @@ begin
 
     // check to see if this zone has active veins
     HasVein := False;
-    for Vein in Self.Zones[i].Veins do
+    Veins := Self.OrderVeins(OurPos, @Self.Zones[i]);
+    for Vein in Veins do
     begin
       if not Self.FindVein(OurPos, Height, Vein, B, Found) then
       begin
@@ -535,16 +538,20 @@ end;
 {
   Orders the veins!
 }
-function TBot.OrderVeins(OurPos: TPoint = [-1, -1]): TVeinArray;
+function TBot.OrderVeins(OurPos: TPoint = [-1, -1]; Zone: PZone = nil): TVeinArray;
 var
   Vein: TVein;
   OpenTPA, NearTPA, PlayerDots: TPointArray;
   TP: TPoint;
-  i: Int32;
-  IsNearPlayer: Boolean;
+  i, Height: Int32;
+  IsNearPlayer, Found: Boolean;
+  PBox, B: TBox;
 begin
   if OurPos.X = -1 then
     OurPos := Self.RSW.GetMyPos();
+
+  PBox := Mainscreen.GetPlayerBox();
+  Height := Self.GetHeight(OurPos);
 
   // get player dots
   PlayerDots := Minimap.GetDots(ERSMinimapDot.PLAYER);
@@ -554,8 +561,15 @@ begin
   end;
 
   // organize veins' points into ones with no players, ones with
-  for Vein in Self.CurrentZone^.Veins do
+  for Vein in Zone^.Veins do
   begin
+    // ignore near our playerbox (false positives with pickaxe handle)
+    if Self.FindVein(OurPos, Height, Vein, B, Found) and Found then
+    begin
+      if PBox.Contains(B.Middle()) then
+        continue;
+    end;
+
     // check if it is near
     IsNearPlayer := False;
     for TP in PlayerDots do
@@ -581,7 +595,7 @@ begin
   // constuct answer, open veins first
   for TP in OpenTPA do
   begin
-    for Vein in Self.CurrentZone^.Veins do
+    for Vein in Zone^.Veins do
     begin
       if TP = Vein.Tile then
       begin
@@ -594,7 +608,7 @@ begin
   // busy veins last
   for TP in NearTPA do
   begin
-    for Vein in Self.CurrentZone^.Veins do
+    for Vein in Zone^.Veins do
     begin
       if TP = Vein.Tile then
       begin
@@ -603,6 +617,9 @@ begin
       end;
     end;
   end;
+
+  if Length(Result) <= 0 then
+    Result := Copy(Zone^.Veins);
 end;
 
 {
