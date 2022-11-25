@@ -54,8 +54,10 @@ end;
 function TBot.FindVein(OurTile: TPoint; Height: Int32; Vein: TVein; out B: TBox; out Found: Boolean): Boolean;
 var
   TileRect: TRectangle;
-  ATPA: T2DPointArray;
+  ATPA, ATPA2: T2DPointArray;
   TPA: TPointArray;
+  TP: TPoint;
+  IgnoreThis: Boolean;
 begin      
   Found := False;
   TileRect := Self.FindVeinTile(OurTile, Height, Vein);
@@ -69,13 +71,37 @@ begin
 
   B.LimitTo(MainScreen.Bounds());
 
-  ATPA := Self.FindVeinColor(B);
+  ATPA2 := Self.FindVeinColor(B);
 
-  if Length(ATPA) > 0 then
+  if Length(ATPA2) > 0 then
   begin
-    TPA := ATPA.Biggest();
-    B := TPA.Bounds();
-    Found := True;
+    // cut out false positives with handle
+    B := MainScreen.GetPlayerBox();
+    for TPA in ATPA2 do
+    begin
+      IgnoreThis := False;
+
+      for TP in TPA do
+      begin
+        if B.Contains(TP) then
+        begin
+          IgnoreThis := True;
+          break;
+        end;
+      end;
+
+      if IgnoreThis then
+        continue;
+
+      ATPA += TPA;
+    end;
+
+    if Length(ATPA) > 0 then
+    begin
+      TPA := ATPA.Biggest();
+      B := TPA.Bounds();
+      Found := True;
+    end;
   end;
 end;
 
@@ -564,7 +590,7 @@ begin
   for Vein in Zone^.Veins do
   begin
     // ignore near our playerbox (false positives with pickaxe handle)
-    if Self.FindVein(OurPos, Height, Vein, B, Found) and Found then
+    if Self.FindVein(OurPos, Height, Vein, B, Found) and Found and False then
     begin
       if PBox.Contains(B.Middle()) then
         continue;
