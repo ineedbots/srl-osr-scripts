@@ -55,9 +55,8 @@ function TBot.FindVein(OurTile: TPoint; Height: Int32; Vein: TVein; out B: TBox;
 var
   TileRect: TRectangle;
   ATPA, ATPA2: T2DPointArray;
-  TPA: TPointArray;
+  TPA, TPA2: TPointArray;
   TP: TPoint;
-  IgnoreThis: Boolean;
 begin      
   Found := False;
   TileRect := Self.FindVeinTile(OurTile, Height, Vein);
@@ -76,24 +75,19 @@ begin
   if Length(ATPA2) > 0 then
   begin
     // cut out false positives with handle
-    B := MainScreen.GetPlayerBox();
+    B := MainScreen.GetPlayerBox().Expand(Round(MainScreen.ConvertDistance(5)));
+
     for TPA in ATPA2 do
     begin
-      IgnoreThis := False;
+      SetLength(TPA2, 0);
 
       for TP in TPA do
       begin
-        if B.Contains(TP) then
-        begin
-          IgnoreThis := True;
-          break;
-        end;
+        if not B.Contains(TP) then
+          TPA2 += TP;
       end;
 
-      if IgnoreThis then
-        continue;
-
-      ATPA += TPA;
+      ATPA += TPA2;
     end;
 
     if Length(ATPA) > 0 then
