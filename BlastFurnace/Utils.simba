@@ -112,7 +112,7 @@ end;
 {
   Xp per bar
 }
-function TBot.GetXPPerBar(): Int32;
+function TBot.GetXPPerBar(): Double;
 var
   BarName: String;
 begin
@@ -121,18 +121,18 @@ begin
 
   // not going to be an issue when the rounding difference is > a whole bar's xp???
   case BarName of
-    'bronze': Result := 6; // 6.2
-    'iron': Result := 12; // 12.5
-    'silver': Result := 13; // 13.6
-    'steel': Result := 17; // 17.5
+    'bronze': Result := 6.2;
+    'iron': Result := 12.5;
+    'silver': Result := 13.6;
+    'steel': Result := 17.5;
     'gold':
     begin
       // TODO check gold smith golves
-      Result := 22; // 22.5
-      Result := 56; // 56.2
+      Result := 22.5;
+      Result := 56.2;
     end;
     'mithril': Result := 30;
-    'adamantite': Result := 37; // 37.5
+    'adamantite': Result := 37.5;
     'runite': Result := 50;
   end;
 end;
@@ -426,7 +426,7 @@ begin
       // check the difference if it changed
       if (Self.LastXP <> -1) and (NowXP <> Self.LastXP) then
       begin
-        NumBars := (NowXP - Self.LastXP) div Self.GetXPPerBar();
+        NumBars := Round((NowXP - Self.LastXP) / Self.GetXPPerBar());
         Bars += NumBars;
         Ores -= NumBars;
         Coal -= NumBars * Self.CoalRequiredForOre();

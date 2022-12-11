@@ -205,7 +205,7 @@ begin
     exit();
   end;
 
-  Script.WriteMsg('ClickDispenser: Good uptext, clicking', True);
+  Script.WriteMsg('ClickDispenser: Good uptext, clicking ' + Self.DispenserOptionsTextsStr[0], True);
 
   // uptext is the option we want
   if MainScreen.IsUpText(Self.DispenserOptionsTextsStr, Random(100, 250)) and (Random() < 0.9) then
@@ -612,6 +612,8 @@ begin
               CountDown.Restart()
             else
               Self.AfterActionAntiBan(True, True, True);
+
+            Self.DispenserOptionsTextsStr := Self.DispenserTakeOptionsTextStr;
           end
           else
           begin
@@ -716,4 +718,3 @@ go_exit:
 end;
 
 {$ENDIF} // INEEDBOT_BLASTFURANCE_DISPENSER
-
