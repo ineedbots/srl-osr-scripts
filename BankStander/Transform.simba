@@ -707,24 +707,42 @@ begin
 
   Mouse.Click(B, MOUSE_LEFT);
 
-  if not XPBar.WaitChange(XPCount, SRL.SkewedRand(1500, 500, 2500)) then
+  if Self.Spell <> ERSSpell.DEGRIME then
   begin
-    Script.WriteMsg('xp didnt change');
-    exit();
-  end;
+    if not XPBar.WaitChange(XPCount, SRL.SkewedRand(1500, 500, 2500)) then
+    begin
+      Script.WriteMsg('xp didnt change');
+      exit();
+    end;
 
-  CountDown.Init(SRL.SkewedRand(2300, 2100, 2500));
+    CountDown.Init(SRL.SkewedRand(2300, 2100, 2500));
 
-  // hover next action
-  if Random() < 0.8 then
+    // hover next action
+    if Random() < 0.8 then
+    begin
+      Wait(0, 1250, wdLeft);
+      Mouse.Move(MainScreen.GetPlayerBox());
+    end;
+
+    DoAB := Random() < 0.05;
+    while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
+      Self.DoMainLoopStuff('wait for the operation to complete!!', DoAB);
+  end
+  else
   begin
-    Wait(0, 1250, wdLeft);
-    Mouse.Move(MainScreen.GetPlayerBox());
-  end;
+    // hover next action
+    if Random() < 0.8 then
+    begin
+      Wait(0, 1250, wdLeft);
+      Mouse.Move(MainScreen.GetPlayerBox());
+    end;
 
-  DoAB := Random() < 0.05;
-  while RSClient.IsLoggedIn() and not CountDown.IsFinished() do
-    Self.DoMainLoopStuff('wait for the operation to complete!!', DoAB);
+    if not XPBar.WaitChange(XPCount, SRL.SkewedRand(6000, 5500, 6500)) then
+    begin
+      Script.WriteMsg('xp didnt change');
+      exit();
+    end;
+  end;
 
   Wait(0, 2500, wdLeft);
 
