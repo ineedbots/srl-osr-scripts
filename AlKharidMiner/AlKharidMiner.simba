@@ -190,7 +190,7 @@ begin
   Self.ToolItems := ['Bronze pickaxe', 'Iron pickaxe', 'Steel pickaxe', 'Black pickaxe', 'Mithril pickaxe', 'Adamant pickaxe',
     'Rune pickaxe', 'Gilded pickaxe', 'Dragon pickaxe', '3rd age pickaxe', 'Crystal pickaxe'];
 
-  Self.RockTiles := [Point(-1, -1){, Point(4985, 3209), Point(4990, 3205), Point(4990, 3213)}];
+  Self.RockTiles := [Point(4985, 3209), Point(4990, 3205), Point(4990, 3213)];
   Self.RockWalkTile := Point(4990, 3209);
 
   Self.ToRocksPaths := [
@@ -242,7 +242,7 @@ begin
 
 
   // expanded mining guild
-  Self.BankWalkTile := [6709, 857];
+  {Self.BankWalkTile := [6709, 857];
   Self.BankTiles := [[6704, 856]];
   Self.ToBankPaths := [];
   with Self.BankColor do
@@ -259,7 +259,7 @@ begin
 
   Self.RockWalkTile := [6744, 855];
   Self.RockTiles := [[6734, 854], [6738, 858], [6738, 850]];
-  Self.ToRocksPaths := [];
+  Self.ToRocksPaths := [];}
 
 
   
