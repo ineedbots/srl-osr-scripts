@@ -309,18 +309,18 @@ begin
       // reset the mosue speed back
       Mouse.Speed := S;
     end;
-
-    // is it running?
-    if Bot.WaterRunning() then
-    begin
-      Walker^.Enabled := False;
-      Bot.WalkerWasEarlySuccess := True;
-    end;
   end;
 
   // should be on lower
   if Bot.IsOnUpperLevel(Position) then
     Walker^.Enabled := False;
+
+  // is it running?
+  if Bot.WaterRunning() then
+  begin
+    Walker^.Enabled := False;
+    Bot.WalkerWasEarlySuccess := True;
+  end;
 end;
 
 {
@@ -407,6 +407,8 @@ begin
 
   if not Inventory.FindItem(Self.HammerItem) then
   begin
+    if Self.WaterRunning() then
+      Result := True;
     Script.WriteMsg('No hammer!');
     exit();
   end;
@@ -420,14 +422,17 @@ begin
   end;
 
   // click it
-  if not ((Self.ClickStrut(WasClicked) and WasClicked)
-    or Self.GoToStrut()
-    or (Self.ClickStrut(WasClicked) and WasClicked)
-    or Self.GoToStrut(True)
-    or (Self.ClickStrut(WasClicked) and WasClicked)) then
+  if not Self.WaterRunning() then
   begin
-    Script.WriteMsg('Failed to click strut');
-    exit();
+    if not ((Self.ClickStrut(WasClicked) and WasClicked)
+      or Self.GoToStrut()
+      or (Self.ClickStrut(WasClicked) and WasClicked)
+      or Self.GoToStrut(True)
+      or (Self.ClickStrut(WasClicked) and WasClicked)) then
+    begin
+      Script.WriteMsg('Failed to click strut');
+      exit();
+    end;
   end;
 
   Self.AfterActionAntiBan(True);

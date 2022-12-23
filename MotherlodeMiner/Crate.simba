@@ -22,6 +22,7 @@
 
 {$include_once Rockfall.simba}
 {$include_once Ladder.simba}
+{$include_once Strut.simba}
 
 {
   Finds the Crate tile
@@ -220,6 +221,13 @@ begin
   // should be on lower
   if Bot.IsOnUpperLevel(Position) then
     Walker^.Enabled := False;
+
+  // is it running?
+  if Bot.WaterRunning() then
+  begin
+    Walker^.Enabled := False;
+    Bot.WalkerWasEarlySuccess := True;
+  end;
 end;
 
 {
@@ -303,6 +311,13 @@ begin
     exit(True);
   end;
 
+  if Self.WaterRunning() then
+  begin
+    Result := True;
+    Script.WriteMsg('DoCrate: Water running!', True);
+    exit();
+  end;
+
   if Inventory.IsFull() then
   begin
     Script.WriteMsg('Dropping a paydirt', True);
@@ -321,6 +336,13 @@ begin
       ChooseOption.Select('Drop')
     else
       Mouse.ShiftClick();
+  end;
+
+  if Self.WaterRunning() then
+  begin
+    Result := True;
+    Script.WriteMsg('DoCrate: Water running!', True);
+    exit();
   end;
 
   if not ((Self.ClickCrate(WasClicked) and WasClicked)
@@ -343,6 +365,13 @@ begin
     begin
       Script.WriteMsg('DoCrate: Found hammer', True);
       Result := True;
+      break;
+    end;
+
+    if Self.WaterRunning() then
+    begin
+      Result := True;
+      Script.WriteMsg('DoCrate: Water running!', True);
       break;
     end;
 
