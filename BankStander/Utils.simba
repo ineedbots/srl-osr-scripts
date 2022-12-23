@@ -80,34 +80,56 @@ begin
   end;
 
   if Self.StoppedShort then
+  begin
+    Script.WriteMsg('ShouldMakeProduct: Stopping short!', True);
     exit();
+  end;
 
   if Self.UsingAmuletOfChem and Self.NeedToRefillAmuletOfChem then
+  begin
+    Script.WriteMsg('ShouldMakeProduct: Need amulet!', True);
     exit();
+  end;
 
   if not Inventory.FindItems(Self.MaterialItems, Slots) then
+  begin
+    Script.WriteMsg('ShouldMakeProduct: No materials found!', True);
     exit();
+  end;
 
   if Length(Slots) < Self.MaterialRatio then
+  begin
+    Script.WriteMsg('ShouldMakeProduct: Not enough materials!', True);
     exit();
+  end;
 
   Slots.Clear();
 
   // cehck super combat stuff
   if Self.CreationType = ERSCreationType.SUPERCOMBAT then
   begin
+    // material should be torstol, or grimy if 99 + cape
     AttItem := 'Super attack(4)';
     StrItem := 'Super strength(4)';
     DefItem := 'Super defence(4)';
 
     if not Inventory.FindItem(AttItem) then
+    begin
+      Script.WriteMsg('ShouldMakeProduct: No attack potion', True);
       exit();
+    end;
 
     if not Inventory.FindItem(StrItem) then
+    begin
+      Script.WriteMsg('ShouldMakeProduct: No str potion', True);
       exit();
+    end;
 
     if not Inventory.FindItem(DefItem) then
+    begin
+      Script.WriteMsg('ShouldMakeProduct: No def potion', True);
       exit();
+    end;
 
     exit(True);
   end;
@@ -115,12 +137,19 @@ begin
   if Length(Self.SecondaryMaterialItems) > 0 then
   begin
     if not Inventory.FindItems(Self.SecondaryMaterialItems, Slots) then
+    begin
+      Script.WriteMsg('ShouldMakeProduct: No secondary matierals found!', True);
       exit();
+    end;
 
     if Length(Slots) < Self.SecondaryMaterialRatio then
+    begin
+      Script.WriteMsg('ShouldMakeProduct: Not enough secondary mats!', True);
       exit();
+    end;
   end;
 
+  Script.WriteMsg('ShouldMakeProduct: We are good to make!!', True);
   exit(True);
 end;
 
