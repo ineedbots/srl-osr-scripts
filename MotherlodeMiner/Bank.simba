@@ -162,12 +162,17 @@ begin
     Inventory.FindItems(Self.ToolItems, ToolSlots);
     Inventory.FindItems(Self.OreItems, OreSlots);
     Inventory.FindItems([Self.GemBagItem], GemBagSlots);
+
+    // we dont want to deposit paydirt!
+    Inventory.FindItems([Self.PayDirtItem], ToolSlots);
   end
   else
   begin
     DepositBox.FindItems(Self.ToolItems, ToolSlots);
     DepositBox.FindItems(Self.OreItems, OreSlots);
     DepositBox.FindItems([Self.GemBagItem], GemBagSlots);
+
+    DepositBox.FindItems([Self.PayDirtItem], ToolSlots);
   end;
 
   Script.WriteMsg('DepositItems: ToolSlots: ' + ToStr(ToolSlots), True);
