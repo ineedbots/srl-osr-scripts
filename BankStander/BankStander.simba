@@ -70,13 +70,19 @@ end;
   Main loop of the script.
 }
 procedure TBot.Run();
+var
+  Timer: TCountdown;
 begin
   if Self.CreationType = ERSCreationType.SPLASHER then
   begin
     while RSClient.IsLoggedIn() do
     begin
       Keyboard.KeyDown(VK_SPACE);
-      Wait(10000, 1000 * 60 * 10);
+
+      Timer.Init(SRL.SkewedRand(60000, 10000, 60000 * 10));
+      while RSClient.IsLoggedIn() and not Timer.IsFinished() do
+        Self.DoMainLoopStuff('', False);
+
       Self.DoMainLoopStuff('', True);
     end;
 
