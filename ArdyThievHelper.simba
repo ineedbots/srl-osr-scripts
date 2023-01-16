@@ -47,7 +47,7 @@ begin
 
       if not Inventory.FindItems(fooditems, slots) then
       begin
-        PlaySound({$MACRO CURRENT_DIRECTORY} + '\win8not.wav');
+        PlaySound({$MACRO CURRENT_DIRECTORY} + '\assets\win8not.wav');
         Wait(15000);
       end
       else
