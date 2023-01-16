@@ -71,6 +71,18 @@ end;
 }
 procedure TBot.Run();
 begin
+  if Self.CreationType = ERSCreationType.SPLASHER then
+  begin
+    while RSClient.IsLoggedIn() do
+    begin
+      Keyboard.KeyDown(VK_SPACE);
+      Wait(10000, 1000 * 60 * 10);
+      Self.DoMainLoopStuff('', True);
+    end;
+
+    exit();
+  end;
+
   while Script.Running do
   begin
     if RSClient.IsLoggedIn() then
@@ -114,6 +126,8 @@ end;
 }
 procedure TBot.Free();
 begin
+  Keyboard.KeyUp(VK_SPACE);
+
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
   Script.TakeScreenshot(Self.Name, 'Ending_');
 end;

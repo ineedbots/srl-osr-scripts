@@ -1,5 +1,6 @@
 * text=auto
 *.png binary
+*.wav binary
 
 *.simba linguist-language=Pascal
 *.sex linguist-language=Pascal

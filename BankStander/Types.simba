@@ -24,7 +24,8 @@ type
     CLEANER,          // cleans herbs
     ENCHANTER,          // enchants, also can be used for superheat
     GLASSMAKE,             // superglass make
-    SUPERCOMBAT             // supercombat potions
+    SUPERCOMBAT,             // supercombat potions
+    SPLASHER               // holds space (to skip level up), and does random things to keep you splashing
   );
 
   ERSBankColorType = (

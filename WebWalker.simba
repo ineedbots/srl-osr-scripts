@@ -1,4 +1,4 @@
-{$DEFINE SRL_USE_REMOTEINPUT}
+//{$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/OSR.simba}
 
 {$F-}
@@ -8,11 +8,47 @@
 var
   RSW: TRSWalker;
 
+{
+  Returns true if we found hitsplats (ignores tinted splats) around our char
+}
+function HasMyHitSplats(ExtendSearchBox: Int32 = 0): Boolean;
+var
+  Me: TBox;
+  c, i: Int32;
+
+const
+  BLUE_SPLATS = [$FF4040, $AD0703, $550503];
+  RED_SPLATS = [$0000C0, $03037F, $010161];
+
+begin
+  Me := MainScreen.GetPlayerBox();
+  Me := Me.Expand(MainScreen.ConvertDistance(ExtendSearchBox));
+
+  for i := Low(BLUE_SPLATS) to High(BLUE_SPLATS) do
+    c += SRL.CountColor(CTS1(BLUE_SPLATS[i], 1), Me);
+
+  for i := Low(RED_SPLATS) to High(RED_SPLATS) do
+    c += SRL.CountColor(CTS1(RED_SPLATS[i], 1), Me);
+
+  Result := c > 0;
+end;
+
+function HasMyHitSplats(SearchTime: Int32; ExtendSearchBox: Int32; SearchRate: Int32 = 50): Boolean; overload;
+var
+  Countdown: TCountdown;
+begin
+  Countdown.Init(SearchTime);
+  repeat
+    Result := HasMyHitSplats(ExtendSearchBox);
+    Wait(SearchRate);
+  until Result or Countdown.IsFinished();
+end;
+
 begin
   RSW.Setup('world');
   RSW.EnableRunAtEnergy := 100;
 
-  // while 1 do RSW.DebugPosition();
+  while 1 do Writeln(HasMyHitSplats(1500, 100));
 
   RSW.WebWalk(WorldWeb.LOCATION_WIZARDS_TOWER);
 end.

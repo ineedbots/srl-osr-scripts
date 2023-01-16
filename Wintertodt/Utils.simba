@@ -483,7 +483,7 @@ begin
     Inventory.HoverSlot(Pattern[i]);
     HPPrec := Minimap.GetHPPercent();
 
-    if MainScreen.IsUpText(['Eat', 'Drink']) then
+    if MainScreen.IsUpText(['Eat', 'Drink']) and (Random() < 0.9) then
     begin
       Mouse.Click(MOUSE_LEFT);
       Eaten := True;
