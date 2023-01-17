@@ -31,7 +31,7 @@ Here is an up to date guide for installing the dependencies; https://villavu.com
 
 ## Dependencies
 - Simba 1400 - https://github.com/Villavu/Simba/releases/tag/simba1400-release
-- SRL-Development Release 19 - https://github.com/Villavu/SRL-Development/releases/tag/19
+- SRL-Development Release 21.5 - https://github.com/ineedbots/SRL-Development/releases/tag/21.5
 
 ## Credits
 - Torwent - https://github.com/Torwent/WaspLib
