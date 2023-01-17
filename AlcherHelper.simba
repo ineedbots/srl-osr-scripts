@@ -17,7 +17,8 @@ program AlcherHelper;
 var
   ClickTimer, MouseInvMoveTimer, MouseMoveTimer, MagicTabOpenTimer: TCountDown;
   uptxt: String;
-  nats: TRSItem;
+  nats, laws: TRSItem;
+  tele: Boolean;
   B: TBox;
 
 function Gametabs.Open(Tab: ERSGameTab): Boolean; override;
@@ -28,29 +29,41 @@ end;
 begin
   Mouse.Click(Inventory.GetSlotBox(27), MOUSE_RIGHT);
   Keyboard.PressKey(VK_F6);
-  Magic.GetSpellBox(ERSSpell.HIGH_LEVEL_ALCHEMY, B);
-  Keyboard.PressKey(VK_ESCAPE);
-  B := B.OverlappingArea(Inventory.GetSlotBox(11));
-  Keyboard.PressKey(VK_F6);
+
+  tele := True;
+
+  if tele then
+    Magic.GetSpellBox(ERSSpell.CAMELOT_TELEPORT, B)
+  else
+  begin
+    Magic.GetSpellBox(ERSSpell.HIGH_LEVEL_ALCHEMY, B);
+    Keyboard.PressKey(VK_ESCAPE);
+    B := B.OverlappingArea(Inventory.GetSlotBox(11));
+    Keyboard.PressKey(VK_F6);
+  end;
 
   ClickTimer.Init(1);
   MouseInvMoveTimer.Init(1);
   MouseMoveTimer.Init(1);
   MagicTabOpenTimer.Init(1);
   nats := 'Nature rune';
+  laws := 'Law rune';
 
   Mouse.Move(B, True);
 
   while True do
   begin
-    Sleep(50);
+    Wait(50);
 
     if not RSClient.IsLoggedIn() then
       continue;
 
     if GameTabs.GetCurrentTab() = ERSGameTab.INVENTORY then
     begin
-      if not Inventory.FindItem(nats) or not Inventory.IsSlotUsed(11) then
+      if not tele and not Inventory.FindItem(nats) or not Inventory.IsSlotUsed(11) then
+        continue;
+
+      if tele and not Inventory.FindItem(laws) then
         continue;
     end;
 
@@ -81,7 +94,7 @@ begin
     begin
       Mouse.Move(Mouse.Position().Random(-4, 4, True));
 
-      Sleep(SRL.SkewedRand(100, 0, 1000));
+      Wait(SRL.SkewedRand(100, 0, 1000));
 
       if not Mouse.Position().InBox(B) then
         Mouse.Move(B);
@@ -107,4 +120,3 @@ begin
     end;
   end;
 end.
-
