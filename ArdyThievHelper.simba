@@ -43,6 +43,8 @@ begin
 
     if Minimap.GetHPLevel() <= 3 then
     begin
+      Keyboard.PressKey(VK_ESCAPE);
+
       slots.Clear();
 
       if not Inventory.FindItems(fooditems, slots) then
