@@ -75,12 +75,12 @@ var
 begin
   if Self.CreationType = ERSCreationType.SPLASHER then
   begin
-    while RSClient.IsLoggedIn() do
+    while True do
     begin
       Keyboard.KeyDown(VK_SPACE);
 
       Timer.Init(SRL.SkewedRand(60000, 10000, 60000 * 10));
-      while RSClient.IsLoggedIn() and not Timer.IsFinished() do
+      while not Timer.IsFinished() do
         Self.DoMainLoopStuff('', False);
 
       Self.DoMainLoopStuff('', True);
@@ -221,6 +221,7 @@ begin
   end;
 
   Self.Spell := SPELL_TO_CAST;
+  Bank.FINDER_UPTEXT.Append('Bank Chest');
 
   case BANK_COLOR_TYPE of
     ERSBankColorType.FARMING_GUILD_CHEST:
@@ -314,6 +315,20 @@ begin
       with Self.BankColor do
       begin
         RSObject.Colors += CTS2(6257031, 9, 0.06, 0.16);
+        RSObject.Erode := 2;
+        RSObject.Grow := 2;
+        RSObject.ClusterDistance := 1;
+
+        FilterSize := 5;
+        RadiusExpand := 1;
+        NoColorTileExpand := 5;
+      end;
+    end;
+    ERSBankColorType.RFD_CHEST:
+    begin
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(530533, 9, 0.20, 1.97);
         RSObject.Erode := 2;
         RSObject.Grow := 2;
         RSObject.ClusterDistance := 1;

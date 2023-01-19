@@ -36,6 +36,7 @@ type
     VARROCK_WEST_BANK_BOOTH,
     BLAST_FURNACE_CHEST,
     GOTR_CHEST,
+    RFD_CHEST,
     NONE
   );
 
