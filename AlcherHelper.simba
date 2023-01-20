@@ -112,7 +112,7 @@ begin
       Mouse.Click(alchB, MOUSE_LEFT);
       WaitCheckFocused(0, 750, wdLeft);
       Mouse.Click(alchB, MOUSE_LEFT);
-      WaitCheckFocused(0, 750, wdLeft);
+      WaitCheckFocused(95, 750, wdLeft);
 
       // hover next
       if Random() < 0.9 then
@@ -141,7 +141,7 @@ begin
       if not Script.IsFocusing() then
         Wait(1500, SRL.SkewedRand(1750, 1500, 3333), wdLeft)
       else
-        Wait(1750, SRL.SkewedRand(1750, 1750, 2000), wdLeft);
+        Wait(1450, SRL.SkewedRand(1500, 1500, 2000), wdLeft);
       continue;
     end;
 
