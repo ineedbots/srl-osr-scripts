@@ -142,16 +142,30 @@ begin
 end;
 
 {
+  check if we need to end the script
+}
+procedure TScript.CheckRunTime();
+begin
+  if GetTimeRunning() > Self.ShutdownTime then
+    Self.Stop('Completed the runtime');
+end;
+
+{
+  update our mousespeed, when we get tired, slow it down
+}
+procedure TScript.UpdateMouseSpeed();
+begin
+  Mouse.Speed := Self.BaseMouseSpeed - Round(Self.MaxTiredMouseSpeed * (1 - (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100)));
+end;
+
+
+{
   Does general checks and does antiban.
 }
 procedure TScript.DoGeneralChecks();
 begin
-  // check if we need to end the script
-  if GetTimeRunning() > Self.ShutdownTime then
-    Self.Stop('Completed the runtime');
-    
-  // update our mousespeed, when we get tired, slow it down
-  Mouse.Speed := Self.BaseMouseSpeed - Round(Self.MaxTiredMouseSpeed * (1 - (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100)));
+  Self.CheckRunTime();
+  Self.UpdateMouseSpeed();
 end;
 
 {
@@ -491,9 +505,11 @@ begin
 end;
 
 {
-  Stop the meme of closing the bank
+  Stop the meme of closing the bank, add using keyboard!
 }
 function TRSGameTabs.Open(Tab: ERSGameTab): Boolean; override;
+var
+  Key: Int32 = -1;
 begin
   if Bank.IsOpen(False) then
   begin
@@ -505,6 +521,36 @@ begin
 
   if BankPin.IsOpen() then
     exit(False);
+
+  if Self.GetCurrentTab() = Tab then
+    exit(True);
+
+  if Script.ShouldPressKeyboard() then
+  begin
+    case Tab of
+      ERSGameTab.COMBAT: Key := GAMETAB_KEY_COMBAT;
+      ERSGameTab.STATS: Key := GAMETAB_KEY_STATS;
+      ERSGameTab.QUESTS: Key := GAMETAB_KEY_QUESTS;
+      ERSGameTab.INVENTORY: Key := GAMETAB_KEY_INVENTORY;
+      ERSGameTab.EQUIPMENT: Key := GAMETAB_KEY_EQUIPMENT;
+      ERSGameTab.PRAYER: Key := GAMETAB_KEY_PRAYER;
+      ERSGameTab.MAGIC: Key := GAMETAB_KEY_MAGIC;
+      ERSGameTab.FRIENDS: Key := GAMETAB_KEY_FRIENDS;
+      ERSGameTab.ACCOUNT: Key := GAMETAB_KEY_ACCOUNT;
+      ERSGameTab.LOGOUT: Key := GAMETAB_KEY_LOGOUT;
+      ERSGameTab.OPTIONS: Key := GAMETAB_KEY_OPTIONS;
+      ERSGameTab.EMOTES: Key := GAMETAB_KEY_EMOTES;
+      ERSGameTab.CLAN: Key := GAMETAB_KEY_CLAN;
+      ERSGameTab.MUSIC: Key := GAMETAB_KEY_MUSIC;
+      else Key := -1;
+    end;
+  end;
+
+  if Key <> -1 then
+  begin
+    Keyboard.PressKey(Key);
+    Wait(0, 500, wdLeft);
+  end;
 
   Result := inherited();
 end;

@@ -82,6 +82,10 @@ begin
   Self.BioHash   := FNVHash(UserStr) / $FFFFFFFF;
   Self.Endurance := Cos(Self.BioHash*PI/2);
   Self.Patience  := Sin(Self.BioHash*PI/1);
+
+  Self.MaxFocusCharge := Round(SRL.SkewedRand(ONE_MINUTE * 5, ONE_MINUTE * 2.5, ONE_MINUTE * 7.5));
+  Self.CanStartFocusCharge := Round(SRL.SkewedRand(0.8, 0.7, 0.99) * Self.MaxFocusCharge);
+  Self.FocusCharge := Self.MaxFocusCharge;
 end;
 
 {
@@ -232,6 +236,52 @@ begin
 end;
 
 {
+  This function will return true for a time; and then false for a time.
+  Used for swapping between variants of a script for 'afk' play vs 'sweat' play.
+  Stolen idea from slacky
+}
+function TScript.IsFocusing(): Boolean;
+var
+  Delta, Now: Int32;
+  Energy: Double;
+begin
+  Now := GetTimeRunning();
+  Delta := Now - Self.AntiBanEnergy.LastTime;
+  Self.AntiBanEnergy.LastTime := Now;
+
+  Energy := Self.AntiBanEnergy.EnergyLevel(Self.AntiBan) / 100;
+
+  // update values
+  if Self.AntiBanEnergy.IsFocused then
+  begin
+    Self.AntiBanEnergy.FocusCharge -= Round(Delta * (1.9 - Energy));
+
+    // clamp it
+    if Self.AntiBanEnergy.FocusCharge < 0 then
+      Self.AntiBanEnergy.FocusCharge := 0;
+
+    // did we run out of juice?
+    if (Self.AntiBanEnergy.FocusCharge <= 0) or ((Random() - 0.15) > Energy) then
+      Self.AntiBanEnergy.IsFocused := False;
+  end
+  else
+  begin
+    Self.AntiBanEnergy.FocusCharge += Round(Delta * (0.1 + Energy));
+
+    // clamp it
+    if Self.AntiBanEnergy.FocusCharge > Self.AntiBanEnergy.MaxFocusCharge then
+      Self.AntiBanEnergy.FocusCharge := Self.AntiBanEnergy.MaxFocusCharge;
+
+    // start focusing
+    if (Self.AntiBanEnergy.FocusCharge >= Self.AntiBanEnergy.CanStartFocusCharge) and
+       (Random() - 0.15 < Energy) then
+      Self.AntiBanEnergy.IsFocused := True;
+  end;
+
+  Result := Self.AntiBanEnergy.IsFocused;
+end;
+
+{
   From Slacky's barb fisher
 
   Returns a number that is bigger when we have less energy
@@ -283,6 +333,22 @@ begin
   t := PerformanceTimer();
   inherited(mean, dev);
   WaitFatigue(PerformanceTimer()-t);
+end;
+
+{
+  Does the wait, if not focused
+}
+procedure WaitCheckFocused(min, max:Double; weight:EWaitDir=wdMean);
+var
+  max_mult: Double;
+begin
+  if Script.IsFocusing() then
+  begin
+    max_mult := 0.1 + (0.5 * (1 - Script.AntiBanEnergy.EnergyLevel(Script.AntiBan) / 100));
+    Wait(min, SRL.SkewedRand(min, min, max * max_mult), weight);
+  end
+  else
+    Wait(min, max, weight);
 end;
 
 {

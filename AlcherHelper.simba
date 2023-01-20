@@ -22,44 +22,48 @@ type
   );
 
 const
-  eMode = ECastType.BOTH;
+  EMODE = ECastType.BOTH;
 
 var
-  ClickTimer, MouseInvMoveTimer, MouseMoveTimer, MagicTabOpenTimer, SwitchModeTimer: TCountDown;
+  ClickTimer, MouseInvMoveTimer, MouseMoveTimer, MagicTabOpenTimer: TCountDown;
   uptxt: String;
   nats, laws: TRSItem;
-  is_tele, should_switch: Boolean;
+  is_tele: Boolean;
   xp: Int32;
   alchB, teleB, B: TBox;
-
-function Gametabs.Open(Tab: ERSGameTab): Boolean; override;
-begin
-  Result := (GameTabs.GetCurrentTab() = Tab);
-end;
+  curTab: ERSGameTab;
 
 begin
+  // general setup
+  Login.AddPlayer('', '');
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+  Script.SleepRate := 50;
+  Mouse.Speed             := 17 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+
   // setup and gather init info
+  GameTabs.Open(ERSGameTab.INVENTORY);
   Mouse.Click(Inventory.GetSlotBox(27), MOUSE_RIGHT);
-  Keyboard.PressKey(VK_F6);
+  GameTabs.Open(ERSGameTab.MAGIC);
 
   Magic.GetSpellBox(ERSSpell.CAMELOT_TELEPORT, teleB);
   Magic.GetSpellBox(ERSSpell.HIGH_LEVEL_ALCHEMY, alchB);
-  Keyboard.PressKey(VK_ESCAPE);
+  GameTabs.Open(ERSGameTab.INVENTORY);
   alchB := alchB.OverlappingArea(Inventory.GetSlotBox(11));
-  Keyboard.PressKey(VK_F6);
-
-  xp := XPBar.ReadXPBar();
+  GameTabs.Open(ERSGameTab.MAGIC);
 
   ClickTimer.Init(1);
   MouseInvMoveTimer.Init(1);
   MouseMoveTimer.Init(1);
   MagicTabOpenTimer.Init(1);
-  SwitchModeTimer.Init(1);
 
   nats := 'Nature rune';
   laws := 'Law rune';
 
-  if eMode = ECastType.TELE then
+  if EMODE = ECastType.TELE then
   begin
     is_tele := True;
     B := teleB;
@@ -77,20 +81,68 @@ begin
   while True do
   begin
     // dont spin loop!
-    Wait(50);
+    Wait(Script.MainLoopWaitAmount(False));
+    Script.UpdateMouseSpeed();
 
     // logged in.
     if not RSClient.IsLoggedIn() then
       continue;
 
     // make sure we have supplies
-    if GameTabs.GetCurrentTab() = ERSGameTab.INVENTORY then
+    curTab := GameTabs.GetCurrentTab();
+    if curTab = ERSGameTab.INVENTORY then
     begin
       if not is_tele and not Inventory.FindItem(nats) or not Inventory.IsSlotUsed(11) then
         continue;
 
       if is_tele and not Inventory.FindItem(laws) then
         continue;
+    end;
+
+    // both mode!
+    if EMODE = ECastType.BOTH then
+    begin
+      // lets cast alch
+      xp := XPBar.ReadXPBar();
+
+      if (curTab <> ERSGameTab.MAGIC) and (Random() < 0.7) then
+        GameTabs.Open(ERSGameTab.MAGIC);
+
+      // activate the spell
+      Mouse.Click(alchB, MOUSE_LEFT);
+      WaitCheckFocused(0, 750, wdLeft);
+      Mouse.Click(alchB, MOUSE_LEFT);
+      WaitCheckFocused(0, 750, wdLeft);
+
+      // hover next
+      if Random() < 0.9 then
+        Mouse.Move(teleB);
+
+      // wait for xp
+      if not XPBar.WaitChange(xp, SRL.SkewedRand(2500, 2000, 3000)) then
+        continue;
+
+      WaitCheckFocused(0, 1000, wdLeft);
+
+      // lets cast tele
+      xp := XPBar.ReadXPBar();
+      Mouse.Click(teleB, MOUSE_LEFT);
+      WaitCheckFocused(0, 750, wdLeft);
+
+      // hover next
+      if Random() < 0.9 then
+        Mouse.Move(alchB);
+
+      // wait for xp
+      if not XPBar.WaitChange(xp, SRL.SkewedRand(2500, 2000, 3000)) then
+        continue;
+
+      // wait
+      if not Script.IsFocusing() then
+        Wait(1500, SRL.SkewedRand(1750, 1500, 3333), wdLeft)
+      else
+        Wait(1750, SRL.SkewedRand(1750, 1750, 2000), wdLeft);
+      continue;
     end;
 
     // make sure our mouse is in position
@@ -105,13 +157,14 @@ begin
       MouseInvMoveTimer.Restart(30000);
 
     // make sure we see the magic tab every once in a while
-    if GameTabs.GetCurrentTab() <> ERSGameTab.MAGIC then
+    if curTab <> ERSGameTab.MAGIC then
     begin
       if MagicTabOpenTimer.IsFinished() then
-        Keyboard.PressKey(VK_F6);
+      begin
+        GameTabs.Open(ERSGameTab.MAGIC);
+        Mouse.Move(B);
+      end;
     end
-    else if eMode = ECastType.BOTH then
-      MagicTabOpenTimer.Restart(SRL.SkewedRand(1500, 1000, 3333))
     else
       MagicTabOpenTimer.Restart(10000);
 
@@ -123,31 +176,6 @@ begin
         Mouse.Move(B, True);
 
       continue;
-    end;
-
-    // check if we gained xp
-    if XPBar.ReadXPBar() <> xp then
-    begin
-      should_switch := True;
-      SwitchModeTimer.Restart(SRL.SkewedRand(500, 0, SRL.SkewedRand(3333, 2500, 4000)));
-    end;
-    xp := XPBar.ReadXPBar();
-
-    // check if need to switch from tele to alch, and reverse
-    if (eMode = ECastType.BOTH) and should_switch and SwitchModeTimer.IsFinished() and ClickTimer.IsFinished() then
-    begin
-      should_switch := False;
-      is_tele := not is_tele;
-
-      if is_tele then
-        B := teleB
-      else
-        B := alchB;
-
-      Mouse.Move(B, True);
-
-      MagicTabOpenTimer.Restart(1);
-      ClickTimer.Restart(SRL.SkewedRand(0, 0, 250));
     end;
 
     // check if we should wiggle our mouse
