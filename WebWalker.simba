@@ -11,8 +11,10 @@ var
 begin
   RSW.Setup('world');
   RSW.EnableRunAtEnergy := 100;
+  MainScreen.UpTextFilter := TOCRAnyColorRule.Create(85, 75);
 
   while 1 do RSW.DebugPosition();
+  while 1 do writeln(MainScreen.GetUpText());
 
   RSW.WebWalk(WorldWeb.LOCATION_WIZARDS_TOWER);
 end.
