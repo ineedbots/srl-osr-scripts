@@ -28,7 +28,6 @@ var
   ClickTimer, MouseInvMoveTimer, MouseMoveTimer, MagicTabOpenTimer: TCountDown;
   uptxt: String;
   nats, laws: TRSItem;
-  is_tele: Boolean;
   xp: Int32;
   alchB, teleB, B: TBox;
   curTab: ERSGameTab;
@@ -43,6 +42,7 @@ begin
   Mouse.Speed             := 17 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Script.MaxTiredMouseSpeed := 10;
+  MainScreen.UpTextFilter := TOCRAnyColorRule.Create(85, 75);
 
   // setup and gather init info
   GameTabs.Open(ERSGameTab.INVENTORY);
@@ -64,15 +64,9 @@ begin
   laws := 'Law rune';
 
   if EMODE = ECastType.TELE then
-  begin
-    is_tele := True;
-    B := teleB;
-  end
+    B := teleB
   else
-  begin
-    is_tele := False;
     B := alchB;
-  end;
 
   // setup our mouse
   Mouse.Move(B, True);
@@ -90,12 +84,13 @@ begin
 
     // make sure we have supplies
     curTab := GameTabs.GetCurrentTab();
+    uptxt := MainScreen.GetUpText().Strip();
     if curTab = ERSGameTab.INVENTORY then
     begin
-      if not is_tele and not Inventory.FindItem(nats) or not Inventory.IsSlotUsed(11) then
+      if ((EMODE = ECastType.BOTH) or (EMODE = ECastType.ALCH)) and not Inventory.FindItem(nats) or not Inventory.IsSlotUsed(11) then
         continue;
 
-      if is_tele and not Inventory.FindItem(laws) then
+      if ((EMODE = ECastType.BOTH) or (EMODE = ECastType.TELE)) and not Inventory.FindItem(laws) then
         continue;
     end;
 
@@ -145,11 +140,16 @@ begin
       continue;
     end;
 
+    // make sure our uptext is valid
     // make sure our mouse is in position
-    if not Mouse.Position().InBox(B) then
+    if not Mouse.Position().InBox(B) or
+      not ('Use' in uptxt) and not ('Cast' in uptxt) and not ('Teleport' in uptxt) and not ('Alch' in uptxt) then
     begin
       if MouseInvMoveTimer.IsFinished() then
-        Mouse.Move(B);
+      begin
+        Mouse.Move(B, True);
+        MouseInvMoveTimer.Restart(30000);
+      end;
 
       continue;
     end
@@ -167,16 +167,6 @@ begin
     end
     else
       MagicTabOpenTimer.Restart(10000);
-
-    // make sure our uptext is valid
-    uptxt := MainScreen.GetUpText().Strip();
-    if not ('Use' in uptxt) and not ('Cast' in uptxt) then
-    begin
-      if MouseMoveTimer.IsFinished() then
-        Mouse.Move(B, True);
-
-      continue;
-    end;
 
     // check if we should wiggle our mouse
     if MouseMoveTimer.IsFinished() then
@@ -210,4 +200,3 @@ begin
     end;
   end;
 end.
-

@@ -29,6 +29,54 @@ begin
   Result := True;
 end;
 
+function TRSGameTabs.Open(Tab: ERSGameTab): Boolean; override;
+var
+  Key: Int32 = -1;
+begin
+  if Bank.IsOpen(False) then
+  begin
+    if (Tab = ERSGameTab.INVENTORY) then
+      exit(True);
+
+    exit(False);
+  end;
+
+  if BankPin.IsOpen() then
+    exit(False);
+
+  if Self.GetCurrentTab() = Tab then
+    exit(True);
+
+  if Script.ShouldPressKeyboard() then
+  begin
+    case Tab of
+      ERSGameTab.COMBAT: Key := GAMETAB_KEY_COMBAT;
+      ERSGameTab.STATS: Key := GAMETAB_KEY_STATS;
+      ERSGameTab.QUESTS: Key := GAMETAB_KEY_QUESTS;
+      ERSGameTab.INVENTORY: Key := GAMETAB_KEY_INVENTORY;
+      ERSGameTab.EQUIPMENT: Key := GAMETAB_KEY_EQUIPMENT;
+      ERSGameTab.PRAYER: Key := GAMETAB_KEY_PRAYER;
+      ERSGameTab.MAGIC: Key := GAMETAB_KEY_MAGIC;
+      ERSGameTab.FRIENDS: Key := GAMETAB_KEY_FRIENDS;
+      ERSGameTab.ACCOUNT: Key := GAMETAB_KEY_ACCOUNT;
+      ERSGameTab.LOGOUT: Key := GAMETAB_KEY_LOGOUT;
+      ERSGameTab.OPTIONS: Key := GAMETAB_KEY_OPTIONS;
+      ERSGameTab.EMOTES: Key := GAMETAB_KEY_EMOTES;
+      ERSGameTab.CLAN: Key := GAMETAB_KEY_CLAN;
+      ERSGameTab.MUSIC: Key := GAMETAB_KEY_MUSIC;
+      else Key := -1;
+    end;
+  end;
+
+  if Key <> -1 then
+  begin
+    Keyboard.PressKey(Key);
+    Wait(0, 500, wdLeft);
+  end;
+
+  Result := (Self.GetCurrentTab() = Tab);
+end;
+
 begin
   // general setup
   Login.AddPlayer('', '');
@@ -39,6 +87,7 @@ begin
   Mouse.Speed             := 17 + Round(BioRandomFixed() * 10) + Random(-2, 2);
   Script.BaseMouseSpeed := Mouse.Speed;
   Script.MaxTiredMouseSpeed := 10;
+  MainScreen.UpTextFilter := TOCRAnyColorRule.Create(85, 75);
 
   // init
   ClickTimer.Init(1);
@@ -113,35 +162,26 @@ begin
       end
       else if Inventory.IsSlotUsed(0) then
         continue;
-    end;
+    end
+    else if (tab <> ERSGameTab.UNKNOWN) and InvOpenTimer.IsFinished() then
+      GameTabs.Open(ERSGameTab.INVENTORY);
 
     // make sure our mouse is in posistion
-    if not Mouse.Position().InBox(B) then
+    // check uptxt
+    if not Mouse.Position().InBox(B) or
+      not (uptxt = '') and not ('Pickpocket Knight' in uptxt) and not ('Open-' in uptxt) or
+      (uptxt = '') and (tab <> ERSGameTab.INVENTORY) then
     begin
       if MouseInvMoveTimer.IsFinished() then
-        Mouse.Move(B);
+      begin
+        Mouse.Move(B, True);
+        MouseInvMoveTimer.Restart(30000);
+      end;
 
       continue;
     end
     else
       MouseInvMoveTimer.Restart(30000);
-
-    // failsafe the uptext
-    if not (uptxt = '') and not ('Pickpocket Knight' in uptxt) and not ('Open-' in uptxt) then
-    begin
-      if MouseInvMoveTimer.IsFinished() then
-        Mouse.Move(B, True);
-
-      continue;
-    end;
-
-    if (uptxt = '') and (tab <> ERSGameTab.INVENTORY) then
-    begin
-      if MouseInvMoveTimer.IsFinished() then
-        Mouse.Move(B, True);
-
-      continue;
-    end;
 
     // wiggle our mouse
     if MouseMoveTimer.IsFinished() then
@@ -213,4 +253,3 @@ begin
     end;
   end;
 end.
-
