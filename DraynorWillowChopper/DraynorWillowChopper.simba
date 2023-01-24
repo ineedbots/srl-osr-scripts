@@ -143,6 +143,7 @@ end;
 procedure TBot.Init();
 var
   Worlds: TIntegerArray;
+  i: Int32;
 begin
   Script.ScriptName := Self.Name;
 
@@ -306,6 +307,14 @@ begin
 
     FilterSize := 5;
     RadiusExpand := 1;
+  end;
+
+  // track the respawn timer of each rock
+  SetLength(Self.TreeTimers, Length(Self.TreeTimers));
+  for i := 0 to High(Self.TreeTimers) do
+  begin
+    Self.TreeTimers[i].Reset();
+    Self.TreeTimers[i].Pause();
   end;
   
   // do login init stuff

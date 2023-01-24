@@ -67,6 +67,7 @@ function TBot.FindTree(PlayerPos: TPoint; TreePos: TPoint; out B: TBox; out ATPA
 var
   Tile: TRectangle;
   TPA: TPointArray;
+  i: Int32;
 begin
   // get the tile location on the mainscreen, and check if its visible
   Tile := Self.FindTreeTile(PlayerPos, TreePos);
@@ -90,6 +91,105 @@ begin
       Result := True
     else
       Result := TPA.MinAreaCircle().Radius >= Tile.ToTPA().MinAreaCircle().Radius;
+  end;
+
+  i := Self.TreeTiles.Find(TreePos);
+
+  if Result then
+  begin
+    // rock is active; kill the 'dead' timer
+    if not Self.TreeTimers[i].IsPaused() then
+    begin
+      Self.TreeTimers[i].Reset();
+      Self.TreeTimers[i].Pause();
+    end;
+  end
+  else
+  begin
+    // rock is dead; active the timer
+    if Self.TreeTimers[i].IsPaused() then
+      Self.TreeTimers[i].Resume();
+  end;
+end;
+
+{
+  Hovers over next tree
+}
+function TBot.HoverNextTree(ClickPt, OurPos: TPoint): Boolean;
+var
+  TreeTile: TPoint;
+  B: TBox;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  i, CurTree, BestTime: Int32;
+begin
+  if Self.CurrentChoppingTreeTile.X = -1 then
+  begin
+    if ClickPt.X <> -1 then
+    begin
+      if Self.FindTree(OurPos, [-1, -1], B, ATPA) then
+      begin
+        for TPA in ATPA do
+        begin
+          B := TPA.Bounds();
+
+          if B.Contains(ClickPt) then
+            continue;
+
+          Mouse.Move(B);
+          Result := True;
+          exit();
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    CurTree := -1;
+
+    // check for any active rocks
+    for i := Low(Self.TreeTiles) to High(Self.TreeTiles) do
+    begin
+      TreeTile := Self.TreeTiles[i];
+
+      if TreeTile = Self.CurrentChoppingTreeTile then
+      begin
+        CurTree := i;
+        continue;
+      end;
+
+      if not Self.FindTree(OurPos, TreeTile, B, ATPA) then
+        continue;
+
+      Mouse.Move(B);
+      Result := True;
+      exit();
+    end;
+
+    // no active rocks; lets hover next rock that will be active next
+    if CurTree <> -1 then
+    begin
+      // get the rock who has the lowest respawn timer
+      BestTime := -99999;
+      for i := Low(Self.TreeTimers) to High(Self.TreeTimers) do
+      begin
+        // ignore rocks that are alive
+        if Self.TreeTimers[i].IsPaused() then
+          continue;
+
+        // check if this is the rock with the largest time for being dead
+        if (BestTime = -99999) or (Self.TreeTimers[i].ElapsedTime() > BestTime) then
+        begin
+          BestTime := Self.TreeTimers[i].ElapsedTime();
+          CurTree := i;
+        end;
+      end;
+
+      // get the box of the rock and hover it
+      Self.FindTree(OurPos, Self.TreeTiles[CurTree], B, ATPA);
+      if MainScreen.IsVisible(B.Middle()) then
+        Mouse.Move(B);
+    end;
   end;
 end;
 
@@ -392,6 +492,14 @@ begin
 
   OurPos := Self.RSW.GetMyPos();
 
+  if Random() < 0.95 then
+  begin
+  if InvCount < 27 then
+      Self.HoverNextTree(ClickPt, OurPos)
+    else
+      Mouse.Move(Inventory.Bounds());
+  end;
+
   // we timeout if we do not gain something into our inventory
   TimeoutCounter.Init(Self.ChopWaitTime);
   while RSClient.IsLoggedIn() do
@@ -488,13 +596,22 @@ var
   Clicked: Boolean;
   ClickPt: TPoint;
   B: TBox;
+  CountDown: TCountDown;
 begin
-  if (Self.ClickTree(Clicked, ClickPt, B) and Clicked) or
-    Self.GoToTrees() or
-    (Self.ClickTree(Clicked, ClickPt, B) and Clicked) then
+  CountDown.Init(SRL.SkewedRand(7500, 5000, 10000));
+
+  while RSClient.IsLoggedIn() and not CountDown.IsFinished() and not Result do
   begin
-    Result := True;
-    Self.WhileChopping(Self.CurrentChoppingTreeTile, ClickPt, B);
+    if (Self.ClickTree(Clicked, ClickPt, B) and Clicked) or
+      Self.GoToTrees() or
+      (Self.ClickTree(Clicked, ClickPt, B) and Clicked) then
+    begin
+      Result := True;
+      Self.WhileChopping(Self.CurrentChoppingTreeTile, ClickPt, B);
+    end;
+
+    if not Result then
+      Self.DoMainLoopStuff('Trying to click tree', True);
   end;
 end;
 

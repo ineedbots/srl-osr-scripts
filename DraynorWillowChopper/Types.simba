@@ -33,6 +33,7 @@ type
     TreeOptions, NoLightText, NestUpText, BirdNestText,
       TreeUptexts, NestOptions                                : TStringArray;
     TreeTiles, BankTiles                                      : TPointArray;
+    TreeTimers                                                : array of TStopwatch;
     TreeWalkTile, BankWalkTile, CurrentChoppingTreeTile       : TPoint;
     FireStartTiles: array of record
       Tile                                                    : TPoint;

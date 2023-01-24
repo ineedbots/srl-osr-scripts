@@ -29,6 +29,7 @@ type
     OreItems, ToolItems                                       : TRSItemArray;
     RockOptions, RockUptexts                                  : TStringArray;
     RockTiles, BankTiles                                      : TPointArray;
+    RockTimers                                                : array of TStopwatch;
     RockWalkTile, BankWalkTile, CurrentMiningRockTile         : TPoint;
     BankColor, RockColor                                      : TScriptColor;
     ToBankPaths, ToRocksPaths                                 : T2DPointArray;

@@ -244,6 +244,9 @@ begin
             RSClient.Image().DrawBox(TPA.Bounds(), clYellow);
         end;
       end;
+
+      if not Self.RockTimers[Self.RockTiles.Find(RockTile)].IsPaused() then
+        RSClient.Image().DrawText(ToStr(Self.RockTimers[Self.RockTiles.Find(RockTile)].ElapsedTime()), [B.X1 + 5, B.Y1 - 5], clGreen);
     end;
 
     for BankTile in Self.BankTiles do

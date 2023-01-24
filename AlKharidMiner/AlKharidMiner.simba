@@ -110,6 +110,7 @@ end;
 procedure TBot.Init();
 var
   Worlds: TIntegerArray;
+  i: Int32;
 begin
   Script.ScriptName := Self.Name;
 
@@ -261,7 +262,13 @@ begin
   Self.RockTiles := [[6734, 854], [6738, 858], [6738, 850]];
   Self.ToRocksPaths := [];}
 
-
+  // track the respawn timer of each rock
+  SetLength(Self.RockTimers, Length(Self.RockTiles));
+  for i := 0 to High(Self.RockTimers) do
+  begin
+    Self.RockTimers[i].Reset();
+    Self.RockTimers[i].Pause();
+  end;
   
   // do login init stuff
   if RSClient.IsLoggedIn() then
