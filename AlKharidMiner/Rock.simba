@@ -94,6 +94,7 @@ var
   B: TBox;
   ATPA: T2DPointArray;
   TPA: TPointArray;
+  i, CurRock: Int32;
 begin
   if Self.CurrentMiningRockTile.X = -1 then
   begin
@@ -117,10 +118,15 @@ begin
   end
   else
   begin
-    for RockTile in Self.RockTiles do
+    for i := Low(Self.RockTiles) to High(Self.RockTiles) do
     begin
+      RockTile := Self.RockTiles[i];
+
       if RockTile = Self.CurrentMiningRockTile then
+      begin
+        CurRock := i;
         continue;
+      end;
 
       if not Self.FindRock(OurPos, RockTile, B, ATPA) then
         continue;
@@ -131,7 +137,10 @@ begin
     end;
 
     if Length(Self.RockTiles) > 1 then
+    begin
+      Self.FindRock(OurPos, Self.RockTiles[(CurRock + 1) mod Length(Self.RockTiles)], B, ATPA);
       Mouse.Move(B);
+    end;
   end;
 end;
 
