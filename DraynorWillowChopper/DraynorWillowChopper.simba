@@ -310,7 +310,7 @@ begin
   end;
 
   // track the respawn timer of each rock
-  SetLength(Self.TreeTimers, Length(Self.TreeTimers));
+  SetLength(Self.TreeTimers, Length(Self.TreeTiles));
   for i := 0 to High(Self.TreeTimers) do
   begin
     Self.TreeTimers[i].Reset();
