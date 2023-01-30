@@ -1,0 +1,12 @@
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+begin
+  while 1 do
+  begin
+    Mouse.Click(Point(5, 50).Random(-2, 10, True), MOUSE_LEFT);
+    Sleep(SRL.SkewedRand(10000, 2500, 15000));
+    Mouse.Click(Point(255, 255).Random(-55, 55, True), MOUSE_RIGHT);
+    Sleep(SRL.SkewedRand(10000, 2500, 15000));
+  end;
+end.
