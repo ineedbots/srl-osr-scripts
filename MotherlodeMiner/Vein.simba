@@ -388,7 +388,7 @@ var
 begin
   // gather info
   OurPos := OurPos;
-  ARect := Script.GetAdjTiles(2);
+  ARect := MainScreen.GetAdjTiles(2);
 
   // choose the rect that is in the correct direction
   if SRL.DeltaAngle(Vein.Angle, 90) < 45 then

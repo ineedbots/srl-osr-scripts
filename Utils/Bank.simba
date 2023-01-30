@@ -117,6 +117,18 @@ begin
 end;
 
 {
+  NO!
+  Prevent auto input and fatal of bankpin
+}
+function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
+begin
+  if BankPin.IsOpen() then
+    exit();
+
+  Result := inherited(WaitForItems);
+end;
+
+{
   Mouse callback when the uptext is cleared
 }
 procedure WatchForClearUptext(Sender: PMouse; var X, Y: Double; var Done: Boolean);

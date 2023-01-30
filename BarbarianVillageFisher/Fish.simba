@@ -71,7 +71,7 @@ var
 begin
   // get adjecent tiles and all colors with the fish spot
   ATPA := Self.FindFishSpotColor(MainScreen.Bounds(), WaitTime, Script.SleepRate);
-  ARect := Script.GetAdjTiles();
+  ARect := MainScreen.GetAdjTiles();
 
   // look for at each fish spot
   for TPA in ATPA do

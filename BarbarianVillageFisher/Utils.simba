@@ -68,6 +68,32 @@ begin
 end;
 
 {
+  Gets adjencent tiles to use right now!
+}
+function TRSMainScreen.GetAdjTiles(ED: Int32 = 0): array of TRectangle;
+var
+  i: Int32;
+  MMC: TPoint;
+  Ang, NormDist: Double;
+  AdjRect: TRectangle;
+  MMTiles: TPointArray;
+begin
+  MMC := Minimap.Center();
+  Ang := Minimap.GetCompassAngle(False);
+  NormDist := Self.ConvertDistance(3);
+              {west,           north,          east,           south}
+  MMTiles := [[MMC.X-4 - ED,MMC.Y],[MMC.X,MMC.Y-4 - ED],[MMC.X+4 + ED,MMC.Y],[MMC.X,MMC.Y+4 + ED]];
+  for i := Low(MMTiles) to High(MMTiles) do
+  begin
+    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
+    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
+    AdjRect.Expand(NormDist);
+
+    Result += AdjRect;
+  end;
+end;
+
+{
   From Flight's AIOFisher
 }
 procedure TBot.DoSkillHover();

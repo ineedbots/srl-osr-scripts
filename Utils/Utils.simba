@@ -121,7 +121,7 @@ begin
 end;
 
 {
-  Are we underattack?
+  Are we underattack? Checks for a hpbar near our char
 }
 function TScript.IsUnderAttack(): Boolean;
 var
@@ -157,7 +157,6 @@ procedure TScript.UpdateMouseSpeed();
 begin
   Mouse.Speed := Self.BaseMouseSpeed - Round(Self.MaxTiredMouseSpeed * (1 - (Self.AntiBanEnergy.EnergyLevel(Self.Antiban) / 100)));
 end;
-
 
 {
   Does general checks and does antiban.
@@ -226,32 +225,6 @@ begin
     Result := (SRL.TruncatedGauss(0.0, 1.0) < 0.5)
   else
     Result := False;
-end;
-
-{
-  Gets adjencent tiles to use right now!
-}
-function TScript.GetAdjTiles(ED: Int32 = 0): array of TRectangle;
-var
-  i: Int32;
-  MMC: TPoint;
-  Ang, NormDist: Double;
-  AdjRect: TRectangle;
-  MMTiles: TPointArray;
-begin
-  MMC := Minimap.Center();
-  Ang := Minimap.GetCompassAngle(False);
-  NormDist := MainScreen.ConvertDistance(3);
-              {west,           north,          east,           south}
-  MMTiles := [[MMC.X-4 - ED,MMC.Y],[MMC.X,MMC.Y-4 - ED],[MMC.X+4 + ED,MMC.Y],[MMC.X,MMC.Y+4 + ED]];
-  for i := Low(MMTiles) to High(MMTiles) do
-  begin
-    MMTiles[i] := MMTiles[i].Rotate(Ang, MMC);
-    AdjRect := Minimap.VecToMSRect(Vec3(MMTiles[i].X, MMTiles[i].Y, 0), Ang);
-    AdjRect.Expand(NormDist);
-
-    Result += AdjRect;
-  end;
 end;
 
 {
@@ -359,7 +332,7 @@ begin
 end;
 
 {
-  Fixes problems, please fix srl.
+  Fixes event problems, please fix srl.
 }
 procedure TRSWalker.WaitMoving(Destination: TPoint; WaitUntilDistance: Int32); override;
 var
@@ -491,17 +464,6 @@ begin
       exit(True);
     end;
   end;
-end;
-
-{
-  NO!
-}
-function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
-begin
-  if BankPin.IsOpen() then
-    exit();
-
-  Result := inherited(WaitForItems);
 end;
 
 {
@@ -652,18 +614,27 @@ function TRSMainScreen.HasMyHitSplats(ExtendSearchBox: Int32 = 0): Boolean;
 const
   BLUE_SPLATS = [$FF4040, $AD0703, $550503];
   RED_SPLATS = [$0000C0, $03037F, $010161];
+  MAX_SPLATS = [$0000E9, $0000B3, $01018D, $0009C4, $0054F0, $007EFD, $0FB5FA];
 var
   Me: TBox;
   c, i: Int32;
 begin
-  Me := Self.GetPlayerBox();
-  Me := Me.Expand(Self.ConvertDistance(ExtendSearchBox));
+  if ExtendSearchBox = -1 then
+    Me := MainScreen.Bounds()
+  else
+  begin
+    Me := Self.GetPlayerBox();
+    Me := Me.Expand(Self.ConvertDistance(ExtendSearchBox));
+  end;
 
   for i := Low(BLUE_SPLATS) to High(BLUE_SPLATS) do
     c += SRL.CountColor(CTS1(BLUE_SPLATS[i], 1), Me);
 
   for i := Low(RED_SPLATS) to High(RED_SPLATS) do
     c += SRL.CountColor(CTS1(RED_SPLATS[i], 1), Me);
+    
+  for i := Low(MAX_SPLATS) to High(MAX_SPLATS) do
+    c += SRL.CountColor(CTS1(MAX_SPLATS[i], 1), Me);
 
   Result := c > 0;
 end;
@@ -697,7 +668,8 @@ const
   {BLACK AND WHITE} $FFFFFF, $000000,
   {TINTED RED} $000046, $01012F, $010124,
   {TINTED BLUE} $5E1717, $400301, $1F0201,
-  {YELLOW TEXT} $00FFFF
+  {YELLOW TEXT} $00FFFF,
+  {MAX} $0000E9, $0000B3, $01018D, $0009C4, $0054F0, $007EFD, $0FB5FA
   ];
 const
   BAR_WIDTH = 29;
@@ -847,42 +819,6 @@ begin
 end;
 
 {
-  Merges atpas together who's bounds intersect
-}
-function T2DPointArray.Intersection(ATPA: T2DPointArray): T2DPointArray;
-var
-  i, h: Int32;
-begin
-  for i := Low(Self) to High(Self) do
-  begin
-    for h := Low(ATPA) to High(ATPA) do
-    begin
-      if ATPA[h].Bounds().Contains(Self[i].Bounds()) then
-      begin
-        Result += ATPA[h].Intersection(Self[i]);
-      end;
-    end;
-  end;
-end;
-
-{
-  Merges the tpas together
-}
-function TPointArray.Intersection(TPA: TPointArray): TPointArray;
-var
-  TP, TP2: TPoint;
-begin
-  for TP in Self do
-  begin
-    for TP2 in TPA do
-    begin
-      if TP = TP2 then
-        Result += TP;
-    end;
-  end;
-end;
-
-{
   The overlapping area of the two boxes
 }
 function TBox.OverlappingArea(B: TBox): TBox;
@@ -965,26 +901,10 @@ end;
 }
 function TRSInventory.ShiftClick(Slot: Int32): Boolean;
 begin
-  IsKeyDown(VK_SHIFT); // Clear cache
-
-  try
-    if Self.IsSlotUsed(Slot) then
-    begin
-      if not IsKeyDown(VK_SHIFT) then
-        KeyDown(VK_SHIFT);
-
-      Wait(100, 250);
-
-      Mouse.Click(Self.GetSlotBox(Slot), MOUSE_LEFT);
-
-      Wait(0, 250, wdLeft);
-
-      Result := True;
-    end;
-  finally
-    if IsKeyDown(VK_SHIFT) then
-      KeyUp(VK_SHIFT);
-  end;
+  if not Self.IsSlotUsed(Slot) then
+    exit();
+    
+  Result := Mouse.ShiftClick(Self.GetSlotBox(Slot));
 end;
 
 {
@@ -1033,89 +953,15 @@ begin
 end;
 
 {
-  Number of players on the minimap
-}
-function TRSMinimap.PlayersNearby(): Int32;
-var
-  TPA: TPointArray;
-  TP, MMC: TPoint;
-begin
-  TPA := Self.GetDots(ERSMinimapDot.PLAYER);
-  MMC := Minimap.Center();
-
-  for TP in TPA do
-  begin
-    // sometimes it false positives with the middle point
-    if TP.DistanceTo(MMC) < 4 then
-      continue;
-
-    Result += 1;
-  end;
-end;
-
-{
-  Returns amount of any other players are on the mainscreen
-}
-function TRSMainScreen.PlayersOnMainScreen(): Int32;
-var
-  TPA: TPointArray;
-  CompAng: Single;
-  TP, MMC: TPoint;
-begin
-  TPA := Minimap.GetDots(ERSMinimapDot.PLAYER);
-
-  if Length(TPA) <= 0 then
-    exit(0);
-
-  CompAng := Minimap.GetCompassAngle(False);
-  MMC := Minimap.Center();
-
-  for TP in TPA do
-  begin
-    if TP.DistanceTo(MMC) < 4 then
-      continue;
-
-    if Self.IsVisible(Minimap.PointToMs(TP, CompAng)) then
-      Result += 1;
-  end;
-end;
-
-{
   Converts a MM point to world
 }
-function TRSWalker.MMToWorldEx(Me, Loc: TPoint): TPoint;
+function TRSWalker.MMToWorldEx(Me, Loc: TPoint; Ang: Double = -1): TPoint;
 begin
+  if Ang = -1 then
+    Ang := Minimap.GetCompassAngle(False);
+
   Result := Me + (Loc - Minimap.Center());
-  Result := Result.Rotate(-Minimap.GetCompassAngle(False), Me);
-end;
-
-{
-  Sorts the bars
-}
-function TRSHPBarArray.Sort(TP: TPoint): TRSHPBarArray;
-var
-  BoxArray: TBoxArray;
-  HPBar: TRSHPBar;
-  Boxx: TBox;
-begin
-  for HPBar in Self do
-  begin
-    BoxArray += HPBar.Bounds;
-  end;
-
-  BoxArray.SortFromMidPoint(TP);
-
-  for Boxx in BoxArray do
-  begin
-    for HPBar in Self do
-    begin
-      if Boxx = HPBar.Bounds then
-      begin
-        Result += HPBar;
-        break;
-      end;
-    end;
-  end;
+  Result := Result.Rotate(-Ang, Me);
 end;
 
 {
