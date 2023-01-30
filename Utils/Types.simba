@@ -43,6 +43,8 @@ type
     MaxFocusCharge, LastTime, CanStartFocusCharge,
       FocusCharge                                             : Int32;
     IsFocused                                                 : Boolean;
+    ShouldStartFocusing, ShouldStopFocusing                   : function(): Boolean;
+    StartedFocusing, StoppedFocusing                          : procedure();
   end;
 
   TScript = record

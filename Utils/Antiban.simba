@@ -244,6 +244,7 @@ function TScript.IsFocusing(): Boolean;
 var
   Delta, Now: Int32;
   Energy: Double;
+  Should: Boolean;
 begin
   Now := GetTimeRunning();
   Delta := Now - Self.AntiBanEnergy.LastTime;
@@ -260,9 +261,19 @@ begin
     if Self.AntiBanEnergy.FocusCharge < 0 then
       Self.AntiBanEnergy.FocusCharge := 0;
 
+    Should := False;
+    if Self.AntiBanEnergy.ShouldStopFocusing <> nil then
+      Should := Self.AntiBanEnergy.ShouldStopFocusing();
+
     // did we run out of juice?
-    if (Self.AntiBanEnergy.FocusCharge <= 0) or ((Random() - 0.15) > Energy) then
+    if (Self.AntiBanEnergy.FocusCharge <= 0) or ((Random() - 0.15) > Energy) or Should then
+    begin
       Self.AntiBanEnergy.IsFocused := False;
+      Self.AntiBan.DebugLn('Stopped focusing');
+
+      if Self.AntiBanEnergy.StoppedFocusing <> nil then
+        Self.AntiBanEnergy.StoppedFocusing();
+    end;
   end
   else
   begin
@@ -272,10 +283,20 @@ begin
     if Self.AntiBanEnergy.FocusCharge > Self.AntiBanEnergy.MaxFocusCharge then
       Self.AntiBanEnergy.FocusCharge := Self.AntiBanEnergy.MaxFocusCharge;
 
+    Should := True;
+    if Self.AntiBanEnergy.ShouldStartFocusing <> nil then
+      Should := Self.AntiBanEnergy.ShouldStartFocusing();
+
     // start focusing
     if (Self.AntiBanEnergy.FocusCharge >= Self.AntiBanEnergy.CanStartFocusCharge) and
-       (Random() - 0.15 < Energy) then
+       (Random() - 0.15 < Energy) and Should then
+    begin
       Self.AntiBanEnergy.IsFocused := True;
+      Self.AntiBan.DebugLn('Started focusing');
+
+      if Self.AntiBanEnergy.StartedFocusing <> nil then
+        Self.AntiBanEnergy.StartedFocusing();
+    end;
   end;
 
   Result := Self.AntiBanEnergy.IsFocused;
@@ -611,4 +632,3 @@ begin
 end;
 
 {$ENDIF} // INEEDBOT_UTILS_ANTIBAN
-
