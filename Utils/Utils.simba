@@ -953,6 +953,106 @@ begin
 end;
 
 {
+  Returns locations of players
+}
+function TRSWalker.GetPlayerLocations(OurTile: TPoint = [-1, -1]; CompAng: Double = -1; Dist: Double = -1): TPointArray;
+var
+  i: Int32;
+  MMC: TPoint;
+begin
+  if OurTile.X = -1 then
+    OurTile := Self.GetMyPos();
+
+  if CompAng = -1 then
+    CompAng := Minimap.GetCompassAngle(False);
+
+  Result := Minimap.GetDots(ERSMinimapDot.PLAYER);
+  MMC := Minimap.Center();
+
+  if Dist <> -1 then
+    Result := Result.FilterDist(0, Dist, MMC.X, MMC.Y);
+
+  // -2, -2 offset because the minimap dotfinder returns the top left coord of the 4x4 dot, we want it centered
+
+  for i := High(Result) downto 0 do
+  begin
+    // check the false positive at the center
+    if (Result[i].Offset(2, 2).DistanceTo(MMC) < 3) and
+      (SRL.CountColor(CTS1($FEFEFE, 75), Box(MMC.Offset(-1, -1), 1, 1)) <= 4) then
+    begin
+      Result.Del(i);
+      continue;
+    end;
+
+    // convert from minimap pixel coord to rsw coord
+    Result[i] := Self.MMToWorldEx(OurTile, Result[i], CompAng);
+    Result[i] := Result[i].Offset(2, 2);
+  end;
+end;
+
+{
+  Returns locations of items
+}
+function TRSWalker.GetItemLocations(OurTile: TPoint = [-1, -1]; CompAng: Double = -1; Dist: Double = -1): TPointArray;
+var
+  i: Int32;
+  MMC: TPoint;
+begin
+  if OurTile.X = -1 then
+    OurTile := Self.GetMyPos();
+
+  if CompAng = -1 then
+    CompAng := Minimap.GetCompassAngle(False);
+
+  Result := Minimap.GetDots(ERSMinimapDot.ITEM);
+  MMC := Minimap.Center();
+
+  if Dist <> -1 then
+    Result := Result.FilterDist(0, Dist, MMC.X, MMC.Y);
+
+  // check if we are over an item!
+  if (SRL.CountColor(CTS1(255, 75), Box(MMC.Offset(-1, -1), 1, 1)) > 0) then
+    Result += MMC.Offset(-2, -2);
+
+  for i := 0 to High(Result) do
+  begin
+    Result[i] := Self.MMToWorldEx(OurTile, Result[i], CompAng);
+    Result[i] := Result[i].Offset(2, 2);
+  end;
+end;
+
+{
+  Returns locations of NPCs
+}
+function TRSWalker.GetNPCLocations(OurTile: TPoint = [-1, -1]; CompAng: Double = -1; Dist: Double = -1): TPointArray;
+var
+  i: Int32;
+  MMC: TPoint;
+begin
+  if OurTile.X = -1 then
+    OurTile := Self.GetMyPos();
+
+  if CompAng = -1 then
+    CompAng := Minimap.GetCompassAngle(False);
+
+  Result := Minimap.GetDots(ERSMinimapDot.NPC);
+  MMC := Minimap.Center();
+
+  if Dist <> -1 then
+    Result := Result.FilterDist(0, Dist, MMC.X, MMC.Y);
+
+  // check if we are over an npc
+  if (SRL.CountColor(CTS1($02FCFC, 75), Box(MMC.Offset(-1, -1), 1, 1)) > 0) then
+    Result += MMC.Offset(-2, -2);
+
+  for i := 0 to High(Result) do
+  begin
+    Result[i] := Self.MMToWorldEx(OurTile, Result[i], CompAng);
+    Result[i] := Result[i].Offset(2, 2);
+  end;
+end;
+
+{
   Converts a MM point to world
 }
 function TRSWalker.MMToWorldEx(Me, Loc: TPoint; Ang: Double = -1): TPoint;
