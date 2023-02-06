@@ -514,6 +514,8 @@ end;
   Stop the meme of closing the bank, add using keyboard!
 }
 function TRSGameTabs.Open(Tab: ERSGameTab): Boolean; override;
+var
+  Key: Int32 = -1;
 begin
   if Bank.IsOpen(False) then
   begin
@@ -530,10 +532,33 @@ begin
     exit(True);
 
   if Script.ShouldPressKeyboard() then
-    Result := Self.FKeyOpen(Tab);
+  begin
+    case Tab of
+      ERSGameTab.COMBAT: Key := GAMETAB_KEY_COMBAT;
+      ERSGameTab.STATS: Key := GAMETAB_KEY_STATS;
+      ERSGameTab.QUESTS: Key := GAMETAB_KEY_QUESTS;
+      ERSGameTab.INVENTORY: Key := GAMETAB_KEY_INVENTORY;
+      ERSGameTab.EQUIPMENT: Key := GAMETAB_KEY_EQUIPMENT;
+      ERSGameTab.PRAYER: Key := GAMETAB_KEY_PRAYER;
+      ERSGameTab.MAGIC: Key := GAMETAB_KEY_MAGIC;
+      ERSGameTab.FRIENDS: Key := GAMETAB_KEY_FRIENDS;
+      ERSGameTab.ACCOUNT: Key := GAMETAB_KEY_ACCOUNT;
+      ERSGameTab.LOGOUT: Key := GAMETAB_KEY_LOGOUT;
+      ERSGameTab.OPTIONS: Key := GAMETAB_KEY_OPTIONS;
+      ERSGameTab.EMOTES: Key := GAMETAB_KEY_EMOTES;
+      ERSGameTab.CLAN: Key := GAMETAB_KEY_CLAN;
+      ERSGameTab.MUSIC: Key := GAMETAB_KEY_MUSIC;
+      else Key := -1;
+    end;
+  end;
 
-  if not Result then
-    Result := inherited();
+  if Key <> -1 then
+  begin
+    Keyboard.PressKey(Key);
+    Wait(500, 1000, wdLeft);
+  end;
+
+  Result := inherited();
 end;
 
 {
