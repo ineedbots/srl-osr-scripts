@@ -1,0 +1,678 @@
+{
+  Chin Hunter trap
+  Author: ineedbot
+  Date: 8/27/2022
+
+  Trap
+}
+
+{$IFNDEF INEEDBOT_CH_TRAP}
+{$DEFINE INEEDBOT_CH_TRAP}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+{
+  Finds the trap tile
+}
+function TBot.FindTrapTile(OurPos, TrapTile: TPoint; Height: Int32): TRectangle;
+begin
+  Result := Self.RSW.GetTileMSEx(OurPos, TrapTile, Self.GetHeight(TrapTile) + 1 - Height);
+end;
+
+{
+  Gets the search box
+}
+function TBot.GetTrapSearchBox(TrapTile: TRectangle): TBox;
+begin
+  Result := TrapTile.Expand(Round(TrapTile.Radius() * Self.BoxColor.RadiusExpand)).Bounds();
+end;
+
+{
+  Returns all object colors within the box
+}
+function TBot.FindTrapColor(Area: TBox; Color: TScriptColor): T2DPointArray;
+begin
+  Result := MainScreen.FindObject(Color.RSObject, Area);
+  Result.FilterSize(MainScreen.ConvertDistance(Color.FilterSize), __GT__);
+end;
+
+{
+  Returns true if the trap is visible, B is the bounds of the trap on the screen
+}
+function TBot.FindTrap(OurTile, TrapTile: TPoint; Height: Int32; ItemLocs: TPointArray; out B: TBox; out State: ECHTState): Boolean;
+
+{
+  Percentage of points inside the rect
+}
+function PercInRect(TPA: TPointArray; Rect: TRectangle): Double;
+var
+  TP: TPoint;
+  c: Int32;
+begin
+  for TP in TPA do
+  begin
+    if Rect.Contains(TP) then
+      Inc(c);
+  end;
+
+  Result := c / Length(TPA);
+end;
+
+{
+  Returns a tpa who is the largest, and inside the rectangle
+}
+function LargestTPAInRectPerc(ATPA: T2DPointArray; TileRect: TRectangle; Perc: Double): TPointArray;
+var
+  TPA: TPointArray;
+begin
+  for TPA in ATPA do
+  begin
+    if PercInRect(TPA, TileRect) < Perc then
+      continue;
+
+    if Length(TPA) > Length(Result) then
+      Result := TPA;
+  end;
+end;
+
+{
+  Verifies the color, prevents code dupe
+}
+function VerifyColor(ATPA: T2DPointArray; TileRect: TRectangle; out State: ECHTState; ItemFound: Boolean; out B: TBox): Boolean;
+var
+  TPA: TPointArray;
+begin
+  if Length(ATPA) > 0 then
+  begin
+    // grab the collection of colors who is inside the rectangle
+    TPA := LargestTPAInRectPerc(ATPA, TileRect, 0.2);
+    if Length(TPA) <= 0 then
+      exit();
+
+    B := TPA.Bounds();
+    Result := True;
+
+    if ItemFound then
+      State := ECHTState.TIMED_OUT;
+  end;
+end;
+
+var
+  TileRect: TRectangle;
+  ATPA: T2DPointArray;
+  TP: TPoint;
+  ItemFound: Boolean;
+begin
+  State := ECHTState.NOTHING;
+
+  // check if a reddot is our traptile
+  for TP in ItemLocs do
+  begin
+    if TP.DistanceTo(TrapTile) < 3 then
+    begin
+      ItemFound := True;
+      break;
+    end;
+  end;
+
+  TileRect := Self.FindTrapTile(OurTile, TrapTile, Height);
+  B := Self.GetTrapSearchBox(TileRect);
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit();
+
+  Result := True;
+  B.LimitTo(MainScreen.Bounds());
+
+  // check if caught but not ready
+  State := ECHTState.NOT_READY;
+  ATPA := Self.FindTrapColor(B, Self.NotReadyCaughtBoxColor);
+  if VerifyColor(ATPA, TileRect, State, ItemFound, B) then
+    exit();
+
+  // check if caught and ready
+  State := ECHTState.CAUGHT;
+  ATPA := Self.FindTrapColor(B, Self.CaughtBoxColor);
+  if VerifyColor(ATPA, TileRect, State, ItemFound, B) then
+    exit();
+
+  // check if the box is alive
+  State := ECHTState.ALIVE;
+  ATPA := Self.FindTrapColor(B, Self.BoxColor);
+  if VerifyColor(ATPA, TileRect, State, ItemFound, B) then
+    exit();
+
+  // check if the box is dead
+  State := ECHTState.DEAD;
+  ATPA := Self.FindTrapColor(B, Self.DeadBoxColor);
+  if VerifyColor(ATPA, TileRect, State, ItemFound, B) then
+    exit();
+
+  State := ECHTState.NOTHING;
+end;
+
+{
+  Interacts with the box
+}
+function TBot.InteractWithBox(B: TBox; Uptexts, Options: TStringArray): Boolean;
+begin
+  Script.WriteMsg('Checking caught box uptext', True);
+  Mouse.Move(B);
+  Script.RareSmallWait();
+
+  if not MainScreen.IsUpText(Uptexts, Random(100, 250)) then
+  begin
+    Script.WriteMsg('HandleCaughtHunterTile: Bad uptext', True);
+    exit();
+  end;
+
+  Script.WriteMsg('HandleCaughtHunterTile: Good uptext', True);
+
+  // click it
+  if MainScreen.IsUpText(Options, Random(100, 250)) and (Random() < 0.9) then
+  begin
+    Mouse.Click(MOUSE_LEFT);
+    Result := MainScreen.DidRedClick();
+  end
+  else if MainScreen.IsUpText('options') then
+    Result := ChooseOption.Select(Options);
+
+  if not Result then
+  begin
+    Script.WriteMsg('HandleCaughtHunterTile: Didnt click', True);
+    exit();
+  end;
+
+  Script.WriteMsg('HandleCaughtHunterTile: Clicked', True);
+end;
+
+{
+  Hovers the next box
+}
+function TBot.HoverNextTile(Idx: Int32): Boolean;
+var
+  i, Height: Int32;
+  TPA, ItemLocs, HunterTiles: TPointArray;
+  TP, OurTile: TPoint;
+  B: TBox;
+  CompAng: Double;
+  Tile: TRectangle;
+  State: ECHTState;
+begin
+  HunterTiles := Self.GetHunterTiles();
+  TPA := Self.SortHunterTiles(HunterTiles);
+  OurTile := Self.RSW.GetMyPos();
+  Height := Self.GetHeight(OurTile);
+  CompAng := Minimap.GetCompassAngle(False);
+  ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
+
+  for i := 0 to High(TPA) do
+  begin
+    TP := TPA[i];
+
+    if HunterTiles.Find(TP) = Idx then
+      continue;
+
+    if not Self.FindTrap(OurTile, TP, Height, ItemLocs, B, State) then
+      continue;
+
+    if (State = ECHTState.NOT_READY) or (State = ECHTState.ALIVE) then
+      continue;
+
+    if State = ECHTState.NOTHING then
+    begin
+      Tile := Self.FindTrapTile(OurTile, TP, Height);
+      Mouse.Move(Tile.Bounds());
+      Result := True;
+      break;
+    end;
+
+    if (State = ECHTState.CAUGHT) or (State = ECHTState.DEAD) or (State = ECHTState.TIMED_OUT) then
+    begin
+      Mouse.Move(B);
+      Result := True;
+      break;
+    end;
+  end;
+end;
+
+{
+  Trys to hover
+}
+function TBot.TryHoverNextTile(Idx: Int32): Boolean;
+begin
+  Wait(0, 2000, wdLeft);
+  if not Self.HoverNextTile(Idx) then
+    Mouse.Move(MainScreen.GetPlayerBox())
+  else
+    Result := True;
+end;
+
+{
+  Interacts with the hunter tile
+}
+function TBot.HandleNotVisibleHunterTile(Idx: Int32): Boolean;
+var
+  TPA: TPointArray;
+begin
+  TPA := Self.GetHunterTiles();
+
+  // walk to the tile we cant see
+  try
+    Result := Self.RSW.WalkBlind(TPA[Idx]);
+  except
+  end;
+end;
+
+{
+  Interacts with the hunter tile
+}
+function TBot.HandleNothingHunterTile(Idx: Int32): Boolean;
+var
+  OurPos, TilePos: TPoint;
+  Timeout: TCountdown;
+  DidMSClick: Boolean;
+  TileRect: TRectangle;
+  Slots: TIntegerArray;
+  IC: Int32;
+  B: TBox;
+  State: ECHTState;
+begin
+  TilePos := Self.GetHunterTiles()[Idx];
+
+  // make sure that we are on the tile..
+  Timeout.Init(15000);
+  while RSClient.IsLoggedIn() and not Timeout.IsFinished() do
+  begin
+    OurPos := Self.RSW.GetMyPos();
+
+    if not Self.FindTrap(OurPos, TilePos, Self.GetHeight(OurPos), Self.RSW.GetItemLocations(OurPos), B, State) or
+      (State <> ECHTState.NOTHING) then
+    begin
+      Script.WriteMsg('TrapTile was bad?', True);
+      exit();
+    end;
+
+    if OurPos.DistanceTo(TilePos) < 3 then
+      break;
+
+    Script.SetStatus('Going to the hunter tile');
+
+    if DidMSClick {or (Random() < 0.2)} then
+      // use MM, it is more accurate!
+      Mouse.Click(Self.RSW.WorldToMM(OurPos, TilePos, Minimap.GetCompassAngle(False)).Random(-3, 3, True), MOUSE_LEFT)
+    else
+    begin
+      // try mainscreen, it maybe inaccurate
+      DidMSClick := True;
+
+      TileRect := Self.FindTrapTile(OurPos, TilePos, Self.GetHeight(OurPos));
+
+      if not MainScreen.IsVisible(TileRect.Mean()) then
+        continue;
+
+      Mouse.Move(TileRect.Bounds());
+      Script.RareSmallWait();
+
+      if MainScreen.IsUpText(Self.BoxExistsUptexts) then
+      begin
+        Script.WriteMsg('Already a box here');
+        exit(True);
+      end;
+
+      if MainScreen.IsUpText('Walk here') and (Random() < 0.95) then
+        Mouse.Click(MOUSE_LEFT)
+      else
+        ChooseOption.Select('Walk here');
+    end;
+
+    Self.WaitToStopMoving(Idx);
+  end;
+
+  OurPos := Self.RSW.GetMyPos();
+
+  if OurPos.DistanceTo(TilePos) > 3 then
+  begin
+    Script.WriteMsg('Failed to get ontop of the hunter tile');
+    exit();
+  end;
+
+  Script.WriteMsg('Okay, we are ontop of the hunter tile', True);
+
+  // place the trap
+  if not Inventory.FindItems(Self.ToolItems, Slots) then
+  begin
+    Script.WriteMsg('We got no traps to place!');
+    exit();
+  end;
+
+  IC := Inventory.Count();
+
+  if not Inventory.ClickSlot(Slots[Random(High(Slots))], Self.LayTrapOption) then
+  begin
+    Script.WriteMsg('No lay option?');
+    exit();
+  end;
+
+  Self.TryHoverNextTile(Idx);
+
+  // ok we clicked it, watch our inv for a change
+  if not Self.WaitInvToChange(IC, 2) then
+    exit();
+
+  // wait for us to finish replacing the box
+  if not Self.WaitForNoItemUnderUs() then
+    exit();
+
+  Self.AfterActionAntiBan(True);
+  Result := True;
+end;
+
+{
+  Interacts with the hunter tile
+}
+function TBot.HandleCaughtHunterTile(Idx: Int32; B: TBox): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Inventory.Count();
+
+  // interact with the box
+  if not Self.InteractWithBox(B, Self.CaughtBoxUptexts, Self.CaughtBoxOptions) then
+  begin
+    // try failsafe interaction
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+      exit();
+  end;
+
+  // wait to stop moving
+  if not Self.WaitToStopMoving(Idx) then
+  begin
+    Script.WriteMsg('Stopped moving, but not near tile!', True);
+    exit();
+  end;
+
+  Self.TryHoverNextTile(Idx);
+
+  // wait for the box to enter our inv     
+  if not Self.WaitInvToChange(IC, 1) then
+    exit();
+
+  IC := Inventory.Count();
+
+  // wait for the box to leave our inv            
+  if not Self.WaitInvToChange(IC, 2) then
+    exit();
+
+  // wait for us to finish replacing the box
+  if not Self.WaitForNoItemUnderUs() then
+    exit();
+             
+  Self.AfterActionAntiBan(True);
+  Result := True;
+end;
+
+{
+  Interacts with the hunter tile
+}
+function TBot.HandleDeadHunterTile(Idx: Int32; B: TBox): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Inventory.Count();
+
+  // interact with the box
+  if not Self.InteractWithBox(B, Self.DeadBoxUptexts, Self.DeadBoxOptions) then
+  begin
+    // try failsafe interaction
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+      exit();
+  end;
+
+  // wait to stop moving
+  if not Self.WaitToStopMoving(Idx) then
+  begin
+    Script.WriteMsg('Stopped moving, but not near tile!', True);
+    exit();
+  end;
+
+  Self.TryHoverNextTile(Idx);
+
+  // wait for the box to enter our inv
+  if not Self.WaitInvToChange(IC, 1) then
+    exit();
+
+  IC := Inventory.Count();
+
+  // wait for the box to leave our inv
+  if not Self.WaitInvToChange(IC, 2) then
+    exit();
+
+  // wait for us to finish replacing the box
+  if not Self.WaitForNoItemUnderUs() then
+    exit();
+            
+  Self.AfterActionAntiBan(True);
+  Result := True;
+end;
+
+{
+  Interacts with the hunter tile
+}
+function TBot.HandleTimedOutHunterTile(Idx: Int32; B: TBox): Boolean;
+begin
+  // interact with the box
+  if not Self.InteractWithBox(B, Self.TimedoutBoxUptexts, Self.TimedoutBoxOptions) then
+  begin
+    // try failsafe interaction
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+      exit();
+  end;
+
+  // wait to stop moving
+  if not Self.WaitToStopMoving(Idx) then
+  begin
+    Script.WriteMsg('Stopped moving, but not near tile!', True);
+    exit();
+  end;
+
+  Self.TryHoverNextTile(Idx);
+
+  // wait for us to finish replacing the box
+  if not Self.WaitForNoItemUnderUs() then
+    exit();
+
+  Self.AfterActionAntiBan(True);
+  Result := True;
+end;
+
+{
+  Hunts
+}
+function TBot.Hunt(): Boolean;
+var
+  i, Height, Idx: Int32;
+  TPA, ItemLocs, HunterTiles: TPointArray;
+  TP, OurTile: TPoint;
+  B: TBox;
+  CompAng: Double;
+  State: ECHTState;
+  Countdown: TCountdown;
+begin
+  Countdown.Init(SRL.SkewedRand(30000, 15000, 60000));
+
+  while RSClient.IsLoggedIn() and not Result and not Countdown.IsFinished() do
+  begin
+    HunterTiles := Self.GetHunterTiles();
+    TPA := Self.SortHunterTiles(HunterTiles);
+    OurTile := Self.RSW.GetMyPos();
+    Height := Self.GetHeight(OurTile);
+    CompAng := Minimap.GetCompassAngle(False);
+    ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
+
+    for i := 0 to High(TPA) do
+    begin
+      TP := TPA[i];
+      Idx := HunterTiles.Find(TP);
+
+      if not Self.FindTrap(OurTile, TP, Height, ItemLocs, B, State) then
+      begin
+        Script.WriteMsg('Not visible trap tile: ' + ToStr(Idx), True);
+        Result := Self.HandleNotVisibleHunterTile(Idx);
+
+        if not Result then
+        begin
+          // couldnt walk to our trap tile??
+          Script.WriteMsg('Failed to walk to tile!');
+        end;
+
+        break;
+      end;
+
+      if State = ECHTState.ALIVE then
+      begin
+        Script.WriteMsg('Alive trap tile found: ' + ToStr(Idx), True);
+        continue;
+      end;
+
+      if State = ECHTState.NOT_READY then
+      begin
+        Script.WriteMsg('Not ready trap tile found: ' + ToStr(Idx), True);
+        continue;
+      end;
+
+      Self.TrapTimers[Idx].Reset();
+
+      if State = ECHTState.NOTHING then
+      begin
+        Script.WriteMsg('Nothing found trap tile: ' + ToStr(Idx), True);
+        Result := Self.HandleNothingHunterTile(Idx);
+
+        // failed to place via chat?
+        if not Result then
+        begin
+          Script.WriteMsg('Failed NOTHING tile!');
+
+          if Self.ChatHasBadText(2) then
+          begin
+            Script.WriteMsg('Failed to place trap!');
+
+            Self.MoveChatUp();
+          end;
+        end;
+
+        break;
+      end;
+
+      if State = ECHTState.CAUGHT then
+      begin
+        Script.WriteMsg('Caught trap tile found: ' + ToStr(Idx), True);
+        Result := Self.HandleCaughtHunterTile(Idx, B);
+
+        // failed to take/place via chat?
+        if not Result then
+        begin
+          Script.WriteMsg('Failed CAUGHT tile!');
+
+          if Self.ChatHasBadText(0) then
+          begin
+            // failed to take
+            if Self.ChatHasBadText(1) then
+            begin
+              Script.WriteMsg('Failed to take caught box!');
+            end
+            // failed to place
+            else if Self.ChatHasBadText(2) then
+            begin
+              Script.WriteMsg('Failed to place caught box!');
+            end;
+
+            Self.MoveChatUp();
+          end;
+        end;
+
+        break;
+      end;
+
+      if State = ECHTState.DEAD then
+      begin
+        Script.WriteMsg('Dead trap tile found: ' + ToStr(Idx), True);
+        Result := Self.HandleDeadHunterTile(Idx, B);
+
+        // failed to take/place via chat?
+        if not Result then
+        begin
+          Script.WriteMsg('Failed DEAD tile!');
+
+          if Self.ChatHasBadText(0) then
+          begin
+            // failed to take
+            if Self.ChatHasBadText(1) then
+            begin
+              Script.WriteMsg('Failed to take dead box!');
+            end
+            // failed to place
+            else if Self.ChatHasBadText(2) then
+            begin
+              Script.WriteMsg('Failed to place dead box!');
+            end;
+
+            Self.MoveChatUp();
+          end;
+        end;
+
+        break;
+      end;
+
+      if State = ECHTState.TIMED_OUT then
+      begin
+        Script.WriteMsg('Timed out trap tile found: ' + ToStr(Idx), True);
+        Result := Self.HandleTimedOutHunterTile(Idx, B);
+
+        // failed to place via chat?
+        if not Result then
+        begin
+          Script.WriteMsg('Failed TIMEDOUT tile!');
+
+          if Self.ChatHasBadText(2) then
+          begin
+            Script.WriteMsg('Failed to place timedout trap, Picking up trap, failsafe!');
+
+            // just take the item up
+            OurTile := Self.RSW.GetMyPos();
+            Height := Self.GetHeight(OurTile);
+            CompAng := Minimap.GetCompassAngle(False);
+            ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
+
+            if Self.FindTrap(OurTile, TP, Height, ItemLocs, B, State) then
+            begin
+              if Self.InteractWithBox(B, Self.TimedoutBoxUptexts, [Self.TakeOption]) or
+                Self.InteractWithBox(B, Self.BoxExistsUptexts, Self.PickUpTrapOptions) then
+              begin
+                Self.WaitToStopMoving(Idx);
+                Wait(500, 1500, wdLeft);
+              end;
+            end;
+
+            Self.MoveChatUp();
+          end;
+        end;
+
+        break;
+      end;
+    end;
+
+    Self.DoMainLoopStuff('Hunting!', True);
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_CH_TRAP

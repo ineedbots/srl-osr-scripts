@@ -1,0 +1,55 @@
+{
+  Chin Hunter types
+  Author: ineedbot
+  Date: 1/28/2023
+
+  Types
+}
+
+{$IFNDEF INEEDBOT_CH_TYPES}
+{$DEFINE INEEDBOT_CH_TYPES}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once ../Utils/Utils.simba}
+
+type
+  ECHTState = (
+    CAUGHT,
+    ALIVE,
+    DEAD,
+    TIMED_OUT,
+    NOTHING,
+    NOT_READY
+  );
+
+  TBot = record
+    Name, LayTrapOption, TakeOption                           : String;
+    RSW                                                       : TRSWalker;
+    Hunted, FailCount, TrapCount                              : Int32;
+    StartingPos                                               : TPoint;
+    HeightMapBMP                                              : TMufasaBitmap;
+    ToolItems, HuntedItems                                    : TRSItemArray;
+    BoxColor, CaughtBoxColor, DeadBoxColor,
+      NotReadyCaughtBoxColor                                  : TScriptColor;
+    TrapTimers                                                : array of TStopwatch;
+    AliveBoxUptexts, DeadBoxUptexts, CaughtBoxUptexts,
+      TimedoutBoxUptexts, AliveBoxOptions, DeadBoxOptions,
+      CaughtBoxOptions, TimedoutBoxOptions,
+      FailsafeBoxOptions, FailsafeBoxUptexts,
+      BoxExistsUptexts, PickUpTrapOptions, BadPlaceTrapTexts,
+      BadTakeTrapTexts                                        : TStringArray;
+  end;
+
+var
+  Bot: TBot;
+
+begin
+  Bot.Name := 'ineedbot''s Chin Hunter';
+end;
+
+{$ENDIF} // INEEDBOT_CH_TYPES

@@ -1,0 +1,523 @@
+{
+  Chin Hunter utils
+  Author: ineedbot
+  Date: 1/28/2023
+
+  Utils
+}
+
+{$IFNDEF INEEDBOT_CH_UTILS}
+{$DEFINE INEEDBOT_CH_UTILS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+
+{$include_once Trap.simba}
+
+{
+  We want sharp north
+}
+procedure TAntiBan.SetCompassNorth(); override;
+begin
+  Self.DebugLn('Setting compass north');
+  Minimap.SetCompassNorth(True);
+end;
+
+{
+  Always click
+}
+function TRSMinimap.SetCompassNorth(DoClick: Boolean = True): Boolean; override;
+begin
+  DoClick := DoClick;
+  Result := Self.ClickCompass();
+  MainScreen.SetHighestPitch();
+end;
+
+{
+  Converts heightmap height to mm2ms height
+}
+function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;
+begin
+  Result := HeightMapHeight div 4;
+end;
+
+{
+  Gets height from heightmap
+}
+function TBot.GetHeight(Pos: TPoint = [-1, -1]): Int32;
+var
+  Col: TRGB32;
+begin
+  if Pos.X = -1 then
+    Pos := Self.RSW.GetMyPos();
+
+  Col := TRGB32(Self.HeightMapBMP.GetPixel(Pos.X, Pos.Y));
+
+  Result := Self.HeightMapHeightToMM2MSHeight(Col.R);
+end;
+
+{
+  Gets trapcount
+}
+function TBot.GetTrapCount(): Int32;
+var
+  lvl, traps: Int32;
+  trapSlots: TIntegerArray;
+begin
+  if (Self.TrapCount = -1) or (GameTabs.GetCurrentTab() = ERSGametab.STATS) then
+  begin
+    lvl := Stats.GetCurrentLevel(ERSSkill.HUNTER);
+
+    if lvl >= 80 then
+      traps := 5
+    else if lvl >= 60 then
+      traps := 4
+    else if lvl >= 40 then
+      traps := 3
+    else if lvl >= 20 then
+      traps := 2
+    else
+      traps := 1;
+
+    Wait(0, 2500, wdLeft);
+    Inventory.FindItems(Self.ToolItems, trapSlots); // what if we place our traps?
+    SetLength(trapSlots, 5);
+
+    Self.TrapCount := Min(traps, Length(trapSlots));
+  end;
+
+  Result := Self.TrapCount;
+end;
+
+{
+  Returns our hunter tiles
+}
+function TBot.GetHunterTiles(): TPointArray;
+var
+  i: Int32;
+begin
+  i := Self.GetTrapCount();
+
+  if i >= 1 then
+    Result += Self.StartingPos.Offset(-4, -4);
+
+  if i >= 2 then
+    Result += Self.StartingPos.Offset(-4, 4);
+
+  if i >= 3 then
+    Result += Self.StartingPos.Offset(4, -4);
+
+  if i >= 4 then
+    Result += Self.StartingPos.Offset(4, 4);
+
+  if i >= 5 then
+    Result += Self.StartingPos;
+
+  // init the timers
+  if Length(Self.TrapTimers) <> i then
+  begin
+    SetLength(Self.TrapTimers, i);
+    for i := 0 to High(Self.TrapTimers) do
+      Self.TrapTimers[i].Reset();
+  end;
+end;
+
+{
+  Sorts the tiles to the timer, largest
+}
+function TBot.SortHunterTiles(TPA: TPointArray): TPointArray;
+var
+  i, BestTime, BestIdx: Int32;
+  in_result: TIntegerArray;
+begin
+  while Length(TPA) <> Length(Result) do
+  begin
+    // get the index with the largest time, and not in result
+    BestTime := -1;
+    BestIdx := -1;
+    for i := 0 to High(TPA) do
+    begin
+      if i in in_result then
+        continue;
+
+      if (BestTime = -1) or (BestTime < Self.TrapTimers[i].ElapsedTime()) then
+      begin
+        BestTime := Self.TrapTimers[i].ElapsedTime();
+        BestIdx := i;
+      end;
+    end;
+
+    // add to result
+    in_result.Append(BestIdx);
+    Result += TPA[BestIdx];
+  end;
+end;
+
+{
+  Pushes chat up
+}
+procedure TBot.MoveChatUp();
+begin
+  if not Script.ExamineRandomItem() then
+  begin
+    Script.TogglePlayerReportOption();
+    Script.TogglePlayerReportOption();
+  end;
+end;
+
+{
+  Found the bad text in the chat
+}
+function TBot.ChatHasBadText(C: Int32 = 0): Boolean;
+var
+  Str: String;
+  ToSearch: TStringArray;
+begin
+  if not Chat.IsOpen() then
+    exit();
+
+  Str := Chat.GetMessage(7, [CHAT_COLOR_BLACK]).Strip();
+
+  if C = 1 then
+    ToSearch := Self.BadTakeTrapTexts
+  else if C > 1 then
+    ToSearch := Self.BadPlaceTrapTexts
+  else
+  begin
+    ToSearch := Self.BadTakeTrapTexts;
+    ToSearch := ToSearch.Combine(Self.BadPlaceTrapTexts);
+  end;
+
+  if Str.IsInString(ToSearch) then
+    Result := True;
+end;
+
+{
+  Waits until we stopped moving
+}
+function TBot.WaitToStopMoving(Idx: Int32; Dist: Double = 3): Boolean;
+var
+  CountDown: TCountdown;
+  TPA: TPointArray;
+begin
+  TPA := Self.GetHunterTiles();
+
+  Script.WriteMsg('WaitToStopMoving: Wait to stop moving', True);
+  CountDown.Init(SRL.SkewedRand(2500, 2000, 3000));
+  while RSClient.IsLoggedIn() and not CountDown.IsFinished() and not Minimap.IsPlayerMoving() do
+    Wait(SRL.SkewedRand(100, 50, 250));
+
+  Minimap.WaitPlayerMoving();
+
+  Result := Self.RSW.GetMyPos().DistanceTo(TPA[Idx]) < Dist;
+end;
+
+{
+  Returns true when there is no item under us
+}
+function TBot.WaitForNoItemUnderUs(): Boolean;
+var
+  CountDown: TCountdown;
+  ItemLocs: TPointArray;
+begin
+  Script.WriteMsg('WaitForNoItemUnderUs: Waiting for the item under us to disappear', True);
+  CountDown.Init(SRL.SkewedRand(4000, 3000, 5000));
+  while RSClient.IsLoggedIn() do
+  begin
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitForNoItemUnderUs: Timed out', True);
+      exit();
+    end;
+
+    ItemLocs := Self.RSW.GetItemLocations([-1, -1], -1, 4);
+
+    if Length(ItemLocs) < 1 then
+    begin
+      Script.WriteMsg('WaitForNoItemUnderUs: Item not found under us! We are good!', True);
+      Result := True;
+      break;
+    end;
+
+    // only need to check for placing the trap
+    if Self.ChatHasBadText(2) then
+    begin
+      Script.WriteMsg('WaitForNoItemUnderUs: Bad text detected', True);
+      break;
+    end;
+
+    Wait(SRL.SkewedRand(100, 50, 250));
+  end;
+end;
+
+{
+  Waits for the inv to change
+}
+function TBot.WaitInvToChange(IC, C: Int32): Boolean;
+var
+  CountDown: TCountdown;
+begin
+  CountDown.Init(SRL.SkewedRand(4000, 3000, 5000));
+
+  Script.WriteMsg('WaitInvToChange: Wait for inv to change', True);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    if Inventory.Count() <> IC then
+    begin
+      Result := True;
+      break;
+    end;
+
+    if CountDown.IsFinished() then
+    begin
+      Script.WriteMsg('WaitInvToChange: Inventory count didnt change: ' + ToStr(IC), True);
+      break;
+    end;
+
+    if Self.ChatHasBadText(C) then
+    begin
+      Script.WriteMsg('WaitInvToChange: Bad text detected', True);
+      break;
+    end;
+
+    Wait(SRL.SkewedRand(100, 50, 250));
+  end;
+end;
+
+{
+  From Flight's AIOFisher
+}
+procedure TBot.DoSkillHover();
+begin
+  Script.Antiban.HoverSkill(ERSSKILL.HUNTER, Random(1700, 3200), False);
+  Self.GetTrapCount();
+end;
+
+{
+  Does general checks and does antiban.
+}
+function TBot.DoAntiBan(): Boolean;
+begin
+  Script.DoGeneralChecks();
+
+  if not RSClient.IsLoggedIn() then
+    exit();
+
+  // check we we leveled up
+  if Chat.LeveledUp() then
+  begin
+    Wait(0, 2500, wdLeft);
+    while Chat.ClickContinue(Script.ShouldPressKeyboard()) do
+      Wait(75, 500);
+  end;
+
+  // general antiban
+  Result := Script.Antiban.DismissRandom() or Script.Antiban.DoAntiban(Script.AllowBreaks, Script.AllowBreaks);
+end;
+
+{
+  From Slacky's BarbFisher
+}
+procedure TBot.AfterActionAntiBan(DoAB: Boolean = True; DoInterfaceClose: Boolean = True; WasFailure: Boolean = False);
+begin
+  Wait(0, 750, wdLeft);
+
+  if DoAB then
+    Self.DoAntiban();
+
+  if WasFailure then
+  begin
+    Script.WriteMsg('Failed!: ' + ToStr(Self.FailCount), True);
+
+    // fix angle
+    {if Self.FailCount = 0 then
+      Minimap.SetCompassNorth((Random() > 0.2))
+    else
+      Minimap.SetCompassAngle(Random() * 360.0); }
+    Minimap.SetCompassNorth(True);
+    
+    // make sure cam is high
+    MainScreen.SetHighestPitch();
+
+    // make sure nothing is selected in our inventory, might prevent us from interacting with stuff
+    Inventory.SetSelectedSlot(-1);
+
+    if MainScreen.IsUpText('->') then
+      Mouse.Click(MOUSE_LEFT);
+
+    if DoInterfaceClose and MainScreen.AnyInterfaceOpen() then
+      MainScreen.CloseInterface();
+
+    // fix these up
+    if Script.ShiftClicking then
+      Keyboard.KeyUp(VK_SHIFT);
+
+    if Script.MiddleClicking then
+      Mouse.Release(MOUSE_MIDDLE);
+                                  
+    Inc(Self.FailCount);
+
+    if Self.FailCount > 10 then
+      Script.Stop('FailCount too high!');
+  end;
+end;
+
+{
+  Clears failcount
+}
+procedure TBot.ClearFailCount();
+begin
+  Self.FailCount := 0;
+end;
+
+{
+  Debug draws the stuff
+}
+procedure TBot.DebugDraw();
+var
+  TPA, ItemLocs: TPointArray;
+  OurTile, TP: TPoint;
+  i, Height, Nearby: Int32;
+  CompAng: Double;
+  Text, state_str: String;
+  T, H: TIntegerArray;
+  TileRect: TRectangle;
+  B: TBox;
+  ATPA: T2DPointArray;
+  State: ECHTState;
+begin
+  OurTile := Self.RSW.GetMyPos();
+  CompAng := Minimap.GetCompassAngle(False);
+  Height := Self.GetHeight(OurTile);
+  Nearby := Length(Self.RSW.GetItemLocations(OurTile, CompAng));
+  ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
+
+  Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
+  Text += 'Height: ' + ToStr(Height) + LineEnding;
+  Text += 'Nearby: ' + ToStr(Nearby) + LineEnding;
+
+  if not MainScreen.AnyInterfaceOpen() then
+  begin
+    TPA := Self.GetHunterTiles();
+    for i := 0 to High(TPA) do
+    begin
+      TP := TPA[i];
+
+      TileRect := Self.FindTrapTile(OurTile, TP, Height);
+      B := Self.GetTrapSearchBox(TileRect);
+
+      RSClient.Image().DrawBox(B, clGreen);
+      RSClient.Image().DrawRect(TileRect, clRed);
+      RSClient.Image().DrawCross(Self.RSW.WorldToMM(OurTile, TP, CompAng), 4, clBlue);
+
+      ATPA := Self.FindTrapColor(B, Self.BoxColor);
+      RSClient.Image().DrawATPA(ATPA);
+      ATPA := Self.FindTrapColor(B, Self.DeadBoxColor);
+      RSClient.Image().DrawATPA(ATPA);
+      ATPA := Self.FindTrapColor(B, Self.CaughtBoxColor);
+      RSClient.Image().DrawATPA(ATPA);
+      ATPA := Self.FindTrapColor(B, Self.NotReadyCaughtBoxColor);
+      RSClient.Image().DrawATPA(ATPA);
+
+      if Self.FindTrap(OurTile, TP, Height, ItemLocs, B, State) then
+      begin
+        RSClient.Image().DrawBox(B, clBlue);
+
+        case State of
+          ECHTState.ALIVE: state_str := 'ALIVE';
+          ECHTState.CAUGHT: state_str := 'CAUGHT';
+          ECHTState.DEAD: state_str := 'DEAD';
+          ECHTState.NOTHING: state_str := 'NOTHING';
+          ECHTState.TIMED_OUT: state_str := 'TIMED_OUT';
+          ECHTState.NOT_READY: state_str := 'NOT_READY';
+        end;
+
+        RSClient.Image().DrawText(state_str + ' ' + ToStr(Self.TrapTimers[i].ElapsedTime()), Point(B.X2, B.Y2), clWhite);
+      end;
+    end;
+  end;
+
+  RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
+
+  if Inventory.IsOpen() then
+  begin
+    Inventory.FindItems(Self.ToolItems, T);
+    Inventory.FindItems(Self.HuntedItems, H);
+
+    for i := 0 to 27 do
+    begin
+      if T.Find(i) <> -1 then
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clWhite)
+      else if H.Find(i) <> -1 then
+        RSClient.Image().DrawBox(Inventory.GetSlotBox(i), clRed);
+    end;
+  end;
+end;
+
+{
+  Draws the stuff onto the screen
+}
+procedure TBot.Draw();
+begin
+  if not Script.CanDraw() then
+    exit();
+
+  RSClient.Image().Clear();
+  // TODO complete
+
+  if Script.Debug then
+    Self.DebugDraw();
+end;
+
+{
+  Does the proggy report to the console window
+}
+procedure TBot.ReportConsole();
+var
+  WriteOut: String;
+begin
+  if not Script.CanReportConsole() then
+    exit();
+
+  WriteOut += LineEnding + 'Runtime: ' + SRL.MsToTime(Script.TrueRunTime.ElapsedTime(), Time_Short) + LineEnding;
+  WriteOut += 'Status: ' + Script.Status + LineEnding;
+  WriteOut += 'Energy: ' + ToStr(Script.AntiBanEnergy.EnergyLevel(Script.Antiban)) + LineEnding;
+  WriteOut += 'Hunted: ' + IntToStr(Self.Hunted) + LineEnding;
+  WriteOut += 'Taking long breaks: ' + ToStr(TAKEBREAKS) + LineEnding;
+  WriteOut += 'Time until break: ' + Script.Antiban.TimeUntilBreak(Script.Antiban.Breaks[0]) + LineEnding;
+  WriteOut += 'Time until shutdown: ' + SRL.MsToTime(Script.ShutdownTime - GetTimeRunning(), Time_Short);
+
+  Script.WriteMsg(WriteOut, False, True, True);
+end;
+
+{
+  General main loop stuff to do.
+}
+procedure TBot.DoMainLoopStuff(Status: String = ''; DoAB: Boolean = True);
+begin
+  if Status <> '' then
+    Script.SetStatus(Status);
+
+  if DoAB then
+    Self.DoAntiBan();
+
+  Self.ReportConsole();
+  Self.Draw();
+
+  // check if we gained xp, failsafe
+  if RSClient.IsLoggedIn() then
+    Script.CheckActivity();
+
+  Wait(Script.MainLoopWaitAmount(True));
+end;
+
+{$ENDIF} // INEEDBOT_CH_UTILS

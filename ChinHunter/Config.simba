@@ -1,0 +1,42 @@
+{
+  Chin Hunter config
+  Author: ineedbot
+  Date: 1/28/2023
+
+  Config
+}
+
+{$IFNDEF INEEDBOT_CH_CONFIG}
+{$DEFINE INEEDBOT_CH_CONFIG}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/OSR.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+
+const
+  DEBUGMODE      = True; // For debugging purposes
+  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DOREPORTS      = False;  // Do proggies onto the console?
+
+  TAKEBREAKS     = True;  // Take breaks?
+  MSWALKING      = False; // Use mainscreen walking?
+  SHIFTCLICK     = True;  // Use shift key to empty coalbag?
+  MIDDLECLICK    = True;  // Use middle mouse button to control camera angle
+  MENUKEYBOARD   = True;  // Use the keyboard to handle menus?
+
+  ITEMFINDER_SIMILARITY = 0.999;   // if items are not being detected properally, adjust this
+
+  // Account details
+  _USERNAME       = 'a';
+  _PASSWORD       = 'a';
+  _PIN            = '';
+  _WORLDS         = [-1];
+  TOTALRUNTIME    = 600;  // How many minutes should we operate for?
+
+{$ENDIF} // INEEDBOT_CH_CONFIG

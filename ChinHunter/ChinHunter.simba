@@ -1,0 +1,259 @@
+{
+  Chin Hunter
+  Author: ineedbot
+  Date: 1/28/2023
+
+  Hunts for chins
+}
+
+program ChinHunter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/OSR.simba}
+
+{$F-}
+
+{$include_once ../Utils/Utils.simba}
+
+{$include_once Types.simba}
+{$include_once Config.simba}
+{$include_once Utils.simba}
+
+{$include_once Trap.simba}
+
+{
+  Main loop of the script.
+}
+procedure TBot.Run();
+begin
+  while Script.Running do
+  begin
+    if RSClient.IsLoggedIn() then
+    begin
+      if not Self.Hunt() then
+        Self.AfterActionAntiBan(True, True, True)
+      else
+        Self.ClearFailCount();
+    end
+    else
+    begin
+      if Login.LoginPlayer() then
+        Self.OnLogin();
+    end;
+    
+    Self.DoMainLoopStuff('', False);
+  end;
+  
+  Logout.ClickLogout();
+  Script.WriteMsg('Stop reason: ' + Script.StopReason);
+  TerminateScript('Time to shutdown');
+end;
+
+{
+  When the player logs in.
+}
+procedure TBot.OnLogin();
+begin
+  Minimap.SetCompassNorth(True);
+
+  // is this the first login?
+  if not Script.DidLogin then
+  begin
+    Script.DidLogin := True;
+      
+    Script.UpdateZoomLevel();    
+    Self.StartingPos := Self.RSW.GetMyPos();
+  end;
+  
+  Script.HPAmount             := Minimap.GetHPLevel();
+  MainScreen.SetHighestPitch();
+  Script.Activity.Countdown.Restart();
+end;
+
+{
+  Frees the stuff when script completes
+}
+procedure TBot.Free();
+begin
+  Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
+  Script.TakeScreenshot(Self.Name, 'Ending_');
+
+  Self.HeightMapBMP.Free();
+end;
+
+{
+  Inits the script...
+}
+procedure TBot.Init();
+var
+  Worlds: TIntegerArray;
+begin
+  Script.ScriptName := Self.Name;
+
+  Script.WriteMsg('Starting the script at: ' + ToStr(Now()));
+  AddOnTerminate(Self.Free);
+
+  // init the player
+  if _WORLDS[0] <> -1 then
+    Worlds := _WORLDS;
+
+  Login.AddPlayer(_USERNAME, _PASSWORD, _PIN, Worlds);
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+
+  Script.Debug := DEBUGMODE;
+  Script.Drawing := DRAWING;
+  Script.Reporting := DOREPORTS;
+  Script.ShiftClicking := SHIFTCLICK;
+  Script.MiddleClicking := MIDDLECLICK;
+  Script.KeyboardMenuButtons := MENUKEYBOARD;
+  Script.Running := True;
+  Script.SleepRate := 75;
+  Script.DrawRate := 2500;
+  Script.ReportRate := 2500;
+  Script.Activity.Countdown.Init(ONE_MINUTE);
+  Script.Activity.NoXPCountMax := 4;
+  
+  Script.ShutdownTime := (TOTALRUNTIME * 60000) + Random(- (TOTALRUNTIME * 6000), (TOTALRUNTIME * 6000));
+  
+  Mouse.Speed             := 20 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+  Script.FastMouseAdd    := 20;
+  Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
+  ItemFinder.Similarity   := ITEMFINDER_SIMILARITY;
+
+  Script.AllowBreaks := True;
+  
+  // init the antiban stuff
+  Script.Antiban.OnStartBreak    := PauseRunTime;
+  Script.Antiban.OnFinishBreak   := ResumeRunTime;
+  
+  Script.Antiban.AddTask(ONE_MINUTE*1, Mouse.RandomMovement);
+  Script.Antiban.AddTask(ONE_SECOND*150, Antiban.SetCompassNorth);
+  // Script.Antiban.AddTask(ONE_MINUTE*1,  Antiban.RandomRotate);
+  Script.Antiban.AddTask(ONE_MINUTE*4,  Antiban.DoLoseFocus);
+  Script.Antiban.AddTask(ONE_MINUTE*45,  Script.UpdateZoomLevel);
+  Script.Antiban.AddTask(ONE_MINUTE*8,  Antiban.HoverMSItems);
+  Script.Antiban.AddTask(ONE_MINUTE*12,  Antiban.HoverMSNPCs);
+  Script.Antiban.AddTask(ONE_MINUTE*16,  Antiban.HoverMSPlayers);
+  Script.Antiban.AddTask(ONE_MINUTE*10,  Self.DoSkillHover);
+  Script.Antiban.AddBreak(ONE_MINUTE*18, ONE_SECOND*10, 0.2, 0.0);
+  
+  if TAKEBREAKS then
+  begin
+    Script.Antiban.AddBreak(ONE_MINUTE*45, ONE_MINUTE*5, 0.2, 0.25);
+    Script.Antiban.AddBreak(ONE_HOUR*2, ONE_MINUTE*10, 0.2, 0.5);
+    Script.Antiban.AddBreak(ONE_HOUR*4, ONE_MINUTE*45, 0.2, 0.75);
+    Script.Antiban.AddBreak(ONE_HOUR*17, ONE_HOUR*7, 0.2, 1.0);
+  end;
+
+  Self.RSW.Setup({$MACRO CURRENT_DIRECTORY} + '\maps\feldip_hills.png');
+  Self.RSW.ScreenWalk     := MSWALKING;
+
+  Self.HeightMapBMP.Init();
+  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\feldip_hills_heightmap.png'); // unix better not complain!
+
+  Self.TrapCount := -1;
+  Self.ToolItems := ['Box trap'];
+  Self.HuntedItems := ['Red chinchompa'];
+
+  Self.AliveBoxUptexts := ['Dismantle Box trap', 'Investigate Box trap'];
+  Self.AliveBoxOptions := ['Dismantle Box trap'];
+
+  Self.DeadBoxUptexts := ['Dismantle Box trap', 'Reset Box trap'];
+  Self.DeadBoxOptions := ['Reset Box trap'];
+
+  Self.CaughtBoxUptexts := ['Check Shaking box', 'Reset Shaking box'];
+  Self.CaughtBoxOptions := ['Reset Shaking box'];
+
+  Self.TimedoutBoxUptexts := ['Take Box trap', 'Lay Box trap'];
+  Self.TimedoutBoxOptions := ['Lay Box trap'];
+
+  Self.FailsafeBoxUptexts := ['Box trap', 'Shaking box'];
+  Self.FailsafeBoxOptions := ['Lay', 'Reset'];
+
+  Self.BoxExistsUptexts := ['Shaking', 'Box'];
+  Self.LayTrapOption := 'Lay';
+
+  Self.TakeOption := 'Take';
+
+  Self.PickUpTrapOptions := [Self.TakeOption, 'Check', 'Dismantle'];
+
+  Self.BadPlaceTrapTexts := ['You may set up only 4 traps at a time at your Hunter level.', 'You can''t lay a trap here.'];
+  Self.BadTakeTrapTexts := ['This isn''t your trap.'];
+
+  // the box when its alive
+  with Self.BoxColor do
+  begin
+    RSObject.Colors += CTS2(8231079, 10, 0.05, 0.85);
+    RSObject.Grow := 2;
+    RSObject.Erode := 1;
+    RSObject.ClusterDistance := 2;
+    RSObject.MinShortSide := 4;
+    RSObject.MinLongSide := 27;
+
+    FilterSize := 0;
+    RadiusExpand := 1;
+  end;
+
+  // box when its ready and caught something
+  with Self.CaughtBoxColor do
+  begin
+    RSObject.Colors += CTS2(5597813, 7, 0.07, 0.16);
+    RSObject.Grow := 2;
+    RSObject.Erode := 1;
+    RSObject.ClusterDistance := 2;
+    RSObject.MinShortSide := 4;
+    RSObject.MaxLongSide := 27;
+
+    FilterSize := 0;
+    RadiusExpand := 1;
+  end;
+
+  // the box when its dead
+  with Self.DeadBoxColor do
+  begin
+    RSObject.Colors := Self.BoxColor.RSObject.Colors;
+    RSObject.Grow := Self.BoxColor.RSObject.Grow;
+    RSObject.Erode := Self.BoxColor.RSObject.Erode;
+    RSObject.ClusterDistance := Self.BoxColor.RSObject.ClusterDistance;
+    RSObject.MinShortSide := Self.BoxColor.RSObject.MinShortSide;
+    RSObject.MaxLongSide := 27;
+
+    FilterSize := Self.BoxColor.FilterSize;
+    RadiusExpand := Self.BoxColor.RadiusExpand;
+  end;
+
+  // box when its not ready but caught something
+  with Self.NotReadyCaughtBoxColor do
+  begin
+    RSObject.Colors := Self.CaughtBoxColor.RSObject.Colors;
+    RSObject.Grow := Self.CaughtBoxColor.RSObject.Grow;
+    RSObject.Erode := Self.CaughtBoxColor.RSObject.Erode;
+    RSObject.ClusterDistance := Self.CaughtBoxColor.RSObject.ClusterDistance;
+    RSObject.MinShortSide := Self.CaughtBoxColor.RSObject.MinShortSide;
+    RSObject.MinLongSide := 27;
+
+    FilterSize := Self.CaughtBoxColor.FilterSize;
+    RadiusExpand := Self.CaughtBoxColor.RadiusExpand;
+  end;
+
+  
+  // do login init stuff
+  if RSClient.IsLoggedIn() then
+    Self.OnLogin();
+  
+  // start the timers  
+  Script.TrueRunTime.Start();
+  Script.ReportCounter.Init(Script.ReportRate);
+  Script.DrawCounter.Init(Script.DrawRate);
+end;
+
+{
+  Entry point, inits and starts the bot main loop.
+}
+begin
+  Bot.Init();
+  Bot.Run();
+end.
