@@ -65,6 +65,68 @@ begin
 end;
 
 {
+  Uses the mainscreen anchor to boost accuracy
+}
+function TRSWalker.GetMyPos(): TPoint; override;
+var
+  OurPos: TPoint;
+  ATPA: T2DPointArray;
+  TPA: TPointArray;
+  TP: TPoint;
+  B: TBox;
+  Vec: Vector3;
+  TileRect: TRectangle;
+  OurHeight, TileHeight: Int32;
+begin
+  if Bot.GettingMainScreenAnchorPos then
+  begin
+    Result := inherited();
+    exit();
+  end;
+
+  Bot.GettingMainScreenAnchorPos := True;
+  OurPos := inherited();
+  Bot.GettingMainScreenAnchorPos := False;
+
+  OurHeight := Bot.GetHeight(OurPos);
+  TileHeight := Bot.GetHeight(Bot.MainScreenAnchorTile);
+
+  // find the obj
+  TileRect := Self.GetTileMSEx(OurPos, Bot.MainScreenAnchorTile, TileHeight + Bot.MainScreenAnchorHeight - OurHeight);
+  B := TileRect.Expand(Round(TileRect.Radius() * Bot.MainScreenAnchorColor.RadiusExpand)).Bounds();
+
+  if not MainScreen.IsVisible(B.Middle()) then
+    exit(OurPos);
+
+  ATPA := MainScreen.FindObject(Bot.MainScreenAnchorColor.RSObject, B);
+  ATPA.FilterSize(MainScreen.ConvertDistance(Bot.MainScreenAnchorColor.FilterSize), __GT__);
+
+  if Length(ATPA) <= 0 then
+    exit(OurPos);
+
+  // found the obj!
+  TPA := ATPA.Biggest();
+  B := TPA.Bounds();
+
+  // convert the mainscreen point to MM
+  Vec := MainScreen.PointToMM(B.Middle(), 0);
+  TP.X := Round(Vec.X);
+  TP.Y := Round(Vec.Y);
+
+  // rotate the point according to our compass angle
+  TP := TP.Rotate(-Minimap.GetCompassAngle(False), Minimap.Center());
+
+  // offset from the center of our minimap
+  TP := Minimap.Center() - TP;
+
+  // add our tile location
+  TP := TP + Bot.MainScreenAnchorTile;
+
+  // this is our result
+  Result := TP;
+end;
+
+{
   Gets trapcount
 }
 function TBot.GetTrapCount(): Int32;

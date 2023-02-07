@@ -29,13 +29,16 @@ type
 
   TBot = record
     Name, LayTrapOption, TakeOption                           : String;
+    GettingMainScreenAnchorPos                                : Boolean;
     RSW                                                       : TRSWalker;
-    Hunted, FailCount, TrapCount                              : Int32;
+    Hunted, FailCount, TrapCount, MainScreenAnchorHeight,
+      HunterTrapHeight, ShrinkTileAmount                      : Int32;
     StartingPos                                               : TPoint;
     HeightMapBMP                                              : TMufasaBitmap;
     ToolItems, HuntedItems                                    : TRSItemArray;
     BoxColor, CaughtBoxColor, DeadBoxColor,
-      NotReadyCaughtBoxColor                                  : TScriptColor;
+      NotReadyCaughtBoxColor, MainScreenAnchorColor           : TScriptColor;
+    MainScreenAnchorTile                                      : TPoint;
     TrapTimers                                                : array of TStopwatch;
     AliveBoxUptexts, DeadBoxUptexts, CaughtBoxUptexts,
       TimedoutBoxUptexts, AliveBoxOptions, DeadBoxOptions,

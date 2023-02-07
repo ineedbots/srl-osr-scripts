@@ -183,6 +183,10 @@ begin
   Self.BadPlaceTrapTexts := ['You may set up only 4 traps at a time at your Hunter level.', 'You can''t lay a trap here.'];
   Self.BadTakeTrapTexts := ['This isn''t your trap.'];
 
+  Self.HunterTrapHeight := 1;
+
+  Self.ShrinkTileAmount := 10;
+
   // the box when its alive
   with Self.BoxColor do
   begin
@@ -238,6 +242,22 @@ begin
     FilterSize := Self.CaughtBoxColor.FilterSize;
     RadiusExpand := Self.CaughtBoxColor.RadiusExpand;
   end;
+
+
+  // might need to arrayify this so we can have GPS's in other places
+  // the anchor mainscreen object! used to boost accuracy
+  with Self.MainScreenAnchorColor do
+  begin
+    RSObject.Colors += CTS2(5210445, 15, 0.05, 0.22);
+    RSObject.Grow := 2;
+    RSObject.Erode := 1;
+    RSObject.ClusterDistance := 2;
+
+    FilterSize := 0;
+    RadiusExpand := 1;
+  end;
+  Self.MainScreenAnchorTile := [204, 109];
+  Self.MainScreenAnchorHeight := 1;
 
   
   // do login init stuff

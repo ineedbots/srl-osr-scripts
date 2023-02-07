@@ -25,7 +25,7 @@
 }
 function TBot.FindTrapTile(OurPos, TrapTile: TPoint; Height: Int32): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, TrapTile, Self.GetHeight(TrapTile) + 1 - Height);
+  Result := Self.RSW.GetTileMSEx(OurPos, TrapTile, Self.GetHeight(TrapTile) + Self.HunterTrapHeight - Height);
 end;
 
 {
@@ -163,13 +163,13 @@ end;
 {
   Interacts with the box
 }
-function TBot.InteractWithBox(B: TBox; Uptexts, Options: TStringArray): Boolean;
+function TBot.InteractWithBox(B: TBox; Uptexts, Options: TStringArray; Force: Boolean = False): Boolean;
 begin
   Script.WriteMsg('Checking caught box uptext', True);
   Mouse.Move(B);
   Script.RareSmallWait();
 
-  if not MainScreen.IsUpText(Uptexts, Random(100, 250)) then
+  if not Force and not MainScreen.IsUpText(Uptexts, Random(100, 250)) then
   begin
     Script.WriteMsg('HandleCaughtHunterTile: Bad uptext', True);
     exit();
@@ -231,7 +231,7 @@ begin
     if State = ECHTState.NOTHING then
     begin
       Tile := Self.FindTrapTile(OurTile, TP, Height);
-      Mouse.Move(Tile.Bounds());
+      Mouse.Move(Tile.Bounds().Expand(-MainScreen.ConvertDistance(Self.ShrinkTileAmount)));
       Result := True;
       break;
     end;
@@ -320,7 +320,7 @@ begin
       if not MainScreen.IsVisible(TileRect.Mean()) then
         continue;
 
-      Mouse.Move(TileRect.Bounds());
+      Mouse.Move(TileRect.Bounds().Expand(-MainScreen.ConvertDistance(Self.ShrinkTileAmount)));
       Script.RareSmallWait();
 
       if MainScreen.IsUpText(Self.BoxExistsUptexts) then
@@ -373,7 +373,8 @@ begin
   if not Self.WaitForNoItemUnderUs() then
     exit();
 
-  Self.AfterActionAntiBan(True);
+  if Random() < 0.2 then
+    Self.AfterActionAntiBan(True);
   Result := True;
 end;
 
@@ -390,7 +391,7 @@ begin
   if not Self.InteractWithBox(B, Self.CaughtBoxUptexts, Self.CaughtBoxOptions) then
   begin
     // try failsafe interaction
-    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions, True) then
       exit();
   end;
 
@@ -417,7 +418,8 @@ begin
   if not Self.WaitForNoItemUnderUs() then
     exit();
              
-  Self.AfterActionAntiBan(True);
+  if Random() < 0.2 then
+    Self.AfterActionAntiBan(True);
   Result := True;
 end;
 
@@ -434,7 +436,7 @@ begin
   if not Self.InteractWithBox(B, Self.DeadBoxUptexts, Self.DeadBoxOptions) then
   begin
     // try failsafe interaction
-    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions, True) then
       exit();
   end;
 
@@ -461,7 +463,8 @@ begin
   if not Self.WaitForNoItemUnderUs() then
     exit();
             
-  Self.AfterActionAntiBan(True);
+  if Random() < 0.2 then
+    Self.AfterActionAntiBan(True);
   Result := True;
 end;
 
@@ -474,7 +477,7 @@ begin
   if not Self.InteractWithBox(B, Self.TimedoutBoxUptexts, Self.TimedoutBoxOptions) then
   begin
     // try failsafe interaction
-    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions) then
+    if not Self.InteractWithBox(B, Self.FailsafeBoxUptexts, Self.FailsafeBoxOptions, True) then
       exit();
   end;
 
@@ -491,7 +494,8 @@ begin
   if not Self.WaitForNoItemUnderUs() then
     exit();
 
-  Self.AfterActionAntiBan(True);
+  if Random() < 0.2 then
+    Self.AfterActionAntiBan(True);
   Result := True;
 end;
 
@@ -655,8 +659,8 @@ begin
 
             if Self.FindTrap(OurTile, TP, Height, ItemLocs, B, State) then
             begin
-              if Self.InteractWithBox(B, Self.TimedoutBoxUptexts, [Self.TakeOption]) or
-                Self.InteractWithBox(B, Self.BoxExistsUptexts, Self.PickUpTrapOptions) then
+              if Self.InteractWithBox(B, Self.TimedoutBoxUptexts, [Self.TakeOption], True) or
+                Self.InteractWithBox(B, Self.BoxExistsUptexts, Self.PickUpTrapOptions, True) then
               begin
                 Self.WaitToStopMoving(Idx);
                 Wait(500, 1500, wdLeft);
