@@ -8,7 +8,7 @@
 {$DEFINE INEEDBOT_UTILS_BANK}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}

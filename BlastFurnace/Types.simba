@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_BLASTFURANCE_TYPES}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}

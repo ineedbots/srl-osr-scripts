@@ -8,7 +8,7 @@
 
 program ChinHunter;
 {$DEFINE SRL_USE_REMOTEINPUT}
-{$I SRL/OSR.simba}
+{$I SRL/osr.simba}
 
 {$F-}
 
@@ -180,8 +180,8 @@ begin
 
   Self.PickUpTrapOptions := [Self.TakeOption, 'Check', 'Dismantle'];
 
-  Self.BadPlaceTrapTexts := ['You may set up only 4 traps at a time at your Hunter level.', 'You can''t lay a trap here.'];
-  Self.BadTakeTrapTexts := ['This isn''t your trap.'];
+  Self.BadPlaceTrapTexts := ['You may', 'You can', 'You may set up only 4 traps at a time at your Hunter level.', 'You can''t lay a trap here.'];
+  Self.BadTakeTrapTexts := ['This isn', 'This isn''t your trap.'];
 
   Self.HunterTrapHeight := 1;
 

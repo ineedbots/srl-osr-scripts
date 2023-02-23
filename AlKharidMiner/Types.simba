@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_AKM_TYPES}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -21,7 +21,7 @@ type
   TBot = record
     Name                                                      : String;
     WalkedRockForward, Banking, ClickWhileWalking,
-      WalkerWasEarlySuccess, UsingBankFillers                 : Boolean;
+      WalkerWasEarlySuccess, UsingBankFillers, MODO           : Boolean;
     SelfBoxRadiusExpand                                       : Double;
     MineWaitTime, OresDone, WalkedRock, LastWalkedRock,
       DidMove, FailCount                                      : Int32;

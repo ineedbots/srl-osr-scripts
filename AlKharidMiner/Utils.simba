@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_AKM_UTILS}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -325,7 +325,7 @@ begin
   if Status <> '' then
     Script.SetStatus(Status);
 
-  if DoAB then
+  if DoAB and not Script.IsFocusing() then
     Self.DoAntiBan();
 
   Self.ReportConsole();
@@ -335,7 +335,39 @@ begin
   if RSClient.IsLoggedIn() then
     Script.CheckActivity();
 
-  Wait(Script.MainLoopWaitAmount(True));
+  if not Script.IsFocusing() then
+    Wait(Script.MainLoopWaitAmount(True));
+end;
+
+var __focusing_tp_cache: TPoint = [-1, -1];
+function TRSWalker.GetMyPos(): TPoint; override;
+begin
+  if (__focusing_tp_cache.X = -1) or not Script.IsFocusing() then
+    __focusing_tp_cache := inherited();
+
+  Result := __focusing_tp_cache;
+end;
+
+procedure StartFocusing();
+begin
+  Mouse.CanIdle := False;
+  Mouse.MissChance := 0;
+end;
+
+procedure StopFocusing();
+begin
+  Mouse.CanIdle := True;
+  Mouse.MissChance := 15;
+end;
+
+function ShouldStopFocusing(): Boolean;
+begin
+  Result := False;
+end;
+
+function ShouldStartFocusing(): Boolean;
+begin
+  Result := True;
 end;
 
 {$ENDIF} // INEEDBOT_AKM_UTILS

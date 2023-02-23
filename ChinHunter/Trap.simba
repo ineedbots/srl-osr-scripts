@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_CH_TRAP}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -675,7 +675,8 @@ begin
       end;
     end;
 
-    Self.DoMainLoopStuff('Hunting!', True);
+    if not Result then
+      Self.DoMainLoopStuff('Hunting!', True);
   end;
 end;
 

@@ -8,7 +8,7 @@
 
 program AlcherHelper;
 {$DEFINE SRL_USE_REMOTEINPUT}
-{$I SRL/OSR.simba}
+{$I SRL/osr.simba}
 
 {$F-}
 

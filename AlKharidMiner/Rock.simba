@@ -6,11 +6,11 @@
   Handles everything rock related
 }
 
-{$IFNDEF INEEDBOT_AKM_TREE}
-{$DEFINE INEEDBOT_AKM_TREE}
+{$IFNDEF INEEDBOT_AKM_ROCK}
+{$DEFINE INEEDBOT_AKM_ROCK}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -18,7 +18,8 @@
 {$include_once ../Utils/Utils.simba}
 
 {$include_once Types.simba}
-{$include_once Utils.simba}
+{$include_once Utils.simba}    
+{$include_once Misc.simba}
 
 {
   Finds the rock tile
@@ -98,6 +99,25 @@ begin
     // rock is dead; active the timer
     if Self.RockTimers[i].IsPaused() then
       Self.RockTimers[i].Resume();
+  end;
+end;
+
+{
+  Are there any?
+}
+function TBot.AnyOtherActiveRocks(RockTile, OurTile: TPoint): Boolean;
+var
+  TP: TPoint;
+  B: TBox;
+  ATPA: T2DPointArray;
+begin
+  for TP in Self.RockTiles do
+  begin
+    if RockTile = TP then
+      continue;
+
+    if Self.FindRock(OurTile, TP, B, ATPA) then
+      exit(True);
   end;
 end;
 
@@ -190,6 +210,7 @@ var
   CRockTiles, TPA: TPointArray;
   TT, MousePos: TPoint;
   ATPA: T2DPointArray;
+  i: Int32;
 begin
   if OurPos = Point(-1, -1) then
     OurPos := Self.RSW.GetMyPos();
@@ -242,24 +263,33 @@ begin
         B := TPA.Bounds();
 
         Mouse.Move(B);
-        Script.RareSmallWait();
 
-        if MainScreen.IsUpText(Self.RockUptexts, Random(100, 250)) then
+        if not Script.IsFocusing() then
+          Script.RareSmallWait();
+
+        i := Random(100, 250);
+        if Script.IsFocusing() then
+          i := 1;
+        if MainScreen.IsUpText(Self.RockUptexts, i) then
           break;
       end;
     end
     else
     begin
       Mouse.Move(B);
-      Script.RareSmallWait();
+
+      if not Script.IsFocusing() then
+        Script.RareSmallWait();
     end;
 
     Script.MouseLooksForUpText := [];
     Mouse.OnMoving := Script.OldMouseMovingCallback;
     Script.OldMouseMovingCallback := nil;
 
-
-    if not MainScreen.IsUpText(Self.RockUptexts, Random(100, 250)) then
+    i := Random(100, 250);
+    if Script.IsFocusing() then
+      i := 1;
+    if not MainScreen.IsUpText(Self.RockUptexts, i) then
     begin
       Script.WriteMsg('ClickRock: Bad uptext', True);
 
@@ -270,7 +300,10 @@ begin
     end;
 
     ClickPt := Mouse.Position();
-    if not MainScreen.IsUpText(Self.RockOptions, Random(100, 250)) or (Random() < 0.025) then
+    i := Random(100, 250);
+    if Script.IsFocusing() then
+      i := 1;
+    if not MainScreen.IsUpText(Self.RockOptions, i) or ((Random() < 0.025) and not Script.IsFocusing()) then
       WasClicked := ChooseOption.Select(Self.RockOptions)
     else
     begin
@@ -481,19 +514,22 @@ begin
   // Self.AfterActionAntiBan(True);
 
   // wait for us to stop moving before we start monitoring the tree tile.
-  while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
-    Self.DoMainLoopStuff('Going to clicked rock...', False);
+  if not Script.IsFocusing() then
+  begin
+    while RSClient.IsLoggedIn() and (Minimap.HasFlag() or Minimap.IsPlayerMoving()) do
+      Self.DoMainLoopStuff('Going to clicked rock...', False);
+  end;
 
   Self.UpdateWalkedRock(True);
 
   OurPos := Self.RSW.GetMyPos();
 
-  if Random() < 0.95 then
+  if (Random() < 0.95) or Script.IsFocusing() then
   begin
-  if InvCount < 27 then
+    if (InvCount < 27) and (not Self.MODO or Self.AnyOtherActiveRocks(RockTile, OurPos)) then
       Self.HoverNextRock(ClickPt, OurPos)
     else
-      Mouse.Move(Inventory.Bounds());
+      Mouse.Move(Inventory.GetSlotBox(SRL.SkewedRand(0, 0, 2)));
   end;
 
   // we timeout if we do not gain something into our inventory
@@ -551,11 +587,13 @@ begin
         break;
       end;
 
-      if IC <> InvCount then
+      if IC > InvCount then
       begin
         Script.WriteMsg('WhileMining: Got an item!', True);
         break;
-      end;
+      end
+      else if IC < InvCount then
+        Script.WriteMsg('WhileMining: Smaller inv count?', True);
       InvCount := IC;
 
       if TimeoutCounter.IsFinished() then
@@ -581,6 +619,12 @@ begin
   begin
     Self.DidMove := 0;
     Self.GoToRocks(True, False);
+  end;
+
+  if Self.MODO and not Self.Banking and (Random() < 0.95) then
+  begin
+    Self.DropItems(SRL.SkewedRand(1, 1, 3));
+    Self.HoverNextRock(ClickPt, OurPos);
   end;
 end;
 
@@ -611,4 +655,4 @@ begin
   end;
 end; 
 
-{$ENDIF} // INEEDBOT_AKM_TREE
+{$ENDIF} // INEEDBOT_AKM_ROCK

@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_AKM_MISC}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -25,13 +25,15 @@
 
   Part of this is from Flight's AIOFisher
 }
-function TBot.DropItems(): Boolean;
+function TBot.DropItems(MaxToDrop: Int32 = -1): Boolean;
 var
   Pattern, OreSlots: TIntegerArray;
   CurOres, i, S: Int32;
 begin
   Script.SetStatus('Dropping logs...');
-  Self.AfterActionAntiBan(True);
+
+  if not Script.IsFocusing() then
+    Self.AfterActionAntiBan(True);
 
   // query the fish
   Inventory.FindItems(Self.OreItems, OreSlots);
@@ -40,6 +42,8 @@ begin
 
   // choose a random drop pattern
   Pattern := Bank.GetGoodPattern();
+  if Script.IsFocusing() then
+    Pattern := DROP_PATTERN_REGULAR;
 
   // possibly not drop all logs, for antiban
   if SRL.Dice(20) then
@@ -51,6 +55,12 @@ begin
   for i := High(Pattern) downto Low(Pattern) do
     if OreSlots.Find(Pattern[i]) = -1 then
       Pattern.Remove(Pattern[i]);
+
+  if MaxToDrop <> -1 then
+  begin
+    if Length(Pattern) > MaxToDrop then
+      SetLength(Pattern, MaxToDrop);
+  end;
 
   S := Mouse.Speed;
   Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
@@ -68,7 +78,8 @@ begin
       else
         ChooseOption.Select('Drop');
 
-      Wait(0, 1000, wdLeft);
+      if not Script.IsFocusing() then
+        Wait(0, 1000, wdLeft);
     end;
   end;
   Mouse.Speed := S;
@@ -81,8 +92,9 @@ begin
 
   Script.SetStatus('Ores dropped!');
   Script.WriteMsg('Dropped ores... Currently mined ' + IntToStr(Self.OresDone) + ' ores!');
-  
-  Self.AfterActionAntiBan(True);
+
+  if not Script.IsFocusing() then
+    Self.AfterActionAntiBan(True);
 
   if not Inventory.IsFull() then
     Result := True;

@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_CH_UTILS}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}
@@ -106,10 +106,9 @@ begin
 
   // found the obj!
   TPA := ATPA.Biggest();
-  B := TPA.Bounds();
 
   // convert the mainscreen point to MM
-  Vec := MainScreen.PointToMM(B.Middle(), 0);
+  Vec := MainScreen.PointToMM(TPA.MinAreaRect().Mean(), 0);
   TP.X := Round(Vec.X);
   TP.Y := Round(Vec.Y);
 

@@ -8,7 +8,7 @@
 
 program AlKharidMiner;
 {$DEFINE SRL_USE_REMOTEINPUT}
-{$I SRL/OSR.simba}
+{$I SRL/osr.simba}
 
 {$F-}
 
@@ -68,7 +68,7 @@ begin
       if Login.LoginPlayer() then
         Self.OnLogin();
     end;
-    
+
     Self.DoMainLoopStuff('', False);
   end;
   
@@ -148,6 +148,11 @@ begin
   Mouse.Distribution      := MOUSE_DISTRIBUTION_GAUSS;
   ItemFinder.Similarity   := ITEMFINDER_SIMILARITY;
 
+  Script.AntiBanEnergy.StartedFocusing := StartFocusing;
+  Script.AntiBanEnergy.StoppedFocusing := StopFocusing;
+  Script.AntiBanEnergy.ShouldStartFocusing := ShouldStartFocusing;
+  Script.AntiBanEnergy.ShouldStopFocusing := ShouldStopFocusing;
+
   Script.AllowBreaks := True;
   Bank.FINDER_UPTEXT.Append('Deposit');
   Bank.FINDER_OPTION.Append('Deposit');
@@ -181,6 +186,7 @@ begin
   Self.RSW.ScreenWalk     := MSWALKING;
 
   Self.Banking := BANKORES;
+  Self.MODO := M1D1;
   Self.SelfBoxRadiusExpand := 1.3;
   
   // location specific stuff

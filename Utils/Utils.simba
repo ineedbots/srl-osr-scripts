@@ -10,7 +10,7 @@
 {$DEFINE INEEDBOT_UTILS}
 
 {$IFNDEF SRL_OSR}
-  {$I SRL/OSR.simba}
+  {$I SRL/osr.simba}
 {$ENDIF}
 
 {$F-}

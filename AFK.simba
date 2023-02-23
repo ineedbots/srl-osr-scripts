@@ -1,5 +1,5 @@
-{$DEFINE SRL_USE_REMOTEINPUT}
-{$I SRL/OSR.simba}
+{.$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/osr.simba}
 
 begin
   while 1 do
