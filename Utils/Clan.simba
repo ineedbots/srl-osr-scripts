@@ -1,0 +1,377 @@
+{
+  Util clan
+  Author: ineedbot
+  Date: 2/25/2023
+}
+
+{$IFNDEF INEEDBOT_UTILS_CLAN}
+{$DEFINE INEEDBOT_UTILS_CLAN}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/osr.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+type
+  ERSClanSubmenu = (
+    CHAT_CHANNEL,
+    YOUR_CLAN,
+    ANOTHER_CLAN,
+    GROUPING,
+    PVP_ARENA
+  );
+
+  ERSGroupings = (
+    BARBARIAN_ASSAULT,
+    BLAST_FURNACE,
+    BURTHORPE_GAMES_ROOM,
+    CASTLE_WARS,
+    CLAN_WARS,
+    DAGNNOTH_KINGS,
+    FISHING_TRAWLER,
+    GIANTS_FOUNDRY,
+    GOD_WARS,
+    GUARDIANS_OF_THE_RIFT,
+    LAST_MAN_STANDING,
+    NIGHTMARE_ZONE,
+    PEST_CONTROL,
+    PLAYER_OWNED_HOUSES,
+    RAT_PITS,
+    SHADES_OF_MORTTON,
+    SHIELD_OF_ARRAV,
+    SHOOTING_STARS,
+    SOUL_WARS,
+    THEATRE_OF_BLOOD,
+    TITHE_FARM,
+    TOMBS_OF_AMASCUT,
+    TROUBLE_BREWING,
+    TZHAAR_FIGHT_PIT,
+    VOLCANIC_MINE,
+    NONE
+  );
+
+  // the order getbuttons returns
+  ERSClanGroupButtons = (
+    PVP_ARENA_BTN,
+    JOIN_BTN,
+    TELEPORT_BTN
+  );
+
+  TRSClan = type TRSInterface;
+
+procedure TRSClan.Setup; override;
+begin
+  inherited();
+
+  Self.Name := 'Clan';
+end;
+
+procedure TRSClan.SetupAlignment(Mode: ERSClientMode); override;
+begin
+  inherited();
+
+  Self.Alignment.Left := [GameTab.X1, -3];
+  Self.Alignment.Right := [GameTab.X2, 3];
+  Self.Alignment.Top := [GameTab.Y1];
+  Self.Alignment.Bottom := [GameTab.Y2];
+end;
+
+function TRSClan.IsOpen: Boolean;
+begin
+  Result := (GameTabs.GetCurrentTab() = ERSGameTab.CLAN);
+end;
+
+function TRSClan.Open: Boolean;
+begin
+  Result := GameTabs.Open(ERSGameTab.CLAN);
+end;
+
+function TRSClan.GetButtons: TRSButtonArray;
+begin
+  if Self.GetOpenSubmenu() = ERSClanSubmenu.GROUPING then
+    Result := Self.FindButtons([[66, 18]]);
+end;
+
+function TRSClan.GetButton(Button: ERSClanGroupButtons): TRSButton;
+var
+  Buttons: TRSButtonArray := Self.GetButtons();
+begin
+  if not Self.OpenGroupingSubmenu() then
+    exit();
+
+  if (Length(Buttons) = Length(ERSClanGroupButtons)) then
+    Result := Buttons[Button];
+end;
+
+function TRSClan.GetOpenSubmenu(): ERSClanSubmenu;
+var
+  Test: String;
+  B: TBox;
+  ActiveColor, DeactiveColor: Int32;
+begin
+  if not Self.Open() then
+    exit();
+
+  Test := OCR.Recognize([Self.Bounds().X1 + 20, Self.Bounds().Y1 + 25,
+    Self.Bounds().X1 + 176, Self.Bounds().Y1 + 45],
+    TOCRColorRule.Create([2070783]),
+    RS_FONT_BOLD_12_SHADOW
+  );
+  Test := Test.Strip();
+
+  if Test = 'Grouping' then
+    exit(ERSClanSubmenu.GROUPING)
+  else if Test = 'PvP Arena' then
+    exit(ERSClanSubmenu.PVP_ARENA);
+
+  ActiveColor := 2700606;
+  DeactiveColor := 1975592;
+
+  B := [Self.Bounds().X1 + 5, Self.Bounds().Y1 + 8,
+    Self.Bounds().X1 + 10, Self.Bounds().Y1 + 13];
+  if SRL.CountColor(ActiveColor, B) > SRL.CountColor(DeactiveColor, B) then
+    exit(ERSClanSubmenu.CHAT_CHANNEL);
+
+  B := [Self.Bounds().X1 + 50, Self.Bounds().Y1 + 9,
+    Self.Bounds().X1 + 54, Self.Bounds().Y1 + 13];
+  if SRL.CountColor(ActiveColor, B) > SRL.CountColor(DeactiveColor, B) then
+    exit(ERSClanSubmenu.YOUR_CLAN);
+
+  B := [Self.Bounds().X1 + 97, Self.Bounds().Y1 + 8,
+    Self.Bounds().X1 + 101, Self.Bounds().Y1 + 12];
+  if SRL.CountColor(ActiveColor, B) > SRL.CountColor(DeactiveColor, B) then
+    exit(ERSClanSubmenu.ANOTHER_CLAN);
+end;
+
+function TRSClan.OpenGroupingSubmenu(): Boolean;
+begin
+  if not Self.Open() then
+    exit();
+
+  if Self.GetOpenSubmenu() = ERSClanSubmenu.GROUPING then
+    exit(True);
+
+  if Self.GetOpenSubmenu() = ERSClanSubmenu.PVP_ARENA then
+    Mouse.Click([Self.Bounds().X1 + 166, Self.Bounds().Y1 + 28,
+      Self.Bounds().X1 + 179, Self.Bounds().Y1 + 41], MOUSE_LEFT)
+  else
+    Mouse.Click([Self.Bounds().X1 + 143, Self.Bounds().Y1 + 6,
+      Self.Bounds().X1 + 176, Self.Bounds().Y1 + 20], MOUSE_LEFT);
+
+  Result := WaitUntil((Self.GetOpenSubmenu() = ERSClanSubmenu.GROUPING), 50, 5000);
+end;
+
+function TRSClan.IsGroupingDropdownOpen(): Boolean;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  Result := SRL.AvgBrightness([Self.Bounds().X1 + 171, Self.Bounds().Y1 + 55,
+    Self.Bounds().X1 + 173, Self.Bounds().Y1 + 57]) <= 10;
+end;
+
+function TRSClan.OpenGroupingDropdown(Open: Boolean = True): Boolean;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  if Self.IsGroupingDropdownOpen() = Open then
+    exit(True);
+
+  Mouse.Click([Self.Bounds().X1 + 167, Self.Bounds().Y1 + 51,
+    Self.Bounds().X1 + 180, Self.Bounds().Y1 + 63], MOUSE_LEFT);
+  Result := WaitUntil((Self.IsGroupingDropdownOpen() = Open), 50, 5000);
+end;
+
+function TRSClan.CurrentSelectedGrouping(): ERSGroupings;
+var
+  Test: String;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  Test := OCR.Recognize([Self.Bounds().X1 + 6, Self.Bounds().Y1 + 50,
+    Self.Bounds().X1 + 162, Self.Bounds().Y1 + 67],
+    TOCRColorRule.Create([2070783]),
+    RS_FONT_PLAIN_12
+  );
+  Test := Test.Strip();
+
+  case Test of
+    'Barbarian Assault': Result := ERSGroupings.BARBARIAN_ASSAULT;
+    'Blast Furnace': Result := ERSGroupings.BLAST_FURNACE;
+    'Burthorpe Games Room': Result := ERSGroupings.BURTHORPE_GAMES_ROOM;
+    'Castle Wars': Result := ERSGroupings.CASTLE_WARS;
+    'Clan Wars': Result := ERSGroupings.CLAN_WARS;
+    'Dagnnoth Kings': Result := ERSGroupings.DAGNNOTH_KINGS;
+    'Fishing Trawler': Result := ERSGroupings.FISHING_TRAWLER;
+    'Giants'' Foundry': Result := ERSGroupings.GIANTS_FOUNDRY;
+    'God Wars': Result := ERSGroupings.GOD_WARS;
+    'Guardians of the Rift': Result := ERSGroupings.GUARDIANS_OF_THE_RIFT;
+    'Last Man Standing': Result := ERSGroupings.LAST_MAN_STANDING;
+    'Nightmare Zone': Result := ERSGroupings.NIGHTMARE_ZONE;
+    'Pest Control': Result := ERSGroupings.PEST_CONTROL;
+    'Player Owned Houses': Result := ERSGroupings.PLAYER_OWNED_HOUSES;
+    'Rat Pits': Result := ERSGroupings.RAT_PITS;
+    'Shades of Mort''ton': Result := ERSGroupings.SHADES_OF_MORTTON;
+    'Shield of Arrav': Result := ERSGroupings.SHIELD_OF_ARRAV;
+    'Shooting Stars': Result := ERSGroupings.SHOOTING_STARS;
+    'Soul Wars': Result := ERSGroupings.SOUL_WARS;
+    'Theatre of Blood': Result := ERSGroupings.THEATRE_OF_BLOOD;
+    'Tithe Farm': Result := ERSGroupings.TITHE_FARM;
+    'Tombs of Amascut': Result := ERSGroupings.TOMBS_OF_AMASCUT;
+    'Trouble Brewing': Result := ERSGroupings.TROUBLE_BREWING;
+    'TzHaar Fight Pit': Result := ERSGroupings.TZHAAR_FIGHT_PIT;
+    'Volcanic Mine': Result := ERSGroupings.VOLCANIC_MINE;
+    'Select an activity...': Result := ERSGroupings.NONE;
+    else Result := ERSGroupings.NONE;
+  end;
+end;
+
+function TRSClan.ScrollToGrouping(Group: ERSGroupings; out B: TBox): Boolean;
+var
+  SBoxBottom,SBoxTop: TPoint;
+  Timeout: TCountDown;
+  s: String;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() or not Self.OpenGroupingDropdown(True) then
+    exit();
+
+  case Group of
+    ERSGroupings.BARBARIAN_ASSAULT: s := 'Barbarian Assault';
+    ERSGroupings.BLAST_FURNACE: s := 'Blast Furnace';
+    ERSGroupings.BURTHORPE_GAMES_ROOM: s := 'Burthorpe Games Room';
+    ERSGroupings.CASTLE_WARS: s := 'Castle Wars';
+    ERSGroupings.CLAN_WARS: s := 'Clan Wars';
+    ERSGroupings.DAGNNOTH_KINGS: s := 'Dagnnoth Kings';
+    ERSGroupings.FISHING_TRAWLER: s := 'Fishing Trawler';
+    ERSGroupings.GIANTS_FOUNDRY: s := 'Giants'' Foundry';
+    ERSGroupings.GOD_WARS: s := 'God Wars';
+    ERSGroupings.GUARDIANS_OF_THE_RIFT: s := 'Guardians of the Rift';
+    ERSGroupings.LAST_MAN_STANDING: s := 'Last Man Standing';
+    ERSGroupings.NIGHTMARE_ZONE: s := 'Nightmare Zone';
+    ERSGroupings.PEST_CONTROL: s := 'Pest Control';
+    ERSGroupings.PLAYER_OWNED_HOUSES: s := 'Player Owned Houses';
+    ERSGroupings.RAT_PITS: s := 'Rat Pits';
+    ERSGroupings.SHADES_OF_MORTTON: s := 'Shades of Mort''ton';
+    ERSGroupings.SHIELD_OF_ARRAV: s := 'Shield of Arrav';
+    ERSGroupings.SHOOTING_STARS: s := 'Shooting Stars';
+    ERSGroupings.SOUL_WARS: s := 'Soul Wars';
+    ERSGroupings.THEATRE_OF_BLOOD: s := 'Theatre of Blood';
+    ERSGroupings.TITHE_FARM: s := 'Tithe Farm';
+    ERSGroupings.TOMBS_OF_AMASCUT: s := 'Tombs of Amascut';
+    ERSGroupings.TROUBLE_BREWING: s := 'Trouble Brewing';
+    ERSGroupings.TZHAAR_FIGHT_PIT: s := 'TzHaar Fight Pit';
+    ERSGroupings.VOLCANIC_MINE: s := 'Volcanic Mine';
+    ERSGroupings.NONE: s := '(none)';
+    else s := '(none)';
+  end;
+
+  SBoxTop    := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y1+SRL.NormalRange(1,10)];
+  SBoxBottom := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y2];
+
+  // Bank.SetScrollPosition(0); Broken?
+  Mouse.Move(SBoxTop);
+  Mouse.Click(MOUSE_LEFT);
+
+  Mouse.Move(Self.GetScrollBar().Slider);
+  Mouse.Hold(MOUSE_LEFT);
+
+  Timeout.Init(15000);
+
+  ASyncMouse.Speed := SRL.NormalRange(3, 5);
+  ASyncMouse.Move(SBoxBottom);
+
+  while ASyncMouse.IsMoving() and not Timeout.IsFinished() do
+  begin
+    if (Self.GetScrollPosition() >= 100) or
+      (OCR.LocateText([Self.Bounds().X1 + 8, Self.Bounds().Y1 + 70,
+      Self.Bounds().X1 + 166, Self.Bounds().Y1 + 205],
+      s, RS_FONT_PLAIN_12, TOCRColorRule.Create([2070783]), B) >= 1) then
+      break;
+
+    Wait(35);
+  end;
+
+  ASyncMouse.Stop();
+
+  Mouse.Release(MOUSE_LEFT);
+  wait(SRL.NormalRange(200, 350));
+  Result := (OCR.LocateText([Self.Bounds().X1 + 8, Self.Bounds().Y1 + 70,
+      Self.Bounds().X1 + 166, Self.Bounds().Y1 + 205],
+      s, RS_FONT_PLAIN_12, TOCRColorRule.Create([2070783]), B) >= 1);
+end;
+
+function TRSClan.SelectGrouping(Group: ERSGroupings): Boolean;
+var
+  B: TBox;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  if Self.CurrentSelectedGrouping() = Group then
+    exit(True);
+
+  if not Self.OpenGroupingDropdown(True) then
+    exit();
+
+  if not Self.ScrollToGrouping(Group, B) then
+    exit();
+
+  Mouse.Click(B, MOUSE_LEFT);
+  Result := WaitUntil((Self.CurrentSelectedGrouping() = Group), 50, 5000);
+end;
+
+function TRSClan.PressTeleportButton(): Boolean;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  Result := Self.GetButton(ERSClanGroupButtons.TELEPORT_BTN).Click();
+end;
+
+function TRSClan.TeleportToGrouping(Group: ERSGroupings): Boolean;
+begin
+  if not Self.Open() or not Self.OpenGroupingSubmenu() then
+    exit();
+
+  if not Self.SelectGrouping(Group) then
+    exit();
+
+  if not Self.PressTeleportButton() then
+    exit();
+
+  Result := True;
+end;
+
+var
+  Clan: TRSClan;
+
+procedure TRSClient.ClientModeChanged; override;
+begin
+  inherited();
+
+  Clan.SetupAlignment(Self.Mode);
+end;
+
+procedure TSRL.Setup; override;
+begin
+  inherited();
+
+  Clan.Setup();
+end;
+
+procedure TSRL.Debug(Bitmap: TMufasaBitmap); override;
+begin
+  inherited(Bitmap);
+
+  Clan.Draw(Bitmap);
+end;
+
+
+{$ENDIF} // INEEDBOT_UTILS_CLAN
+
