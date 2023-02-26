@@ -18,8 +18,9 @@
 {$include_once Types.simba}
 {$include_once Antiban.simba}
 {$include_once Bank.simba}
-{$include_once DepositBox.simba} 
+{$include_once DepositBox.simba}
 {$include_once Clan.simba}
+{$include_once Store.simba}
 
 {
   Debug to a SRL debug image
