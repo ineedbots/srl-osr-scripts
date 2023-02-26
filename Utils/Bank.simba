@@ -405,7 +405,7 @@ end;
 {
   From SRL-F; fixes fixed screen itemboxes being off
 }
-function TRSBank.GetSlotBoxes: TBoxArray; override;
+function TRSBank.GetSlotBoxes(): TBoxArray; override;
 begin
   Result := Grid(8, ((Self.Height() - 135) div 36)+1, 31, 31, [17, 5], [Self.X1() + 57, Self.Y1() + 77]);
 end;

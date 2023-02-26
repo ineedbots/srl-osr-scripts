@@ -21,6 +21,9 @@
 {$include_once DepositBox.simba}
 {$include_once Clan.simba}
 {$include_once Store.simba}
+{$include_once SmithScreen.simba}
+//{$include_once CraftScreen.simba}
+//{$include_once SilverScreen.simba}
 
 {
   Debug to a SRL debug image
@@ -292,7 +295,7 @@ end;
 {
   Fixes runelite plugin
 }
-function TRSMinimap.GetHPCircle: TCircle; override;
+function TRSMinimap.GetHPCircle(): TCircle; override;
 begin
   Result := [Self.X1() + Self.HitpointsCircleOffset.X, Self.Y1() + Self.HitpointsCircleOffset.Y, 11];
 end;
@@ -300,7 +303,7 @@ end;
 {
   Fixes the color
 }
-function TRSMinimap.IsRunEnabled: Boolean; override;
+function TRSMinimap.IsRunEnabled(): Boolean; override;
 begin
   Result := SRL.CountColor(CTS2(4606022, 8, 2.24, 0.11), Self.GetRunCircle().Bounds()) <= 50;
 end;
@@ -579,7 +582,7 @@ end;
 {
   Flight's fix for xpbar!
 }
-function TRSXPBar.IsOpen: Boolean; override;
+function TRSXPBar.IsOpen(): Boolean; override;
 
   function FindBorder(): Boolean;
   const
@@ -1150,7 +1153,7 @@ end;
   From SRL-F;
   Fixes a problem where fixed mode is off
 }
-function TRSInventory.GetSlotBoxes: TBoxArray; override;
+function TRSInventory.GetSlotBoxes(): TBoxArray; override;
 begin
   Result := Grid(4, 7, 34, 34, [8, 2], [Self.X1() + 13, Self.Y1() + 9]);
 end;
@@ -1159,7 +1162,7 @@ end;
   From SRL-F
   Fixes color
 }
-function TRSMagic.GetSpellBook: ERSSpellBook; override;
+function TRSMagic.GetSpellBook(): ERSSpellBook; override;
 const
   ARCEUUS_COLOR := CTS1(14931312, 25); // Colors of the book on the gametab
   ANCIENT_COLOR := CTS1(8273495, 27);

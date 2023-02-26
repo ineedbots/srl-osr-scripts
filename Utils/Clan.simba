@@ -63,7 +63,7 @@ type
 
   TRSClan = type TRSInterface;
 
-procedure TRSClan.Setup; override;
+procedure TRSClan.Setup(); override;
 begin
   inherited();
 
@@ -80,17 +80,17 @@ begin
   Self.Alignment.Bottom := [GameTab.Y2];
 end;
 
-function TRSClan.IsOpen: Boolean;
+function TRSClan.IsOpen(): Boolean;
 begin
   Result := (GameTabs.GetCurrentTab() = ERSGameTab.CLAN);
 end;
 
-function TRSClan.Open: Boolean;
+function TRSClan.Open(): Boolean;
 begin
   Result := GameTabs.Open(ERSGameTab.CLAN);
 end;
 
-function TRSClan.GetButtons: TRSButtonArray;
+function TRSClan.GetButtons(): TRSButtonArray;
 begin
   if Self.GetOpenSubmenu() = ERSClanSubmenu.GROUPING then
     Result := Self.FindButtons([[66, 18]]);
@@ -351,14 +351,14 @@ end;
 var
   Clan: TRSClan;
 
-procedure TRSClient.ClientModeChanged; override;
+procedure TRSClient.ClientModeChanged(); override;
 begin
   inherited();
 
   Clan.SetupAlignment(Self.Mode);
 end;
 
-procedure TSRL.Setup; override;
+procedure TSRL.Setup(); override;
 begin
   inherited();
 

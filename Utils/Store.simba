@@ -19,7 +19,7 @@
 type
   TRSStore = type TRSTitledInteface;
 
-procedure TRSStore.Setup; override;
+procedure TRSStore.Setup(); override;
 begin
   inherited();
 
@@ -53,12 +53,12 @@ begin
   end;
 end;
 
-function TRSStore.GetItemBoxes: TBoxArray;
+function TRSStore.GetItemBoxes(): TBoxArray;
 begin
   Result := Grid(8, 5, 35, 32, [12, 16], [Self.X1() + 61, Self.Y1() + 40])
 end;
 
-function TRSStore.IsOpen: Boolean; overload;
+function TRSStore.IsOpen(): Boolean; overload;
 var
   B: TBox;
   Txt: String;
@@ -147,14 +147,14 @@ end;
 var
   Store: TRSStore;
 
-procedure TRSClient.ClientModeChanged; override;
+procedure TRSClient.ClientModeChanged(); override;
 begin
   inherited();
 
   Store.SetupAlignment(Self.Mode);
 end;
 
-procedure TSRL.Setup; override;
+procedure TSRL.Setup(); override;
 begin
   inherited();
 
