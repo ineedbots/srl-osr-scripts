@@ -14,6 +14,7 @@
 {$ENDIF}
 
 {$F-}
+{$SCOPEDENUMS ON}
 
 {$include_once Types.simba}
 {$include_once Antiban.simba}
@@ -22,8 +23,8 @@
 {$include_once Clan.simba}
 {$include_once Store.simba}
 {$include_once SmithScreen.simba}
-//{$include_once CraftScreen.simba}
-//{$include_once SilverScreen.simba}
+{$include_once CraftScreen.simba}
+{$include_once SilverScreen.simba}
 
 {
   Debug to a SRL debug image
