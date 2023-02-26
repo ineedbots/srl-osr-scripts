@@ -273,7 +273,7 @@ begin
     Self.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
 
   Result := True;
-end
+end;
 
 {
   Deposits our inv into the bank
