@@ -1,0 +1,340 @@
+{
+  Util depositbox
+  Author: ineedbot
+  Date: 2/25/2023
+}
+
+{$IFNDEF INEEDBOT_UTILS_DEPOSITBOX}
+{$DEFINE INEEDBOT_UTILS_DEPOSITBOX}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/osr.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+const
+  DEPOSITBOX_DEPOSIT_ALL  = -1;
+
+type
+  TRSDepositBoxItem = record
+    Item: TRSItem;
+    Quantity: Int32;
+  end;
+
+{
+  From SRL-F
+}
+function TRSDepositBox.IsCustomQuantity(Quantity: Int32): Boolean;
+begin
+  Result := not (Quantity in [1, 5, 10, DEPOSITBOX_DEPOSIT_ALL]);
+end;
+
+{
+  From SRL-F
+}
+function TRSDepositBox.CountItem(Item: TRSItem): Int32;
+var
+  Slots: TIntegerArray;
+begin
+  if Self.FindItem(Item, Slots) then
+    Result := Length(Slots);
+end;
+
+{
+  From SRL-F
+}
+function TRSDepositBox.CountItemStack(Item: TRSItem): Int32;
+var
+  Slot: Int32;
+begin
+  if Self.FindItem(Item, Slot) then
+    Result := SRL.GetItemAmount(Self.GetSlotBox(Slot));
+end;
+
+{
+  From SRL-F
+}
+function TRSDepositBox.DepositHelper(B: TBox; Amount: Int32; UseQuantityButtons: Boolean): Boolean;
+var
+  Button: TRSButton;
+begin
+  if UseQuantityButtons then
+  begin
+    if Self.IsCustomQuantity(Amount) then
+    begin
+      Button := Self.GetButton(ERSDepositButton.QUANTITY_CUSTOM);
+
+      if Button.Enable() then
+      begin
+        Mouse.Move(B);
+
+        if MainScreen.IsUpText('Deposit-' + ToString(Amount)) then
+        begin
+          Mouse.Click(MOUSE_LEFT);
+
+          Result := True;
+        end else
+          Result := ChooseOption.Select('Deposit-X') and Chat.AnswerQuery('Enter amount', ToString(Amount), Random(2000, 4000));
+      end;
+    end else
+    begin
+      case Amount of
+        1:  Button := Self.GetButton(ERSDepositButton.QUANTITY_1);
+        5:  Button := Self.GetButton(ERSDepositButton.QUANTITY_5);
+        10: Button := Self.GetButton(ERSDepositButton.QUANTITY_10);
+        else
+            Button := Self.GetButton(ERSDepositButton.QUANTITY_ALL)
+      end;
+
+      if Button.Enable() then
+      begin
+        Result := True;
+
+        Mouse.Click(B, MOUSE_LEFT);
+      end;
+    end;
+  end else
+  begin
+    Mouse.Move(B);
+
+    if (Amount = DEPOSITBOX_DEPOSIT_ALL) then
+      Result := ChooseOption.Select('Deposit-All')
+    else
+      Result := ChooseOption.Select('Deposit-' + ToString(Amount) + ' ', MOUSE_LEFT, True, False) or
+                ChooseOption.Select('Deposit-X') and Chat.AnswerQuery('Enter amount', ToString(Amount), Random(2000, 2500));
+  end;
+end;
+
+{
+  deposits
+}
+function TRSDepositBox.DepositSlot(Item: TRSBankDepositSlot; UseQuantityButtons: Boolean): Boolean;
+begin
+  Result := Self.DepositHelper(Inventory.GetSlotBox(Item.Slot), Item.Quantity, UseQuantityButtons);
+end;
+
+{
+  Find the items!
+}
+function TRSDepositBox.FindItems(Items: TRSItemArray; out Slots: TIntegerArray): Boolean;
+var
+  Item: TRSItem;
+begin
+  if not Self.IsOpen() then
+    exit();
+
+  for Item in Items do
+    Slots += ItemFinder.Find(Item, Self.GetSlotBoxes());
+
+  Result := Length(Slots) > 0;
+end;
+
+{
+  Find the items
+}
+function TRSDepositBox.FindItems(Items: TRSItemArray): Boolean; overload;
+var
+  Slots: TIntegerArray;
+begin
+  Result := Self.FindItems(Items, Slots);
+end;
+
+{
+  Find the items
+}
+function TRSDepositBox.FindItem(Item: TRSItem; out Slots: TIntegerArray): Boolean; overload;
+begin
+  Result := Self.FindItems([Item], Slots);
+end;
+
+{
+  Find the items
+}
+function TRSDepositBox.FindItem(Item: TRSItem; out Slot: Int32): Boolean; overload;
+var
+  Slots: TIntegerArray;
+begin
+  Result := Self.FindItems([Item], Slots);
+
+  if Result then
+    Slot := Slots[0];
+end;
+
+{
+  Find the items
+}
+function TRSDepositBox.FindItem(Item: TRSItem): Boolean; overload;
+var
+  Slots: TIntegerArray;
+begin
+  Result := Self.FindItems([Item], Slots);
+end;
+
+{
+  Get the slot box for the deposit box
+}
+function TRSDepositBox.GetSlotBox(Slot: Int32): TBox;
+begin
+  Result := Self.GetSlotBoxes()[Slot];
+end;
+
+{
+  Is the depositbox slot in use?
+}
+function TRSDepositBox.IsSlotUsed(B: TBox): Boolean; overload;
+begin
+  Result := Inventory.IsSlotUsed(B);
+end;
+
+{
+  Count items in box
+}
+function TRSDepositBox.Count(): Int32;
+var
+  TBA: TBoxArray;
+  B: TBox;
+begin
+  TBA := Self.GetSlotBoxes();
+
+  for B in TBA do
+  begin
+    if Self.IsSlotUsed(B) then
+      Inc(Result);
+  end;
+end;
+
+{
+  Isfull
+}
+function TRSDepositBox.IsFull(): Boolean;
+begin
+  Result := Self.Count() >= 28;
+end;
+
+{
+  Is the depositbox slot in use?
+}
+function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
+begin
+  Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
+end;
+
+{
+  Depsoitbox
+}
+function TRSDepositBox.DepositAll(): Boolean;
+begin
+  Result := Self.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
+end;
+
+{
+  Returns true when the inventory changed
+}
+function TRSDepositBox.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
+var
+  T: TCountDown;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  if C = -1 then
+    C := Self.Count();
+
+  T.Init(WaitTime);
+  while RSClient.IsLoggedIn() do
+  begin
+    if T.IsFinished() then
+      break;
+
+    if C <> Self.Count() then
+      exit(True);
+
+    Wait(Interval);
+  end;
+end;
+
+{
+  Uses the deposit button
+}
+function TRSDepositBox.DepositAllItems(WaitForItems: Boolean = True): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Self.Count();
+
+  if not Self.DepositAll() then
+    exit();
+
+  if WaitForItems then
+    Self.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  Result := True;
+end
+
+{
+  Deposits our inv into the bank
+}
+function TRSDepositBox.DepositItemsIntoBank(Pattern: TIntegerArray; CurProducts: Int32 = 28; Amount: Int32 = -2; WaitForItems: Boolean = True): Boolean;
+var
+  i, IC, QuantityAmount: Int32;
+  UsingButton, Depod: Boolean;
+  R: Double;
+begin
+  IC := Self.Count();
+  for i in Pattern do
+  begin
+    if Self.IsSlotUsed(Self.GetSlotBox(i)) then
+    begin
+      UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+      if Amount = -2 then
+      begin
+        R := SRL.TruncatedGauss(0.0, 1.0);
+        case R of
+          0.0..0.5: QuantityAmount := DEPOSITBOX_DEPOSIT_ALL;
+          0.5..0.6: QuantityAmount := CurProducts;
+          0.6..0.7: QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+          0.7..0.8: QuantityAmount := 10;
+          0.8..0.9: QuantityAmount := 5;
+          else QuantityAmount := 1;
+        end;
+      end
+      else
+        QuantityAmount := Amount;
+
+      if Self.DepositSlot([i, QuantityAmount], UsingButton) then
+      begin
+        Depod := True;
+
+        if WaitForItems then
+          Wait(SRL.SkewedRand(1000, 500, 2500));
+      end
+      else
+      begin
+        Bank.FixUpText();
+        if Self.DepositSlot([i, QuantityAmount], UsingButton) then
+        begin
+          Depod := True;
+
+          if WaitForItems then
+            Wait(SRL.SkewedRand(1000, 500, 2500));
+        end;
+      end;
+    end;
+  end;
+
+  if Depod and WaitForItems then
+    Self.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  if Self.IsFull() and Depod then
+    exit();
+
+  Result := True;
+end;
+
+{$ENDIF} // INEEDBOT_UTILS_DEPOSITBOX
+

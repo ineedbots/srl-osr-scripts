@@ -13,8 +13,7 @@
 
 {$F-}
 
-{$include_once Types.simba}  
-{$include_once Bank.simba}
+{$include_once Types.simba}
 {$include_once Utils.simba}
 
 {
@@ -537,6 +536,42 @@ begin
   end;
 
   Result := SRL.SkewedRand(Self.SleepRate, 50, Large);
+end;
+
+{
+  Returns a good antiban inv slot seq
+}
+function TRSInventory.GetGoodPattern(): TIntegerArray;
+var
+  R: Double;
+begin
+  if Random() < 0.333 then
+  begin
+    Result := Self.ErrorPattern(Self.RandomPattern());
+    exit();
+  end;
+
+  // randomize the deposit pattern
+  R := Random();
+  if R < 0.1 then
+    Result := Self.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
+  else if inRange(R, 0.1, 0.35) then
+    Result := Self.ErrorPattern(DROP_PATTERN_SNAKE, 5)
+  else
+    Result := Self.ErrorPattern(DROP_PATTERN_MKEYS, 5);
+end;
+
+{
+  Shortens the pattern
+}
+function TRSInventory.ChopPattern(Pattern: TIntegerArray): TIntegerArray;
+begin
+  if SRL.Dice(20) then
+    SetLength(Pattern, Random(Length(Pattern)));
+  if SRL.Dice(20) then
+    Pattern := Copy(Pattern, Random(Length(Pattern)));
+
+  Result := Pattern;
 end;
 
 {

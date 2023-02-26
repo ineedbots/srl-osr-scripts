@@ -17,6 +17,8 @@
 
 {$include_once Types.simba}
 {$include_once Antiban.simba}
+{$include_once Bank.simba}
+{$include_once DepositBox.simba}
 
 {
   Debug to a SRL debug image
@@ -42,6 +44,7 @@ begin
   if Self = Script.DebugImage then
   begin
     Script.DebugImage.Debug();
+    DisplayDebugImgWindow(Script.DebugImage.getWidth(), Script.DebugImage.getHeight());
     Script.DebugImage.FromClient();
   end
   else
@@ -56,6 +59,7 @@ begin
   if Self = Script.DebugImage then
   begin
     Script.DebugImage.Debug();
+    DisplayDebugImgWindow(Script.DebugImage.getWidth(), Script.DebugImage.getHeight());
     Script.DebugImage.FromClient(Area);
   end
   else
@@ -470,42 +474,6 @@ begin
       Mouse.Click(MOUSE_LEFT);
 
       Result := True;
-    end;
-  end;
-end;
-
-{
-  Fixes bankpin problem where the bounds it too small and the number is outside the search area
-}
-function TRSBankPin.ClickDigit(Digit: Char): Boolean; override;
-var
-  Buttons: TRSButtonArray;
-  Hovering: Boolean;
-  I: Int32;
-begin
-  if not Self.IsOpen() then
-    exit();
-
-  Buttons := Self.GetButtons();
-
-  if Length(Buttons) = 10 then
-  begin
-    for I := 0 to High(Buttons) do
-    begin
-      if OCR.LocateText(Buttons[i].Bounds.Expand(5), Digit, RS_FONT_BOLD_12, TOCRColorRule.Create([$007FFF]), 1) then
-      begin
-        Mouse.Click(Buttons[I].Bounds, MOUSE_LEFT);
-        exit(True);
-      end
-      else if Buttons[i].Bounds.Expand(5).Contains(Mouse.Position()) then
-        Hovering := True;
-    end;
-
-    // Already hovering
-    if Hovering then
-    begin
-      Mouse.Click(MOUSE_LEFT);
-      exit(True);
     end;
   end;
 end;
@@ -1264,6 +1232,36 @@ begin
     KeyUp(VK_Left);
     KeyUp(VK_Right);
   end;
+end;
+
+{
+  Uses an epsi for north to be 0
+}
+function TRSMinimap.GetCompassAngle(AsDegrees: Boolean = True): Double; override;
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  South: Vector2;
+begin
+  with GetCompassCircle() do
+    if SRL.FindColors(TPA, CTS1(2565532, 50), Bounds()) then // red
+    begin
+      FilterPointsDist(TPA, 0, Radius, X,Y);
+      ATPA := TPA.Split(5);
+      ATPA.SortByMiddle(ATPA.Biggest().Mean());
+
+      South := ATPA[High(ATPA)].MeanEx();
+
+      Result := FixRad(ArcTan2(South.Y - Y, South.X - X) - (PI / 2));
+      if Abs(Result) > (6.1257422745431E-17 + 0.2E-17) then
+      begin
+	      Result += 0.0333; // compass dial is floored.. this makes us more accurate.
+        if AsDegrees then
+          Result := Degrees(Result);
+      end
+      else
+        Result := 0;
+    end;
 end;
 
 {

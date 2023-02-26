@@ -75,8 +75,8 @@ type
 }
 procedure TScript.Free();
 begin
-  if DebugImage <> nil then
-    DebugImage.Free();
+  if Self.DebugImage <> nil then
+    Self.DebugImage.Free();
 end;
 
 var

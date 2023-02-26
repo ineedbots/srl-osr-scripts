@@ -17,81 +17,7 @@
 {$include_once Utils.simba}
 
 {
-  Find the items!
-}
-function TRSDepositBox.FindItems(Items: TRSItemArray; out Slots: TIntegerArray): Boolean;
-var
-  Item: TRSItem;
-begin
-  if not Self.IsOpen() then
-    exit();
-
-  for Item in Items do
-    Slots += ItemFinder.Find(Item, Self.GetSlotBoxes());
-
-  Result := Length(Slots) > 0;
-end;
-
-{
-  Find the items
-}
-function TRSDepositBox.FindItems(Items: TRSItemArray): Boolean; overload;
-var
-  Slots: TIntegerArray;
-begin
-  Result := Self.FindItems(Items, Slots);
-end;
-
-{
-  Get the slot box for the deposit box
-}
-function TRSDepositBox.GetSlotBox(Slot: Int32): TBox;
-begin
-  Result := Self.GetSlotBoxes()[Slot];
-end;
-
-{
-  Is the depositbox slot in use?
-}
-function TRSDepositBox.IsSlotUsed(B: TBox): Boolean; overload;
-begin
-  Result := Inventory.IsSlotUsed(B);
-end;
-
-{
-  Count items in box
-}
-function TRSDepositBox.Count(): Int32;
-var
-  TBA: TBoxArray;
-  B: TBox;
-begin
-  TBA := Self.GetSlotBoxes();
-
-  for B in TBA do
-  begin
-    if Self.IsSlotUsed(B) then
-      Inc(Result);
-  end;
-end;
-
-{
-  Is the depositbox slot in use?
-}
-function TRSDepositBox.IsSlotUsed(Slot: Int32): Boolean; overload;
-begin
-  Result := Self.IsOpen() and Self.IsSlotUsed(Self.GetSlotBox(Slot));
-end;
-
-{
-  Depsoitbox
-}
-function TRSDepositBox.DepositAll: Boolean;
-begin
-  Result := Self.GetButton(ERSDepositButton.DEPOSIT_INVENTORY).Click();
-end;
-
-{
+  Prevent auto input and fatal of bankpin
   Fixes the problem with uptext covering the bank interface, only when the bank tag plugin is used on runelite
 }
 function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
@@ -100,6 +26,9 @@ var
   Fix: Boolean;
   RearrangeText: String;
 begin
+  if BankPin.IsOpen() then
+    exit();
+
   // fixes the issue where uptext can cover the button, making isopen fail
   if (MainScreen.GetUpText() <> '') then
   begin
@@ -112,18 +41,6 @@ begin
 
   if Fix then
     exit(True);
-
-  Result := inherited(WaitForItems);
-end;
-
-{
-  NO!
-  Prevent auto input and fatal of bankpin
-}
-function TRSBank.IsOpen(WaitForItems: Boolean = True): Boolean; override;
-begin
-  if BankPin.IsOpen() then
-    exit();
 
   Result := inherited(WaitForItems);
 end;
@@ -172,23 +89,6 @@ begin
 end;
 
 {
-  Returns a good antiban inv slot seq
-}
-function TRSBank.GetGoodPattern(): TIntegerArray;
-var
-  R: Double;
-begin
-  // randomize the deposit pattern
-  R := Random();
-  if R < 0.1 then
-    Result := Inventory.ErrorPattern(DROP_PATTERN_TOPDOWN, 5)
-  else if inRange(R, 0.1, 0.35) then
-    Result := Inventory.ErrorPattern(DROP_PATTERN_SNAKE, 5)
-  else
-    Result := Inventory.ErrorPattern(DROP_PATTERN_MKEYS, 5);
-end;
-
-{
   Find bank item
 }
 function TRSBank.FindBankItem(Item: TRSItem; out B: TBox): Boolean;
@@ -199,20 +99,32 @@ begin
   for i := 0 to 3 do
   begin
     if Self.FindItem(Item, B) then
-    begin
-      Result := True;
-      break;
-    end;
+      exit(True);
 
     // fix the uptext and chooseoption menu
     Self.FixUpText();
 
     // find it again
     if Self.FindItem(Item, B) then
-    begin
-      Result := True;
-      break;
-    end;
+      exit(True);
+  end;
+
+  // try scroll to the item
+  if not Result and not Self.ScrollToItem(Item) then
+    exit();
+
+  // try one last time
+  for i := 0 to 3 do
+  begin
+    if Self.FindItem(Item, B) then
+      exit(True);
+
+    // fix the uptext and chooseoption menu
+    Self.FixUpText();
+
+    // find it again
+    if Self.FindItem(Item, B) then
+      exit(True);
   end;
 end;
 
@@ -278,7 +190,82 @@ begin
 end;
 
 {
+  withdraw item from bank
+}
+function TRSBank.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False; AllAmount: Int32 = 28; WaitForItems: Boolean = True): Boolean;
+var
+  IC, QuantityAmount, i: Int32;
+  UsingButton, Withdrew: Boolean;
+  R: Double;
+begin
+  IC := Inventory.Count();
+  for i := 0 to 5 do
+  begin
+    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+
+    if Amount = -3 then
+    begin
+      R := SRL.TruncatedGauss(0.0, 1.0);
+      if not UsingButton and inRange(R, 0.4, 0.6) then
+        QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
+      else
+      begin
+        case R of
+          0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
+          0.6..0.8: QuantityAmount := AllAmount;
+          else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
+        end;
+      end;
+    end
+    else
+      QuantityAmount := Amount;
+
+    if Self.WithdrawHelper(B, QuantityAmount, Noted, UsingButton) then
+    begin
+      Withdrew := True;
+
+      if WaitForItems then
+        Wait(SRL.SkewedRand(1000, 500, 2500));
+
+      break;
+    end
+    else
+      Self.FixUpText();
+  end;
+
+  if not Withdrew then
+    exit();
+
+  if WaitForItems then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  Result := True;
+end;
+
+{
+  Uses the deposit button
+}
+function TRSBank.DepositAllItems(WaitForItems: Boolean = True): Boolean;
+var
+  IC: Int32;
+begin
+  IC := Inventory.Count();
+
+  if not Self.DepositAll() then
+    exit();
+
+  if WaitForItems then
+    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+
+  Result := True;
+end;
+
+{
   Fixes problems with buttons
+  Withdrawing with use of quantity buttons enabled with a custom quantity doesn't work.
+  What happens is that it'll click the custom quantity button, the Enter amount: may appear, it'll then right click the item on the bank to withdraw and select Withdraw-X, which will open another Enter amount:.
+  But since the Enter amount: is already opened from before, it'll start typing the quantity. BUT the second Enter amount: will appear, overwriting what it types, breaking it.
+  Need to check if the Enter amount: is opened when it presses the X quantity button
 }
 function TRSBank.WithdrawHelper(B: TBox; Amount: Int32; Noted: Boolean; UseQuantityButtons: Boolean): Boolean; override;
 var
@@ -380,118 +367,158 @@ begin
 end;
 
 {
-  withdraw item from bank
+  Fixes bankpin problem where the bounds it too small and the number is outside the search area
 }
-function TRSBank.WithdrawItemFromBank(B: TBox; Amount: Int32 = -3; Noted: Boolean = False; AllAmount: Int32 = 28; WaitForItems: Boolean = True): Boolean;
+function TRSBankPin.ClickDigit(Digit: Char): Boolean; override;
 var
-  IC, QuantityAmount, i: Int32;
-  UsingButton, Withdrew: Boolean;
-  R: Double;
+  Buttons: TRSButtonArray;
+  Hovering: Boolean;
+  I: Int32;
 begin
-  IC := Inventory.Count();
-  for i := 0 to 5 do
-  begin
-    UsingButton := (SRL.TruncatedGauss(0.0, 1.0) < 0.5);
+  if not Self.IsOpen() then
+    exit();
 
-    if Amount = -3 then
+  Buttons := Self.GetButtons();
+
+  if Length(Buttons) = 10 then
+  begin
+    for I := 0 to High(Buttons) do
     begin
-      R := SRL.TruncatedGauss(0.0, 1.0);
-      if not UsingButton and inRange(R, 0.4, 0.6) then
-        QuantityAmount := BANK_WITHDRAW_ALL_BUT_ONE
-      else
+      if OCR.LocateText(Buttons[i].Bounds.Expand(5), Digit, RS_FONT_BOLD_12, TOCRColorRule.Create([$007FFF]), 1) then
       begin
-        case R of
-          0.0..0.6: QuantityAmount := BANK_WITHDRAW_ALL;
-          0.6..0.8: QuantityAmount := AllAmount;
-          else QuantityAmount := SRL.SkewedRand(500, 28, 99999);
-        end;
-      end;
-    end
-    else
-      QuantityAmount := Amount;
+        Mouse.Click(Buttons[I].Bounds, MOUSE_LEFT);
+        exit(True);
+      end
+      else if Buttons[i].Bounds.Expand(5).Contains(Mouse.Position()) then
+        Hovering := True;
+    end;
 
-    if Self.WithdrawHelper(B, QuantityAmount, Noted, UsingButton) then
+    // Already hovering
+    if Hovering then
     begin
-      Withdrew := True;
-
-      if WaitForItems then
-        Wait(SRL.SkewedRand(1000, 500, 2500));
-
-      break;
-    end
-    else
-      Self.FixUpText();
-  end;
-
-  if not Withdrew then
-    exit();
-
-  if WaitForItems then
-    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
-
-  Result := True;
-end;
-
-{
-  Uses the deposit button
-}
-function TRSBank.DepositAllItems(WaitForItems: Boolean = True): Boolean;
-var
-  IC: Int32;
-begin
-  IC := Inventory.Count();
-
-  if not Self.DepositAll() then
-    exit();
-
-  if WaitForItems then
-    Inventory.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
-
-  Result := True;
-end;
-
-{
-  Returns true when the inventory changed
-}
-function TRSDepositBox.WaitChange(C: Int32 = -1; WaitTime: Int32 = 1000; Interval: Int32 = -1): Boolean;
-var
-  T: TCountDown;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 1500);
-
-  if C = -1 then
-    C := Self.Count();
-
-  T.Init(WaitTime);
-  while RSClient.IsLoggedIn() do
-  begin
-    if T.IsFinished() then
-      break;
-
-    if C <> Self.Count() then
+      Mouse.Click(MOUSE_LEFT);
       exit(True);
-
-    Wait(Interval);
+    end;
   end;
 end;
 
 {
-  Uses the deposit button
+  From SRL-F; fixes fixed screen itemboxes being off
 }
-function TRSDepositBox.DepositAllItems(WaitForItems: Boolean = True): Boolean;
-var
-  IC: Int32;
+function TRSBank.GetSlotBoxes: TBoxArray; override;
 begin
-  IC := Self.Count();
+  Result := Grid(8, ((Self.Height() - 135) div 36)+1, 31, 31, [17, 5], [Self.X1() + 57, Self.Y1() + 77]);
+end;
 
-  if not Self.DepositAll() then
-    exit();
+{
+  From SRL-F; makes the result true if found the search
+}
+function TRSBank.OpenSearch(WaitTime: Int32): Boolean; override;
+begin
+  Self.GetButton(ERSBankButton.SEARCH).Click();
+  Result := Self.IsSearchOpen(WaitTime);
+end;
 
-  if WaitForItems then
-    Self.WaitChange(IC, SRL.SkewedRand(2500, 2000, 3000));
+{
+  From SRL-F
+}
+(*
+TRSBank.ScrollToItem
+~~~~~~~~~~~~
+.. pascal:: function TRSBank.ScrollToItem(Item: TRSItem; Out ItmBox: TBox): Boolean;
 
-  Result := True;
+Sets the scroll bar in the bank to its top position then drags the scroll bar until the
+given TRSItem is found or the scroll bar is dragged to the max position.
+
+Example
+-------
+
+  if Bank.ScrollToItem('Lobster pot', ItmBox) then
+    Mouse.Move(ItmBox);
+*)
+function TRSBank.ScrollToItem(Item: TRSItem; Out ItmBox: TBox): Boolean;
+var
+  SBoxBottom,SBoxTop: TPoint;
+begin
+  if (not Self.IsOpen()) then Exit;
+  if Self.FindItem(Item, ItmBox) then Exit(True);
+
+  SBoxTop    := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y1+SRL.NormalRange(1,10)];
+  SBoxBottom := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y2];
+
+  // Bank.SetScrollPosition(0); Broken?
+  Mouse.Move(SBoxTop);
+  Mouse.Click(MOUSE_LEFT);
+
+  Mouse.Move(Self.GetScrollBar().Slider);
+  Mouse.Hold(MOUSE_LEFT);
+
+  ASyncMouse.Speed := SRL.NormalRange(3, 5);
+  ASyncMouse.Move(SBoxBottom);
+
+  while ASyncMouse.IsMoving() do
+  begin
+    if (Self.GetScrollPosition() >= 100) or Self.FindItem(Item) then
+    begin
+      ASyncMouse.Stop();
+      break;
+    end;
+
+    Wait(35);
+  end;
+
+  Mouse.Release(MOUSE_LEFT);
+  wait(SRL.NormalRange(200, 350));
+  Result := Self.FindItem(Item, ItmBox);
+end;
+
+{
+  From SRL-F
+}
+(*
+TRSBank.ScrollToItem
+~~~~~~~~~~~~
+.. pascal:: function TRSBank.ScrollToItem(Item: TRSItem; Out ItmPoint: TPoint): Boolean;
+
+Same as TRSBank.ScrollToItem however a TPoint of the middle of the found item is provided.
+
+Example
+-------
+
+  if Bank.ScrollToItem('Lobster pot', ItmPoint) then
+    Mouse.Move(ItmPoint);
+*)
+
+function TRSBank.ScrollToItem(Item: TRSItem; Out ItmPoint: TPoint): Boolean; overload;
+var
+  ItmBox: TBox;
+begin
+  Result := Self.ScrollToItem(Item, ItmBox);
+  if Result then ItmPoint := ItmBox.Middle();
+end;
+
+{
+  From SRL-F
+}
+(*
+TRSBank.ScrollToItem
+~~~~~~~~~~~~
+.. pascal:: function TRSBank.ScrollToItem(Item: TRSItem): Boolean;
+
+Same as TRSBank.ScrollToItem however only confirmation is provided.
+
+Example
+-------
+
+  if Bank.ScrollToItem('Lobster pot') then
+    writeln('Found the lobster pot');
+*)
+
+function TRSBank.ScrollToItem(Item: TRSItem): Boolean; overload;
+var
+  ItmBox: TBox;
+begin
+  Result := Self.ScrollToItem(Item, ItmBox);
 end;
 
 {$ENDIF} // INEEDBOT_UTILS_BANK

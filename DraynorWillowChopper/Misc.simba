@@ -254,13 +254,7 @@ begin
   Script.WriteMsg('DropItems: Log slots (before drop): ' + ToStr(LogSlots), True);
 
   // choose a random drop pattern
-  Pattern := Bank.GetGoodPattern();
-
-  // possibly not drop all logs, for antiban
-  if SRL.Dice(20) then
-    SetLength(Pattern, Random(Length(Pattern)));
-  if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));
+  Pattern := Inventory.ChopPattern(Inventory.GetGoodPattern());
 
   // only drop logs...
   for i := High(Pattern) downto Low(Pattern) do
@@ -439,13 +433,7 @@ begin
   Script.WriteMsg('LightLogs: LogSlots: ' + ToStr(LogSlots), True);
 
   // randomize the pattern
-  Pattern := Bank.GetGoodPattern();
-
-  // randomly chop it off for extra antiban
-  {if SRL.Dice(20) then
-    SetLength(Pattern, Random(Length(Pattern)));
-  if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));}
+  Pattern := Inventory.GetGoodPattern();
 
   // remove all slots that are not a log
   for i := High(Pattern) downto Low(Pattern) do
