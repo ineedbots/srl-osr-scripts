@@ -124,7 +124,8 @@ Example
     CraftScreen.ClickItem(ERSCraftItem.GOLD_BRACELET, -1);
 *)
 function TRSCraftScreen.IsOpen(): Boolean; overload;
-begin
+begin    
+  // TODO better
   try
     Result := Self.GetButtons()[0].Visible();
   except

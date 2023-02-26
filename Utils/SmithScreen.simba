@@ -98,6 +98,7 @@ Example
 *)
 function TRSSmithScreen.IsOpen(): Boolean; overload;
 begin
+  // TODO better
   Result := Self.GetButton(ERSSmithScreenButton.QUANTITY_1).Visible();
 end;
 

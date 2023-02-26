@@ -43,7 +43,7 @@ const
   _USERNAME       = '';
   _PASSWORD       = '';
   _PIN            = '';
-  _WORLDS         = [352, 355, 356, 357, 358, 386,
+  _WORLDS         : TIntegerArray = [352, 355, 356, 357, 358, 386,
                       387, 395, 424, 466, 494, 495,
                       496, 515, 516];
   TOTALRUNTIME    = 600;  // How many minutes should we operate for?

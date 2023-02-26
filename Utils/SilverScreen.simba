@@ -80,7 +80,8 @@ Example
     SilverScreen.ClickItem('Unstrung symbol', -1);
 *)
 function TRSSilverScreen.IsOpen(): Boolean; overload;
-begin
+begin     
+  // TODO better
   try
     Result := Self.GetButtons()[0].Visible();
   except
