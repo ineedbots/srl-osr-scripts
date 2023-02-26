@@ -439,6 +439,7 @@ Example
 function TRSBank.ScrollToItem(Item: TRSItem; Out ItmBox: TBox): Boolean;
 var
   SBoxBottom,SBoxTop: TPoint;
+  Timeout: TCountDown;
 begin
   if (not Self.IsOpen()) then Exit;
   if Self.FindItem(Item, ItmBox) then Exit(True);
@@ -453,19 +454,20 @@ begin
   Mouse.Move(Self.GetScrollBar().Slider);
   Mouse.Hold(MOUSE_LEFT);
 
+  Timeout.Init(15000);
+
   ASyncMouse.Speed := SRL.NormalRange(3, 5);
   ASyncMouse.Move(SBoxBottom);
 
-  while ASyncMouse.IsMoving() do
+  while ASyncMouse.IsMoving() and not Timeout.IsFinished() do
   begin
     if (Self.GetScrollPosition() >= 100) or Self.FindItem(Item) then
-    begin
-      ASyncMouse.Stop();
       break;
-    end;
 
     Wait(35);
   end;
+
+  ASyncMouse.Stop();
 
   Mouse.Release(MOUSE_LEFT);
   wait(SRL.NormalRange(200, 350));
