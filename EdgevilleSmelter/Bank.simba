@@ -171,13 +171,7 @@ begin
   CurProducts := Length(ProductSlots);
 
   // randomize the deposit pattern
-  Pattern := Bank.GetGoodPattern();
-
-  // randomly chop it off for extra antiban
-  if SRL.Dice(20) then
-    SetLength(Pattern, Random(Length(Pattern)));
-  if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));
+  Pattern := Inventory.ChopPattern(Inventory.GetGoodPattern());
 
   // make sure we do not deposit our tools
   for i in ToolSlots do

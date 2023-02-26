@@ -388,7 +388,7 @@ begin
   Script.WriteMsg('DoBanking: FoodSlots: ' + ToStr(FoodSlots), True);
 
   // deposit everything but food and tools
-  Pattern := Bank.GetGoodPattern();
+  Pattern := Inventory.GetGoodPattern();
 
   // make sure we do not deposit our tools
   for i in ToolSlots do

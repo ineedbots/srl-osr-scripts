@@ -166,13 +166,7 @@ begin
   CurOres := Length(OreSlots);
 
   // randomize the deposit pattern
-  Pattern := Bank.GetGoodPattern();
-
-  // randomly chop it off for extra antiban
-  if SRL.Dice(20) then
-    SetLength(Pattern, Random(Length(Pattern)));
-  if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));
+  Inventory.ChopPattern(Inventory.GetGoodPattern());
 
   // make sure we do not deposit our tools
   for i in ToolSlots do
@@ -191,16 +185,12 @@ begin
   end
   else
   begin
-    // TODO better
-    for i in Pattern do
+    if ((Length(ToolSlots) <= 0) or Self.UsingBankFillers) and (Random() < 0.8) then
+      DepositBox.DepositAllItems()
+    else if not DepositBox.DepositItemsIntoBank(Pattern, CurOres) then
     begin
-      if DepositBox.IsSlotUsed(i) then
-      begin
-        // TODO randomize using deposit buttons
-        Mouse.Move(DepositBox.GetSlotBox(i));
-        ChooseOption.Select('Deposit-All');
-        Wait(750, 1250);
-      end;
+      Script.WriteMsg('DepositItems: Failed to deposit items into DepositBox');
+      exit();
     end;
   end;
 

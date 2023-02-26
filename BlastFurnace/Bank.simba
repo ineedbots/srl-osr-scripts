@@ -209,7 +209,7 @@ begin
   Inventory.FindItems(Self.ToolItems, ToolSlots);
   Script.WriteMsg('DoBanking: ToolSlots: ' + ToStr(ToolSlots), True);
 
-  Pattern := Bank.GetGoodPattern();
+  Pattern := Inventory.GetGoodPattern();
 
   // make sure we do not deposit our tools
   for i in ToolSlots do

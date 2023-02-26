@@ -446,7 +446,7 @@ begin
 
   Script.WriteMsg('Eating food...', True);
 
-  Pattern := Bank.GetGoodPattern();
+  Pattern := Inventory.GetGoodPattern();
 
   // remove all slots that isnt food
   for i := High(Pattern) downto Low(Pattern) do

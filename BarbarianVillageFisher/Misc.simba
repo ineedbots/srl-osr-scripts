@@ -430,13 +430,7 @@ begin
   Script.WriteMsg('DropItems: Fish slots (before drop): ' + ToStr(FishSlots), True);
 
   // choose a random drop pattern
-  Pattern := Bank.GetGoodPattern();
-
-  // possibly not drop all logs, for antiban
-  if SRL.Dice(20) then
-    SetLength(Pattern, Random(Length(Pattern)));
-  if SRL.Dice(20) then
-    Pattern := Copy(Pattern, Random(Length(Pattern)));
+  Pattern := Inventory.ChopPattern(Inventory.GetGoodPattern());
 
   // only drop logs...
   for i := High(Pattern) downto Low(Pattern) do

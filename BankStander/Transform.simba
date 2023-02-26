@@ -222,7 +222,7 @@ begin
   S := Mouse.Speed;
   Mouse.Speed += Script.FastMouseAdd + Random(-2, 2);
 
-  Pattern := Bank.GetGoodPattern();
+  Pattern := Inventory.GetGoodPattern();
 
   MCount := Length(MaterialSlots);
   OGMCount := MCount;
@@ -407,7 +407,7 @@ var
   CountDown: TCountDown;    
   Afk: Boolean;
 begin
-  Pattern := Bank.GetGoodPattern();
+  Pattern := Inventory.GetGoodPattern();
 
   MCount := Length(MaterialSlots);
   OGMCount := MCount;
