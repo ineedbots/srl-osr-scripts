@@ -3,15 +3,46 @@
 
 {$F-}
 
-{$include_once Utils/Utils.simba} 
+{$include_once Utils/Utils.simba}
 
 var
   RSW: TRSWalker;
+  i, h, amt: Int32;
+  TP: TPoint;
 
 begin
   RSW.Setup('world');
   RSW.EnableRunAtEnergy := 100;
   MainScreen.UpTextFilter := TOCRAnyColorRule.Create(85, 75);
+
+  while 1 do
+  begin              
+    TP := Point(Clan.Bounds().X1, Clan.Bounds().Y1);
+
+    amt := 1;
+    if Keyboard.IsKeyDown(VK_CONTROL) then
+      amt := 10;
+
+    if Keyboard.IsKeyDown(VK_UP) then
+      h -= amt
+    else if Keyboard.IsKeyDown(VK_DOWN) then
+      h += amt;
+
+    if Keyboard.IsKeyDown(VK_LEFT) then
+      i -= amt
+    else if Keyboard.IsKeyDown(VK_RIGHT) then
+      i += amt;
+
+    if Keyboard.IsKeyDown(VK_SPACE) then
+      writeln(Point(i, h), ' {', GetColor(TP.Offset(i, h)), '}');
+
+    RSClient.Image().Clear();                            
+    RSClient.Image().DrawCross(TP, 3, clGreen);         
+    RSClient.Image().LineTo(TP, TP.Offset(i, h), clYellow);
+    RSClient.Image().DrawCross(TP.Offset(i, h), 15, clPurple);
+
+    Wait(50);
+  end;
 
   while 1 do RSW.DebugPosition();
   while 1 do writeln(MainScreen.GetUpText());
