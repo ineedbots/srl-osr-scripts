@@ -90,7 +90,7 @@ var
 begin
   Pos := Self.RSW.GetMyPos();
 
-  if not Self.FindWater(Pos, Self.GetHeight(Pos), B, Running) then
+  if not Self.FindWater(Pos, Self.RSW.GetHeight(Pos), B, Running) then
   begin
     if not WalkToIt then
       exit();
@@ -107,7 +107,7 @@ begin
     Minimap.WaitFlag();
     Minimap.WaitPlayerMoving();
 
-    if not Self.FindWater(Pos, Self.GetHeight(Pos), B, Running) then
+    if not Self.FindWater(Pos, Self.RSW.GetHeight(Pos), B, Running) then
       exit();
   end;
 
@@ -185,14 +185,14 @@ begin
     exit();
   end;
 
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
 
   // handle rocks
   if (Velocity = Point(0, 0)) and Self.HandleRockfalls(OurTile, Self.StrutTile, Height, False, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
-    Height := Self.GetHeight(OurTile);
+    Height := Self.RSW.GetHeight(OurTile);
   end;
 
   // find the sink
@@ -335,7 +335,7 @@ var
 begin
   Script.WriteMsg('Going to Strut....', True);
   OurPos := Self.RSW.GetMyPos();
-  Height := Self.GetHeight(OurPos);
+  Height := Self.RSW.GetHeight(OurPos);
 
   if Force or (OurPos.DistanceTo(Self.StrutTile) > 50) or not Self.FindStrut(OurPos, Height, B) then
   begin
@@ -369,7 +369,7 @@ begin
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
       OurPos := Self.RSW.GetMyPos();
-      Self.HandleRockfalls(OurPos, Self.StrutTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
+      Self.HandleRockfalls(OurPos, Self.StrutTile, Self.RSW.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
@@ -488,7 +488,7 @@ begin
   if not Result then
   begin
     OurPos := Self.RSW.GetMyPos();
-    Self.HandleRockfalls(OurPos, Self.StrutTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
+    Self.HandleRockfalls(OurPos, Self.StrutTile, Self.RSW.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
   end;
 
   Wait(0, 2000, wdLeft);

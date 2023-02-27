@@ -42,29 +42,6 @@ begin
 end;
 
 {
-  Converts heightmap height to mm2ms height
-}
-function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;
-begin
-  Result := HeightMapHeight div 4;
-end;
-
-{
-  Gets height from heightmap
-}
-function TBot.GetHeight(Pos: TPoint = [-1, -1]): Int32;
-var
-  Col: TRGB32;
-begin
-  if Pos.X = -1 then
-    Pos := Self.RSW.GetMyPos();
-
-  Col := TRGB32(Self.HeightMapBMP.GetPixel(Pos.X, Pos.Y));
-
-  Result := Self.HeightMapHeightToMM2MSHeight(Col.R);
-end;
-
-{
   Uses the mainscreen anchor to boost accuracy
 }
 function TRSWalker.GetMyPos(): TPoint; override;
@@ -88,8 +65,8 @@ begin
   OurPos := inherited();
   Bot.GettingMainScreenAnchorPos := False;
 
-  OurHeight := Bot.GetHeight(OurPos);
-  TileHeight := Bot.GetHeight(Bot.MainScreenAnchorTile);
+  OurHeight := Bot.RSW.GetHeight(OurPos);
+  TileHeight := Bot.RSW.GetHeight(Bot.MainScreenAnchorTile);
 
   // find the obj
   TileRect := Self.GetTileMSEx(OurPos, Bot.MainScreenAnchorTile, TileHeight + Bot.MainScreenAnchorHeight - OurHeight);
@@ -458,7 +435,7 @@ var
 begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
   Nearby := Length(Self.RSW.GetItemLocations(OurTile, CompAng));
   ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
 

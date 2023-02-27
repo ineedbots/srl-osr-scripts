@@ -76,8 +76,6 @@ procedure TBot.Free();
 begin
   Script.WriteMsg('Finishing the script at: ' + ToStr(Now()));
   Script.TakeScreenshot(Self.Name, 'Ending_');
-
-  Self.HeightMapBMP.Free();
 end;
 
 {
@@ -151,8 +149,8 @@ begin
   Self.RSW.Setup({$MACRO CURRENT_DIRECTORY} + '\maps\feldip_hills.png');
   Self.RSW.ScreenWalk     := MSWALKING;
 
-  Self.HeightMapBMP.Init();
-  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\feldip_hills_heightmap.png'); // unix better not complain!
+  Script.HeightMapBMP.Init();
+  Script.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\feldip_hills_heightmap.png'); // unix better not complain!
 
   Self.TrapCount := -1;
   Self.ToolItems := ['Box trap'];

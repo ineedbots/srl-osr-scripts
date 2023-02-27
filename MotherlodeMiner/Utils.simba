@@ -128,29 +128,6 @@ begin
 end;
 
 {
-  Converts heightmap height to mm2ms height
-}
-function TBot.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;
-begin
-  Result := HeightMapHeight div 4;
-end;
-
-{
-  Gets height from heightmap
-}
-function TBot.GetHeight(Pos: TPoint = [-1, -1]): Int32;
-var
-  Col: TRGB32;
-begin
-  if Pos.X = -1 then
-    Pos := Self.RSW.GetMyPos();
-
-  Col := TRGB32(Self.HeightMapBMP.GetPixel(Pos.X, Pos.Y));
-
-  Result := Self.HeightMapHeightToMM2MSHeight(Col.R);
-end;
-
-{
   Amount of pay-dirt in sack
 }
 function TBot.AmountOfPayDirtInSack(): Int32;
@@ -365,7 +342,7 @@ begin
   OurTile := Self.RSW.GetMyPos();
   CompAng := Minimap.GetCompassAngle(False);
   Upper := Self.IsOnUpperLevel(OurTile);
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding;
   Text += 'Paydirt: ' + ToStr(Self.AmountOfPayDirtInSack()) + LineEnding;
@@ -647,7 +624,7 @@ begin
   begin
     Velocity := Script.GetVelocity(Position);
 
-    if not Bot.HandleRockfalls(Position, Destination, Bot.GetHeight(Position), Bot.IsOnUpperLevel(Position), Clicked, Script.WalkerVelToMSVel(Velocity)) then
+    if not Bot.HandleRockfalls(Position, Destination, Bot.RSW.GetHeight(Position), Bot.IsOnUpperLevel(Position), Clicked, Script.WalkerVelToMSVel(Velocity)) then
       break;
 
     Position := Walker^.GetMyPos();

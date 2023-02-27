@@ -75,7 +75,6 @@ type
     HammerItem, GemBagItem, PayDirtItem                       : TRSItem;
     Rockfalls                                                 : TRockfallArray;
     Zones                                                     : TZoneArray;
-    HeightMapBMP                                              : TMufasaBitmap;
     IsOnUpper, ClickWhileWalking, WalkerWasEarlySuccess,
       HasLargeSack, SameZone, NeedToDoGemBag,
       UsingBankFillers, WalkerWasEarlySuccessRockfall         : Boolean;

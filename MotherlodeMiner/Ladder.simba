@@ -106,7 +106,7 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
   Upper := Self.IsOnUpperLevel(OurTile);
 
   // handle rocks
@@ -117,7 +117,7 @@ begin
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
-    Height := Self.GetHeight(OurTile);
+    Height := Self.RSW.GetHeight(OurTile);
     Upper := Self.IsOnUpperLevel(OurTile);
   end;
 
@@ -255,7 +255,7 @@ begin
   Script.WriteMsg('Going to Ladder....', True);
   OurPos := Self.RSW.GetMyPos();
   Upper := Self.IsOnUpperLevel(OurPos);
-  Height := Self.GetHeight(OurPos);
+  Height := Self.RSW.GetHeight(OurPos);
 
   if Upper then
     Where := Self.UpperLadderTile
@@ -307,7 +307,7 @@ begin
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
       OurPos := Self.RSW.GetMyPos();
-      Height := Self.GetHeight(OurPos);
+      Height := Self.RSW.GetHeight(OurPos);
       Upper := Self.IsOnUpperLevel(OurPos);
       Self.HandleRockfalls(OurPos, Where, Height, Upper, Walked, [0, 0], True);
       exit();
@@ -393,7 +393,7 @@ begin
     Where := Self.UpperLadderTile;
     if not Upper then
       Where := Self.LowerLadderTile;
-    Self.HandleRockfalls(OurPos, Where, Self.GetHeight(OurPos), Upper, Clicked, [0, 0], True);
+    Self.HandleRockfalls(OurPos, Where, Self.RSW.GetHeight(OurPos), Upper, Clicked, [0, 0], True);
   end;
 
   Wait(0, 2000, wdLeft);

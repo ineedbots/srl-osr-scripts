@@ -25,7 +25,7 @@
 }
 function TBot.FindTrapTile(OurPos, TrapTile: TPoint; Height: Int32): TRectangle;
 begin
-  Result := Self.RSW.GetTileMSEx(OurPos, TrapTile, Self.GetHeight(TrapTile) + Self.HunterTrapHeight - Height);
+  Result := Self.RSW.GetTileMSEx(OurPos, TrapTile, Self.RSW.GetHeight(TrapTile) + Self.HunterTrapHeight - Height);
 end;
 
 {
@@ -211,7 +211,7 @@ begin
   HunterTiles := Self.GetHunterTiles();
   TPA := Self.SortHunterTiles(HunterTiles);
   OurTile := Self.RSW.GetMyPos();
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
   CompAng := Minimap.GetCompassAngle(False);
   ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
 
@@ -295,7 +295,7 @@ begin
   begin
     OurPos := Self.RSW.GetMyPos();
 
-    if not Self.FindTrap(OurPos, TilePos, Self.GetHeight(OurPos), Self.RSW.GetItemLocations(OurPos), B, State) or
+    if not Self.FindTrap(OurPos, TilePos, Self.RSW.GetHeight(OurPos), Self.RSW.GetItemLocations(OurPos), B, State) or
       (State <> ECHTState.NOTHING) then
     begin
       Script.WriteMsg('TrapTile was bad?', True);
@@ -315,7 +315,7 @@ begin
       // try mainscreen, it maybe inaccurate
       DidMSClick := True;
 
-      TileRect := Self.FindTrapTile(OurPos, TilePos, Self.GetHeight(OurPos));
+      TileRect := Self.FindTrapTile(OurPos, TilePos, Self.RSW.GetHeight(OurPos));
 
       if not MainScreen.IsVisible(TileRect.Mean()) then
         continue;
@@ -519,7 +519,7 @@ begin
     HunterTiles := Self.GetHunterTiles();
     TPA := Self.SortHunterTiles(HunterTiles);
     OurTile := Self.RSW.GetMyPos();
-    Height := Self.GetHeight(OurTile);
+    Height := Self.RSW.GetHeight(OurTile);
     CompAng := Minimap.GetCompassAngle(False);
     ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
 
@@ -653,7 +653,7 @@ begin
 
             // just take the item up
             OurTile := Self.RSW.GetMyPos();
-            Height := Self.GetHeight(OurTile);
+            Height := Self.RSW.GetHeight(OurTile);
             CompAng := Minimap.GetCompassAngle(False);
             ItemLocs := Self.RSW.GetItemLocations(OurTile, CompAng);
 

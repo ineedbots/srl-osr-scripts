@@ -310,6 +310,32 @@ begin
 end;
 
 {
+  Converts heightmap height to mm2ms height
+}
+function TRSWalker.HeightMapHeightToMM2MSHeight(HeightMapHeight: Int32): Int32;
+begin
+  Result := HeightMapHeight div 4;
+end;
+
+{
+  Gets height from heightmap
+}
+function TRSWalker.GetHeight(Pos: TPoint = [-1, -1]): Int32;
+var
+  Col: TRGB32;
+begin
+  if Script.HeightMapBMP = nil then
+    exit();
+
+  if Pos.X = -1 then
+    Pos := Self.GetMyPos();
+
+  Col := TRGB32(Script.HeightMapBMP.GetPixel(Pos.X, Pos.Y));
+
+  Result := Self.HeightMapHeightToMM2MSHeight(Col.R);
+end;
+
+{
   Fix a problem where the walk event could change PlayerPoint
 }
 function TRSWalker.WalkFinalStep(PlayerPoint, WorldPoint: TPoint; WaitUntilDistance: Int32): Boolean; override;
@@ -1563,6 +1589,187 @@ begin
   // make sure that press esc to close interface is enabled
   if Self.AnyInterfaceOpen() then
     Keyboard.PressKey(VK_ESCAPE);
+end;
+
+{
+  From SRL-t, fixes scroll position
+}
+procedure TRSInterface.SetScrollPosition(Value: Int32); override;
+var
+  ScrollBar: TRSScrollBar;
+  Countdown: TCountdown;
+begin
+  Value := EnsureRange(Value, 0, 100);
+
+  ScrollBar := Self.GetScrollBar();
+
+  if not ScrollBar.IsVisible() or not Self.CanScroll() then
+    Exit;
+
+  if ScrollBar.Position = Value then
+    Exit;
+
+  Countdown.Init(15000);
+
+  if (ScrollBar.Position < Value) then
+  begin
+    while ScrollBar.IsVisible() and (ScrollBar.Position < Value) and not Countdown.IsFinished() do
+    begin
+      Mouse.Scroll(ScrollBar.SliderRegion, Random(1, 3), True);
+
+      ScrollBar := Self.GetScrollBar();
+    end;
+    Exit;
+  end;
+
+  while ScrollBar.IsVisible() and (ScrollBar.Position > Value) and not Countdown.IsFinished() do
+  begin
+    Mouse.Scroll(ScrollBar.SliderRegion, Random(1, 3), False);
+
+    ScrollBar := Self.GetScrollBar();
+  end;
+end;
+
+{
+  From SRL-t
+}
+(*
+Make.FindHint
+~~~~~~~~~~~~~
+.. pascal:: function TRSMake.FindHint(): TPointArray;
+
+Returns the hint tooltip has a TPointArray
+
+Example
+-------
+
+  Debug(Make.FindHint());
+*)
+function TRSMake.FindHint(): TPointArray;
+const
+  HINT_COLOR = $A0FFFF;
+begin
+  FindColors(Result, HINT_COLOR, Self.Bounds());
+end;
+
+{
+  From SRL-t
+}
+(*
+Make.GetFreeSpace
+~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMake.GetFreeSpace(): TPointArray;
+
+Get a TPointArray of the chatbox that does not have a single point in any of the make item buttons.
+
+Example
+-------
+
+  Debug(Make.GetFreeSpace());
+*)
+function TRSMake.GetFreeSpace(): TPointArray;
+var
+  b: TBox;
+  tmp: TPointArray;
+begin
+  Result := Self.Bounds().ToRectangle().ToTPA().Connect();
+  Result.Fill();
+
+  for b in Self.GetItemButtons().ToBoxes() do
+    tmp += Result.FilterBox(b.Expand(1));
+
+  Result := ClearTPAFromTPA(Result, tmp);
+end;
+
+{
+  Fix from srl-t
+}
+function TRSMake.SetQuantity(Amount: Int32): Boolean; override;
+const
+  ENABLED_COLOR = $FFFFFF;
+  DISABLED_COLOR = $203040;
+var
+  Bounds: TBox;
+  P: TPoint;
+  HintPoint: TPoint;
+  Hint: TBox;
+  FreeSpace: TPointArray;
+  Text: String;
+  Button: TRSButton;
+  Buttons: TRSButtonArray;
+begin
+  Bounds := Self.Bounds();
+  Hint := Self.FindHint().Bounds().Expand(1); //Expand(1) because of the border
+  P := [Bounds.X2 - 193, Bounds.Y1 + 44];
+
+  HintPoint := [Hint.X2, Hint.Y1];
+  if (HintPoint.X > p.X) and (HintPoint.Y < p.Y) then
+  begin
+    FreeSpace := Self.GetFreeSpace();
+    P := FreeSpace[Random(0, High(FreeSpace))];
+    Mouse.Move(p);
+    WaitUntil(Self.FindHint() = [], 100, 2000);
+  end;
+
+  if Amount = MAKE_QUANTITY_ALL then
+    Text := 'All'
+  else
+    Text := ToString(Amount);
+
+  Buttons := Self.GetQuantityButtons();
+
+  for Button in Buttons do
+  begin
+    // Already selected
+    if Button.FindText(Text, RS_FONT_PLAIN_11, ENABLED_COLOR) then
+      Exit(True);
+
+    // Select
+    if Button.FindText(Text, RS_FONT_PLAIN_11, DISABLED_COLOR) then
+      Exit(Button.Click());
+  end;
+
+  for Button in Buttons do
+    if Button.FindText('X', RS_FONT_PLAIN_11, DISABLED_COLOR) then
+      Exit(Button.Click() and Chat.AnswerQuery('Enter amount', ToString(Amount), 3000));
+end;
+
+{
+  Some fix from srl-t
+}
+function TRSMake.Select(Item: String; Quantity: Int32; UseKeyboard: Boolean = True): Boolean; override;
+var
+  Buttons: TRSButtonArray;
+  TPA: TPointArray;
+  I: Int32;
+begin
+  Buttons := Self.GetItemButtons();
+
+  for I := 0 to High(Self.Items) do
+  begin
+    if (Self.Items[I].Item = Item) then
+    begin
+      Result := Self.SelectHelper(Buttons[Self.Items[I].Index], Quantity, UseKeyboard);
+      Exit;
+    end;
+  end;
+
+  for I := 0 to High(Buttons) do
+  begin
+    Mouse.Move(Buttons[I].Bounds);
+    if not WaitUntil((TPA := Self.FindHint()) <> [], SRL.TruncatedGauss(50, 1500), 4000) then
+      Continue;
+
+    if SameText(OCR.Recognize(TPA.Bounds(), TOCRColorRule.Create([0]), RS_FONT_PLAIN_12), Item) then
+    begin
+      Self.Items += [Item, Buttons[I].Index];
+
+      Result := Self.SelectHelper(Buttons[I], Quantity, UseKeyboard);
+      Exit;
+    end;
+
+    Wait(0, 1000, wdLeft);
+  end;
 end;
 
 {

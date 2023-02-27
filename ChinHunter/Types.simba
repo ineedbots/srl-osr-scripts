@@ -34,7 +34,6 @@ type
     Hunted, FailCount, TrapCount, MainScreenAnchorHeight,
       HunterTrapHeight, ShrinkTileAmount                      : Int32;
     StartingPos                                               : TPoint;
-    HeightMapBMP                                              : TMufasaBitmap;
     ToolItems, HuntedItems                                    : TRSItemArray;
     BoxColor, CaughtBoxColor, DeadBoxColor,
       NotReadyCaughtBoxColor, MainScreenAnchorColor           : TScriptColor;

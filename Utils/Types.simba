@@ -67,7 +67,7 @@ type
     LastPos, MouseLooksForUpTextClosePt                       : TPoint;
     LastVel                                                   : TDoubleArray;
     OldMouseMovingCallback                                    : TMouseMovingEvent;
-    DebugImage                                                : TMufasaBitmap;
+    DebugImage, HeightMapBMP                                  : TMufasaBitmap;
   end;
 
 {
@@ -77,6 +77,9 @@ procedure TScript.Free();
 begin
   if Self.DebugImage <> nil then
     Self.DebugImage.Free();
+
+  if Self.HeightMapBMP <> nil then
+    Self.HeightMapBMP.Free();
 end;
 
 var

@@ -118,7 +118,7 @@ begin
   if OurTile = Point(-1, -1) then
     OurTile := Self.RSW.GetMyPos();
 
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
 
   // find the rockfall
   if not Self.FindRockfall(OurTile, Height, Rockfall, B, IsThere) then
@@ -259,7 +259,7 @@ var
 begin
   Script.WriteMsg('Going to rockfall....', True);
   OurPos := Self.RSW.GetMyPos();
-  Height := Self.GetHeight(OurPos);
+  Height := Self.RSW.GetHeight(OurPos);
 
   if Force or (OurPos.DistanceTo(Rockfall.Tile) > 50) or not Self.FindRockfall(OurPos, Height, Rockfall, B, IsThere) then
   begin
@@ -399,7 +399,7 @@ begin
 
   // check again
   OurTile := Self.RSW.GetMyPos();
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
   Velocity := [0, 0];
   if not Self.FindRockfall(OurTile, Height, Rockfall, B, IsThere) and Self.GoToRockfall(Rockfall, True) then
   begin
@@ -410,7 +410,7 @@ begin
 
   // click it
   OurTile := Self.RSW.GetMyPos();
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
   Velocity := [0, 0];
   if Self.ClickRockfall(Rockfall, WasClicked, OurTile, Velocity) and WasClicked then
   begin

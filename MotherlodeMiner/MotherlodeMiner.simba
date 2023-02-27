@@ -110,7 +110,6 @@ begin
   Script.TakeScreenshot(Self.Name, 'Ending_');
 
   FreeDTM(Self.DTM_PayDirt);
-  Self.HeightMapBMP.Free();
 end;
 
 {
@@ -198,8 +197,8 @@ begin
   Self.HasLargeSack := LARGE_SACK;
   Self.SameZone     := SAME_ZONE; // same samers saming still online???????????????????????? L00000000000000L
 
-  Self.HeightMapBMP.Init();
-  Self.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png'); // unix better not complain!
+  Script.HeightMapBMP.Init();
+  Script.HeightMapBMP.LoadFromFile({$MACRO CURRENT_DIRECTORY} + '\maps\mlm_heightmap.png'); // unix better not complain!
   
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
   Self.NeedWaterRunningTexts := ['already got some', 'You''ve already got some pay-dirt in the machine. You can put more in once the last batch comes out.'];

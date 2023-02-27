@@ -287,14 +287,14 @@ begin
     exit();
   end;
 
-  Height := Self.GetHeight(OurTile);
+  Height := Self.RSW.GetHeight(OurTile);
 
   // handle rocks
   if (Velocity = Point(0, 0)) and Self.HandleRockfalls(OurTile, Self.BankWalkTile, Height, False, Clicked, Velocity) then
   begin
     OurTile := Self.RSW.GetMyPos();
     Velocity := Script.WalkerVelToMSVel(Script.GetVelocity(OurTile));
-    Height := Self.GetHeight(OurTile);
+    Height := Self.RSW.GetHeight(OurTile);
   end;
 
   // randomize the tiles a bit, shake em up
@@ -500,7 +500,7 @@ begin
       MainScreen.CloseInterface(Script.ShouldPressKeyboard());
 
       OurPos := Self.RSW.GetMyPos();
-      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
+      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.RSW.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), Walked, [0, 0], True);
       exit();
     end;
 
@@ -543,7 +543,7 @@ begin
     else
     begin
       OurPos := Self.RSW.GetMyPos();
-      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
+      Self.HandleRockfalls(OurPos, Self.BankWalkTile, Self.RSW.GetHeight(OurPos), Self.IsOnUpperLevel(OurPos), WasClicked, [0, 0], True);
     end;
   end;
 end;
