@@ -45,14 +45,11 @@ type
 }
 function TRSMainScreen.FindNewHitsplats(Area: TBox): TRSNewHitsplatArray;
 var
-  TPA, TTPA: TPointArray;
+  TPA: TPointArray;
   B, SplatBox: TBox;
-  Text: String;
-  TP: TPoint;
   Hit, Color, i, NumColorsToUse: Int32;
   SplatType: ERSHitsplatType;
   SplatColors: TIntegerArray;
-  Splat: TRSNewHitsplat;
   AllSplatBoxes: TBoxArray;
   SplatIsAccountedFor: Boolean;
 begin
@@ -358,6 +355,342 @@ begin
   finally
     if not Frozen then
       UnFreeze();
+  end;
+end;
+
+{
+  From wasplib
+}
+(*
+Minimap.FindRedArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMinimap.FindRedArrow(out TPA: TPointArray): Boolean;
+.. pascal:: function TRSMinimap.FindRedArrow: Boolean; overload;
+
+Returns true if there's a red arrow on minimap.
+If a TPointArray is passed as a parameter it will return with the location of the arrow.
+
+Example
+-------
+
+  Writeln Minimap.FindRedArrow;
+*)
+function TRSMinimap.FindRedArrow(out TPA: TPointArray): Boolean;
+begin
+  Result := (SRL.FindColors(TPA, CTS0(255, 0), Self.Bounds()) > 0) and
+            (Length(TPA) <= 84);
+
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.FindRedArrow: Boolean; overload;
+var
+  TPA: TPointArray;
+begin
+  Result := Self.FindRedArrow(TPA);
+end;
+
+{
+  From wasplib
+}
+(*
+Minimap.FindYellowArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMinimap.FindYellowArrow(out TPA: TPointArray): Boolean;
+.. pascal:: function TRSMinimap.FindYellowArrow: Boolean; overload;
+
+Returns true if there's a yellow arrow on minimap.
+If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
+
+Example
+-------
+
+  Writeln Minimap.FindYellowArrow;
+*)
+function TRSMinimap.FindYellowArrow(out TPA: TPointArray): Boolean;
+begin
+  Result := (SRL.FindColors(TPA, CTS0(1767418, 0), Self.Bounds()) > 0) and
+            (Length(TPA) <= 16);
+
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.FindYellowArrow(): Boolean; overload;
+var
+  TPA: TPointArray;
+begin
+  Result := Self.FindYellowArrow(TPA);
+end;
+
+{
+  From wasplib
+}
+(*
+MainScreen.FindArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.FindArrow(out TPA: TPointArray): Boolean;
+.. pascal:: function TRSMainScreen.FindArrow: Boolean; overload;
+
+Returns true if there's a red or yellow arrow on screen.
+If a TPointArray is passed as a parameter it will return with the location of the arrow.
+
+Example
+-------
+
+  Writeln MainScreen.FindArrow;
+*)
+function TRSMinimap.FindArrow(out TPA: TPointArray): Boolean;
+begin
+  Result := Self.FindYellowArrow(TPA) or Self.FindRedArrow(TPA);
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.FindArrow(): Boolean; overload;
+begin
+  Result := Self.FindYellowArrow() or Self.FindRedArrow();
+end;
+
+{
+  From wasplib
+}
+(*
+Minimap.WaitRedArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMinimap.WaitRedArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+.. pascal:: function TRSMinimap.WaitRedArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+
+Waits **WaitTime** for a Red arrow to appear on Minimap.
+If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
+
+Example
+-------
+
+  Writeln Minimap.WaitRedArrow;
+*)
+function TRSMinimap.WaitRedArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindRedArrow(TPA), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.WaitRedArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindRedArrow(), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+(*
+Minimap.WaitYellowArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMinimap.WaitYellowArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+.. pascal:: function TRSMinimap.WaitYellowArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+
+Waits **WaitTime** for a yellow arrow to appear on Minimap.
+If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
+
+Example
+-------
+
+  Writeln Minimap.WaitYellowArrow;
+*)
+function TRSMinimap.WaitYellowArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindYellowArrow(TPA), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.WaitYellowArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindYellowArrow(), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+(*
+Minimap.WaitArrow
+~~~~~~~~~~~~~~~~~
+.. pascal::
+  function TRSMinimap.WaitArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+  function TRSMinimap.WaitArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+
+Waits **WaitTime** for a yellow or red arrow to appear on Minimap.
+If a TPointArray is passed as a parameter it will return with the location of the arrow.
+
+Example
+-------
+
+  Writeln Minimap.WaitArrow;
+*)
+function TRSMinimap.WaitArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindArrow(TPA), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+function TRSMinimap.WaitArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindArrow(), Interval, WaitTime);
+end;
+
+{
+  From Wasplib
+}
+(*
+MainScreen.InMultiCombat
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.InMultiCombat: Boolean;
+
+Returns true if we are in multi combat false if not.
+
+Example
+-------
+
+  Writeln MainScreen.InMultiCombat;
+*)
+function TRSMainScreen.InMultiCombat(): Boolean;
+var
+  B: TBox;
+begin
+  case RSClient.Mode of
+    ERSClientMode.FIXED:
+      begin
+        B := InterfaceArea.Bounds();
+        B.X1 := B.X2 - 30;
+        B.Y1 := B.Y2 - 30;
+      end;
+    ERSClientMode.RESIZABLE_CLASSIC, ERSClientMode.RESIZABLE_MODERN:
+      begin
+        B := Minimap.Bounds();
+        B.X1 := B.X2 - 30;
+        B.Y1 := B.Y2 + 5;
+        B.Y2 := B.Y1 + 30;
+      end;
+  end;
+
+  Result := (SRL.CountColor(CTS0(4902655, 0), B) > 0) and (SRL.CountColor(CTS0(19109, 0), B) > 0);
+end;
+
+{
+  from wasplib
+}
+(*
+MainScreen.FindGrave
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.FindGrave: Boolean;
+
+Returns true if we died and there's a grave available somewhere, false otherwise.
+
+Example
+-------
+
+  Writeln MainScreen.FindGrave;
+*)
+function TRSMainScreen.FindGrave(): Boolean;
+var
+  A: TPoint;
+  B: TBox;
+begin
+  case RSClient.Mode of
+    ERSClientMode.FIXED:
+      begin
+        B := InterfaceArea.Bounds();
+        B.X1 := B.X2 - 90;
+        B.Y1 := B.Y2 - 30;
+      end;
+    ERSClientMode.RESIZABLE_CLASSIC, ERSClientMode.RESIZABLE_MODERN:
+      begin
+        A := Minimap.Center();
+        B.X1 := A.X - 50;
+        B.X2 := A.X + 40;
+        B.Y1 := A.Y + 82;
+        B.Y2 := A.Y + 120;
+      end;
+  end;
+
+  Result :=  SRL.CountColor(CTS0(11448498, 0), B) = 51;
+end;
+
+{
+  from wasp
+}
+(*
+MainScreen.LoadingPOH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.LoadingPOH: Boolean;
+
+Returns true if we are loading a poh.
+
+Example
+-------
+
+  Writeln MainScreen.LoadingPOH;
+*)
+function TRSMainScreen.LoadingPOH(): Boolean;
+begin
+  Result := (SRL.CountColor(CTS0(13127, 0), Self.Bounds()) = 892) and
+            (SRL.CountColor(CTS0(8247, 0), Self.Bounds()) = 900);
+end;
+
+{
+  From wasplib
+}
+(*
+MainScreen.WaitLoadingPOH
+~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.WaitLoadingPOH: Boolean;
+
+Waits for the POH loading screen returns true if we find a loading screen and successfully wait for it to finish.
+
+Example
+-------
+
+  Writeln MainScreen.WaitLoadingPOH;
+*)
+function TRSMainScreen.WaitLoadingPOH(WaitTime: Int32; Interval: Int32 = -1): Boolean;
+var
+  t: UInt64;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 1500);
+
+  t := GetTickCount();
+  if WaitUntil(Self.LoadingPOH(), Interval, WaitTime) then
+  begin
+    WaitTime := WaitTime - (GetTickCount() - t);
+    Result := WaitUntil(not Self.LoadingPOH(), Interval, WaitTime);
   end;
 end;
 
