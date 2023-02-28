@@ -20,8 +20,8 @@
 {$include_once Types.simba}
 
 const
-  DEBUGMODE      = False;  // For debugging purposes
-  DRAWING        = False; // Draw stuff on the screen? Like proggies?
+  DEBUGMODE      = True;  // For debugging purposes
+  DRAWING        = True; // Draw stuff on the screen? Like proggies?
   DOREPORTS      = True;  // Do proggies onto the console?
 
   TAKEBREAKS     = True;  // Take breaks?

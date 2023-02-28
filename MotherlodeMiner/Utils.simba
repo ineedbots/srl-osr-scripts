@@ -352,6 +352,10 @@ begin
   if Chat.IsOpen() then
     Text += 'ChatText: ' + Chat.GetChat() + LineEnding;
 
+  RSClient.Image().SetFontName('Consolas');
+  RSClient.Image().SetFontSize(18);
+  RSClient.Image().SetFontAntialiasing(True);
+
   for i := 0 to High(Self.Rockfalls) do
   begin
     for h := 0 to High(Self.Rockfalls[i].Zones) do

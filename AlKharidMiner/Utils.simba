@@ -215,6 +215,10 @@ begin
   CompAng := Minimap.GetCompassAngle(False);
 
   Text := 'Pos: ' + ToStr(OurTile);
+  RSClient.Image().SetFontName('Consolas');
+  RSClient.Image().SetFontSize(18);
+  RSClient.Image().SetFontAntialiasing(True);
+  
   RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if not MainScreen.AnyInterfaceOpen() then

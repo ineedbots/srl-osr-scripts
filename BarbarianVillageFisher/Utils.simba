@@ -206,6 +206,10 @@ begin
 
   Text := 'Pos: ' + ToStr(OurTile) + LineEnding
     + 'Fishing: ' + ToStr(Self.IsFishing());
+
+  RSClient.Image().SetFontName('Consolas');
+  RSClient.Image().SetFontSize(18);
+  RSClient.Image().SetFontAntialiasing(True);
   RSClient.Image().DrawText(Text, [MainScreen.X1(), MainScreen.Y1() + 20], clGreen);
 
   if MainScreen.AnyInterfaceOpen() then

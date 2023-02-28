@@ -18,13 +18,17 @@
 
 {$include_once Types.simba}
 {$include_once Antiban.simba}
+
 {$include_once Bank.simba}
 {$include_once DepositBox.simba}
+{$include_once MainScreen.simba}
+
 {$include_once Clan.simba}
 {$include_once Store.simba}
 {$include_once SmithScreen.simba}
 {$include_once CraftScreen.simba}
 {$include_once SilverScreen.simba}
+{$include_once InterfaceDropDown.simba}
 
 {
   Debug to a SRL debug image
@@ -575,38 +579,6 @@ begin
 end;
 
 {
-  Fix issue where gametabs are not checked
-}
-function TRSMainScreen.IsVisible(P: TPoint): Boolean; override;
-var
-  Boxes: TBoxArray;
-  B: TBox;
-begin
-  Result := Self.Bounds().Contains(P);
-
-  if Result then
-  begin
-    if Chat.IsOpen() and Chat.Bounds().Contains(P) then
-      Exit(False);
-    if ChatButtons.Bounds().Contains(P) then
-      Exit(False);
-    if Minimap.Bounds().Expand(50).Contains(P) then
-      Exit(False);
-    if GameTabs.Bounds().Contains(P) then
-      Exit(False);
-
-    if (GameTabs.Mode = ERSClientMode.RESIZABLE_MODERN) and (RootInterface.Width() >= 948) then
-    begin
-      Boxes := GameTabs.GetTabBoxes();
-
-      for B in Boxes do
-        if B.Contains(P) then
-          Exit(False);
-    end;
-  end;
-end;
-
-{
   Flight's fix for xpbar!
 }
 function TRSXPBar.IsOpen(): Boolean; override;
@@ -649,178 +621,6 @@ function TRSXPBar.IsOpen(): Boolean; override;
 
 begin
   Result := FindBorder() or UpdateLocation();
-end;
-
-{
-  Returns true if we found hitsplats (ignores tinted splats) around our char
-}
-function TRSMainScreen.HasMyHitSplats(ExtendSearchBox: Int32 = 0): Boolean;
-const
-  BLUE_SPLATS = [$FF4040, $AD0703, $550503];
-  RED_SPLATS = [$0000C0, $03037F, $010161];
-  MAX_SPLATS = [$0000E9, $0000B3, $01018D, $0009C4, $0054F0, $007EFD, $0FB5FA];
-var
-  Me: TBox;
-  c, i: Int32;
-begin
-  if ExtendSearchBox = -1 then
-    Me := MainScreen.Bounds()
-  else
-  begin
-    Me := Self.GetPlayerBox();
-    Me := Me.Expand(Self.ConvertDistance(ExtendSearchBox));
-  end;
-
-  for i := Low(BLUE_SPLATS) to High(BLUE_SPLATS) do
-    c += SRL.CountColor(CTS1(BLUE_SPLATS[i], 1), Me);
-
-  for i := Low(RED_SPLATS) to High(RED_SPLATS) do
-    c += SRL.CountColor(CTS1(RED_SPLATS[i], 1), Me);
-    
-  for i := Low(MAX_SPLATS) to High(MAX_SPLATS) do
-    c += SRL.CountColor(CTS1(MAX_SPLATS[i], 1), Me);
-
-  Result := c > 0;
-end;
-
-{
-  overload with timers
-}
-function TRSMainScreen.HasMyHitSplats(SearchTime: Int32; ExtendSearchBox: Int32; SearchRate: Int32 = 50): Boolean; overload;
-var
-  Countdown: TCountdown;
-begin
-  Countdown.Init(SearchTime);
-  repeat
-    Result := Self.HasMyHitSplats(ExtendSearchBox);
-    Wait(SearchRate);
-  until Result or Countdown.IsFinished();
-end;
-
-{
-  Adds tinted colors, should be added to SRL
-}
-function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
-const
-  COLOR_BARS = [
-  {GREEN} $00FF00,
-  {RED} $0000FF
-  ];
-  COLOR_SPLATS = [
-  {BLUE} $FF4040, $AD0703, $550503,
-  {RED} $0000C0, $03037F, $010161,
-  {BLACK AND WHITE} $FFFFFF, $000000,
-  {TINTED RED} $000046, $01012F, $010124,
-  {TINTED BLUE} $5E1717, $400301, $1F0201,
-  {YELLOW TEXT} $00FFFF,
-  {MAX} $0000E9, $0000B3, $01018D, $0009C4, $0054F0, $007EFD, $0FB5FA
-  ];
-const
-  BAR_WIDTH = 29;
-  BAR_HEIGHT = 4;
-var
-  Matrix: T2DIntegerArray;
-
-  procedure Fix(TPA: TPointArray);
-  var
-    P: TPoint;
-  begin
-    FilterPointsBox(TPA, 1, 0, High(Matrix[0]), High(Matrix));
-    SortTPAByX(TPA, True);
-
-    for P in TPA do
-      if (Matrix[P.Y][P.X-1] <> 0) then
-        Matrix[P.Y][P.X] := 255;
-  end;
-
-  procedure Find(var Result: TRSHPBarArray);
-  var
-    W, H, X, Y, YY: Int32;
-  label
-    Bad;
-  begin
-    W := Length(Matrix[0])-BAR_WIDTH-1;
-    H := Length(Matrix)-5;
-    for Y := 1 to H do
-      for X := 1 to W do
-        if (Matrix[Y][X] <> 0) and (Matrix[Y][X+BAR_WIDTH] <> 0) then
-          Matrix[Y][X] := 254;
-
-    for Y := 1 to H do
-      for X := 1 to W do
-        if (Matrix[Y][X] = 254) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = 255)) then
-        begin
-          for YY := Max(Y - BAR_HEIGHT, 0) to Y do
-            if Matrix[YY][X] = $00FF00 then
-              goto Bad;
-
-          Matrix[Y][X] := $00FF00;
-          Result += [[X, Y, X + BAR_WIDTH, Y + BAR_HEIGHT]];
-
-          Bad:
-        end;
-  end;
-
-var
-  B: TBox;
-  Color: Int32;
-  TPA, Splats, Temp: TPointArray;
-  P: TPoint;
-  Bars: TRSHPBarArray;
-  Bar: TRSHPBar;
-  Frozen: Boolean;
-begin
-  Frozen := Client.GetIOManager().IsFrozen();
-  if not Frozen then
-    Freeze();
-
-  Area.LimitTo(Self.Bounds());
-
-  try
-    for Color in COLOR_BARS do
-      if FindColors(Temp, Color, Area) then
-        TPA += Temp;
-
-    for TPA in TPA.Cluster(15) do
-    begin
-      Matrix := [];
-      Bars := [];
-      Splats := [];
-
-      B := GetTPABounds(TPA);
-
-      for Color in COLOR_SPLATS do
-        if FindColors(Temp, Color, B.Expand(15, Area)) then
-          Splats += Temp;
-
-      OffsetTPA(Splats, Point(-B.X1+1, -B.Y1+1));
-      SetLength(Matrix, B.Height()+2, B.Width()+2);
-
-      for P in TPA do
-        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := 255;
-
-      Fix(Splats);
-      Find(Bars);
-
-      for Bar in Bars do
-      begin
-        if (Matrix[Bar.Bounds.Y1, Bar.Bounds.X1] = 0) or
-           (Matrix[Bar.Bounds.Y1, Bar.Bounds.X2] = 0) or
-           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X2] = 0) or
-           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X1] = 0) then
-         Continue;
-
-        Bar.Bounds := Bar.Bounds.Offset([B.X1-1, B.Y1-1]);
-        if FindColors(TPA, $00FF00, Bar.Bounds) then
-          Bar.Percent := TPA.Bounds().Width() / 30 * 100;
-
-        Result += Bar;
-      end;
-    end;
-  finally
-    if not Frozen then
-      UnFreeze();
-  end;
 end;
 
 {
@@ -1411,7 +1211,7 @@ begin
     Mouse.Click(B, MOUSE_LEFT);
     WaitUntil((Self.GetCurrentWorld() = World), 75, 15000);
   end
-  else if not Force then
+  else if not Force then // assumes worlds are ordered; it might not be; try the other dir
     Result := Self.SwitchWorlds(World, True, not WentUp);
 end;
 
@@ -1511,84 +1311,6 @@ begin
         exit(True);
     end;
   end;
-end; 
-
-{
-  overrides
-}
-function TRSMainScreen.DidRedClick(): Boolean; override;
-begin
-  Result := Mouse.DidClick(True);
-end;
-
-{
-  overrides
-}
-function TRSMainScreen.DidYellowClick(): Boolean; override;
-begin
-  Result := Mouse.DidClick(False);
-end;
-
-{
-  override
-}
-function TRSMainScreen.FindClick(Area: TBox): ERSClickType; override;
-var
-  CountDown: TCountDown;
-begin
-  Area := Area;
-
-  CountDown.Init(200);
-  while not CountDown.IsFinished() do
-  begin
-    if Mouse.DidClick(True, 0) then
-      exit(ERSClickType.RED)
-    else if Mouse.DidClick(False, 0) then
-      exit(ERSClickType.YELLOW);
-  end;
-
-  Result := ERSClickType.NONE;
-end;
-
-{
-  thanks wasplib for the colors and values to test against
-}
-function TRSMainScreen.AnyInterfaceOpen(): Boolean;
-begin
-  if SRL.CountColor(CTS2(8693433, 5, 0.10, 1.17), InterfaceArea.Bounds()) > 35000 then
-    exit(True);
-
-  if SRL.CountColor(CTS0(3358536, 2), InterfaceArea.Bounds()) > 10000 then
-    exit(True);
-end;
-
-{
-  Closes any interface that might be open on the mainscreen
-}
-function TRSMainScreen.CloseInterface(PressEscape: Boolean = False): Boolean;
-var
-  Buttons: TRSButtonArray;
-begin
-  if not Self.AnyInterfaceOpen() then
-    exit();
-
-  // wasplib !
-  Buttons := Self.FindButtons([[21,21], [24,23]]);
-  if Buttons <> [] then
-  begin
-    if PressEscape then
-      Keyboard.PressKey(VK_ESCAPE)
-    else
-      Buttons[High(Buttons)].Click();
-
-    WaitUntil(not Self.AnyInterfaceOpen(), 100, 2000);
-
-    Result := True;
-  end;
-
-  // make sure that press esc to close interface is enabled
-  if Self.AnyInterfaceOpen() then
-    Keyboard.PressKey(VK_ESCAPE);
 end;
 
 {

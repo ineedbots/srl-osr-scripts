@@ -443,6 +443,10 @@ begin
   Text += 'Height: ' + ToStr(Height) + LineEnding;
   Text += 'Nearby: ' + ToStr(Nearby) + LineEnding;
 
+  RSClient.Image().SetFontName('Consolas');
+  RSClient.Image().SetFontSize(18);
+  RSClient.Image().SetFontAntialiasing(True);
+
   if not MainScreen.AnyInterfaceOpen() then
   begin
     TPA := Self.GetHunterTiles();

@@ -274,9 +274,7 @@ begin
   SBoxTop    := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y1+SRL.NormalRange(1,10)];
   SBoxBottom := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y2];
 
-  // Bank.SetScrollPosition(0); Broken?
-  Mouse.Move(SBoxTop);
-  Mouse.Click(MOUSE_LEFT);
+  Self.SetScrollPosition(0);
 
   Mouse.Move(Self.GetScrollBar().Slider);
   Mouse.Hold(MOUSE_LEFT);

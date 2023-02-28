@@ -625,6 +625,10 @@ begin
   OurPos := Self.RSW.GetMyPos();
   Height := Self.GetHeightOffset(OurPos);
 
+  RSClient.Image().SetFontName('Consolas');
+  RSClient.Image().SetFontSize(18);
+  RSClient.Image().SetFontAntialiasing(True);
+
   if Chat.IsOpen() then
     Text := 'ChatText: ' + Chat.GetChat() + LineEnding;
 

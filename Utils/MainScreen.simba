@@ -1,0 +1,365 @@
+{
+  Mainscreen patches and additions
+  Author: ineedbot
+  Date: 2/27/2023
+}
+
+{$IFNDEF INEEDBOT_UTILS_MAINSCREEN}
+{$DEFINE INEEDBOT_UTILS_MAINSCREEN}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/osr.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+const                     {inner splat to outer splat}
+  BLUE_HITSPLAT_COLORS : TIntegerArray = [16728128, 11339523, 5770251];
+  RED_HITSPLAT_COLORS : TIntegerArray = [2500, 65933, 65889];
+  MAX_HITSPLAT_COLORS : TIntegerArray = [233, 179, 65933, 2500, 21744, 32509, 1029626];
+  TINTED_RED_HITSPLAT_COLORS : TIntegerArray = [59, 65828];
+  TINTED_BLUE_HITSPLAT_COLORS : TIntegerArray = [5770251, 3148041, 1705985];
+
+type
+  ERSHitsplatType = (
+    BLUE,
+    RED,
+    MAX,       
+    TINTED_RED,
+    TINTED_BLUE
+  );
+
+  TRSNewHitsplat = record
+    Position: TPoint;
+    Hit: Int32;
+    SplatType: ERSHitsplatType;
+  end;
+
+  TRSNewHitsplatArray = array of TRSNewHitsplat;
+
+{
+  Better!
+}
+function TRSMainScreen.FindNewHitsplats(Area: TBox): TRSNewHitsplatArray;
+var
+  TPA, TTPA: TPointArray;
+  B, SplatBox: TBox;
+  Text: String;
+  TP: TPoint;
+  Hit, Color, i, NumColorsToUse: Int32;
+  SplatType: ERSHitsplatType;
+  SplatColors: TIntegerArray;
+  Splat: TRSNewHitsplat;
+  AllSplatBoxes: TBoxArray;
+  SplatIsAccountedFor: Boolean;
+begin
+  for SplatType in ERSHitsplatType do
+  begin
+    case SplatType of
+      ERSHitsplatType.BLUE:
+      begin
+        SplatColors := BLUE_HITSPLAT_COLORS;
+        NumColorsToUse := 1;
+      end;
+      ERSHitsplatType.RED:
+      begin
+        SplatColors := RED_HITSPLAT_COLORS;
+        NumColorsToUse := 1;
+      end;
+      ERSHitsplatType.MAX:
+      begin
+        SplatColors := MAX_HITSPLAT_COLORS;
+        NumColorsToUse := 2;
+      end;
+      ERSHitsplatType.TINTED_BLUE:
+      begin
+        SplatColors := TINTED_BLUE_HITSPLAT_COLORS;
+        NumColorsToUse := 1;
+      end;
+      ERSHitsplatType.TINTED_RED:
+      begin
+        SplatColors := TINTED_RED_HITSPLAT_COLORS;
+        NumColorsToUse := 1;
+      end;
+    end;
+
+    SetLength(TPA, 0);
+    for i := 0 to NumColorsToUse - 1 do
+    begin
+      Color := SplatColors[i];
+      SRL.FindColors(TPA, Color, Area);
+    end;
+
+    if Length(TPA) <= 0 then
+      continue;
+
+    for SplatBox in TPA.Cluster(3).ToTBA() do
+    begin
+      SplatIsAccountedFor := False;
+      for B in AllSplatBoxes do
+      begin
+        if B.Overlap(SplatBox) then
+        begin
+          SplatIsAccountedFor := True;
+          break;
+        end;
+      end;
+
+      // skip this, intersects an existing splat
+      if SplatIsAccountedFor then
+        continue;
+
+      if (SplatBox.Width() >= 10) and (SplatBox.Height() >= 10) then
+      begin
+        Hit := OCR.RecognizeNumber(SplatBox.Expand(5, Area), TOCRColorRule.Create([$FFFFFF]), RS_FONT_PLAIN_11);
+        Result += [SplatBox.Middle(), Hit, SplatType];
+        AllSplatBoxes += SplatBox.Expand(5);
+      end;
+    end;
+  end;
+end;
+
+{
+  overrides
+}
+function TRSMainScreen.DidRedClick(): Boolean; override;
+begin
+  Result := Mouse.DidClick(True);
+end;
+
+{
+  overrides
+}
+function TRSMainScreen.DidYellowClick(): Boolean; override;
+begin
+  Result := Mouse.DidClick(False);
+end;
+
+{
+  override
+}
+function TRSMainScreen.FindClick(Area: TBox): ERSClickType; override;
+var
+  CountDown: TCountDown;
+begin
+  Area := Area;
+
+  CountDown.Init(200);
+  while not CountDown.IsFinished() do
+  begin
+    if Mouse.DidClick(True, 0) then
+      exit(ERSClickType.RED)
+    else if Mouse.DidClick(False, 0) then
+      exit(ERSClickType.YELLOW);
+  end;
+
+  Result := ERSClickType.NONE;
+end;
+
+{
+  thanks wasplib for the colors and values to test against
+}
+function TRSMainScreen.AnyInterfaceOpen(): Boolean;
+begin
+  if SRL.CountColor(CTS2(8693433, 5, 0.10, 1.17), InterfaceArea.Bounds()) > 35000 then
+    exit(True);
+
+  if SRL.CountColor(CTS0(3358536, 2), InterfaceArea.Bounds()) > 10000 then
+    exit(True);
+end;
+
+{
+  Closes any interface that might be open on the mainscreen
+}
+function TRSMainScreen.CloseInterface(PressEscape: Boolean = False): Boolean;
+var
+  Buttons: TRSButtonArray;
+begin
+  if not Self.AnyInterfaceOpen() then
+    exit();
+
+  // wasplib !
+  Buttons := Self.FindButtons([[21,21], [24,23]]);
+  if Buttons <> [] then
+  begin
+    if PressEscape then
+      Keyboard.PressKey(VK_ESCAPE)
+    else
+      Buttons[High(Buttons)].Click();
+
+    WaitUntil(not Self.AnyInterfaceOpen(), 100, 2000);
+
+    Result := True;
+  end;
+
+  // make sure that press esc to close interface is enabled
+  if Self.AnyInterfaceOpen() then
+    Keyboard.PressKey(VK_ESCAPE);
+end;
+
+{
+  Fix issue where gametabs are not checked
+}
+function TRSMainScreen.IsVisible(P: TPoint): Boolean; override;
+var
+  Boxes: TBoxArray;
+  B: TBox;
+begin
+  Result := Self.Bounds().Contains(P);
+
+  if Result then
+  begin
+    if Chat.IsOpen() and Chat.Bounds().Contains(P) then
+      Exit(False);
+    if ChatButtons.Bounds().Contains(P) then
+      Exit(False);
+    if Minimap.Bounds().Expand(50).Contains(P) then
+      Exit(False);
+    if GameTabs.Bounds().Contains(P) then
+      Exit(False);
+
+    if (GameTabs.Mode = ERSClientMode.RESIZABLE_MODERN) and (RootInterface.Width() >= 948) then
+    begin
+      Boxes := GameTabs.GetTabBoxes();
+
+      for B in Boxes do
+        if B.Contains(P) then
+          Exit(False);
+    end;
+  end;
+end;
+
+{
+  Adds tinted colors, should be added to SRL
+}
+function TRSMainScreen.FindHPBars(Area: TBox): TRSHPBarArray; override;
+const
+  COLOR_BARS : TIntegerArray = [
+  {GREEN} $00FF00,
+  {RED} $0000FF
+  ];
+  COLOR_SPLATS : TIntegerArray = [
+  {BLACK AND WHITE} $FFFFFF, $000000,
+  {YELLOW TEXT} $00FFFF
+  ];
+const
+  BAR_WIDTH = 29;
+  BAR_HEIGHT = 4;
+var
+  Matrix: T2DIntegerArray;
+
+  procedure Fix(TPA: TPointArray);
+  var
+    P: TPoint;
+  begin
+    FilterPointsBox(TPA, 1, 0, High(Matrix[0]), High(Matrix));
+    SortTPAByX(TPA, True);
+
+    for P in TPA do
+      if (Matrix[P.Y][P.X-1] <> 0) then
+        Matrix[P.Y][P.X] := 255;
+  end;
+
+  procedure Find(var Result: TRSHPBarArray);
+  var
+    W, H, X, Y, YY: Int32;
+  label
+    Bad;
+  begin
+    W := Length(Matrix[0])-BAR_WIDTH-1;
+    H := Length(Matrix)-5;
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] <> 0) and (Matrix[Y][X+BAR_WIDTH] <> 0) then
+          Matrix[Y][X] := 254;
+
+    for Y := 1 to H do
+      for X := 1 to W do
+        if (Matrix[Y][X] = 254) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = 255)) then
+        begin
+          for YY := Max(Y - BAR_HEIGHT, 0) to Y do
+            if Matrix[YY][X] = COLOR_BARS[0] then
+              goto Bad;
+
+          Matrix[Y][X] := COLOR_BARS[0];
+          Result += [[X, Y, X + BAR_WIDTH, Y + BAR_HEIGHT]];
+
+          Bad:
+        end;
+  end;
+
+var
+  B: TBox;
+  Color: Int32;
+  TPA, Splats, Temp: TPointArray;
+  P: TPoint;
+  Bars: TRSHPBarArray;
+  Bar: TRSHPBar;
+  Frozen: Boolean;
+  ColorSplats: TIntegerArray;
+begin
+  Frozen := Client.GetIOManager().IsFrozen();
+  if not Frozen then
+    Freeze();
+
+  Area.LimitTo(Self.Bounds());
+
+  ColorSplats := ColorSplats.Combine(COLOR_SPLATS);
+  ColorSplats := ColorSplats.Combine(BLUE_HITSPLAT_COLORS);
+  ColorSplats := ColorSplats.Combine(RED_HITSPLAT_COLORS);
+  ColorSplats := ColorSplats.Combine(MAX_HITSPLAT_COLORS);
+  ColorSplats := ColorSplats.Combine(TINTED_RED_HITSPLAT_COLORS);
+  ColorSplats := ColorSplats.Combine(TINTED_BLUE_HITSPLAT_COLORS);
+
+  try
+    for Color in COLOR_BARS do
+      if FindColors(Temp, Color, Area) then
+        TPA += Temp;
+
+    for TPA in TPA.Cluster(15) do
+    begin
+      Matrix := [];
+      Bars := [];
+      Splats := [];
+
+      B := GetTPABounds(TPA);
+
+      for Color in ColorSplats do
+        if FindColors(Temp, Color, B.Expand(15, Area)) then
+          Splats += Temp;
+
+      OffsetTPA(Splats, Point(-B.X1+1, -B.Y1+1));
+      SetLength(Matrix, B.Height()+2, B.Width()+2);
+
+      for P in TPA do
+        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := 255;
+
+      Fix(Splats);
+      Find(Bars);
+
+      for Bar in Bars do
+      begin
+        if (Matrix[Bar.Bounds.Y1, Bar.Bounds.X1] = 0) or
+           (Matrix[Bar.Bounds.Y1, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X2] = 0) or
+           (Matrix[Bar.Bounds.Y2, Bar.Bounds.X1] = 0) then
+         Continue;
+
+        Bar.Bounds := Bar.Bounds.Offset([B.X1-1, B.Y1-1]);
+        if FindColors(TPA, COLOR_BARS[0], Bar.Bounds) then
+          Bar.Percent := TPA.Bounds().Width() / 30 * 100;
+
+        Result += Bar;
+      end;
+    end;
+  finally
+    if not Frozen then
+      UnFreeze();
+  end;
+end;
+
+{$ENDIF} // INEEDBOT_UTILS_MAINSCREEN
+
