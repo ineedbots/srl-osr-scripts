@@ -136,7 +136,7 @@ Attempts to open the XP Drops if they are closed.
 *)
 function TRSXPDrop.Open(): Boolean;
 begin
-  if Self.IsOpen then
+  if Self.IsOpen() then
     Exit(True);
 
   Mouse.Click(Minimap.GetXPCircle(), MOUSE_LEFT);

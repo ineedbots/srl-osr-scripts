@@ -1,0 +1,113 @@
+{
+  Make sure that you are inside the dream, with absorbtions
+  and rapid-heal setup as your quickprayer
+
+  Make sure to have a dwarven rockcake!
+}
+
+//{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/osr.simba}
+
+{$F-}
+
+{$include_once Utils/Utils.simba}
+
+var
+  FlickprayerCountdown: TCountdown;
+  Slots: TIntegerArray;
+
+{
+  Thanks wasplib
+}
+function GetAbsorptionPoints(): Int32;
+var
+  B: TBox;
+begin
+  case RSClient.Mode of
+    ERSClientMode.FIXED: B := [10, 57, 63, 76];
+    ERSClientMode.RESIZABLE_CLASSIC,
+    ERSClientMode.RESIZABLE_MODERN: B := [10, 53, 63, 72];
+  end;
+
+  Result := OCR.RecognizeNumber(B, TOCRShadowRule.Create(20), RS_FONT_QUILL);
+end;
+
+begin
+  // general setup
+  Login.AddPlayer('', '');
+  Script.AntiBanEnergy.SetupBiometrics();
+  Script.AntiBanEnergy.BoxPTRad := 0.3;
+  Script.AntiBan.Name := 'Antiban';
+  Script.SleepRate := 50;
+  Mouse.Speed             := 17 + Round(BioRandomFixed() * 10) + Random(-2, 2);
+  Script.BaseMouseSpeed := Mouse.Speed;
+  Script.MaxTiredMouseSpeed := 10;
+
+  FlickprayerCountdown.Init(45000);
+
+  while 1 do
+  begin    
+    Wait(Script.MainLoopWaitAmount(False));  
+    Script.UpdateMouseSpeed();
+
+    if not RSClient.IsLoggedIn() then
+      continue;
+
+    if Random() < 0.01 then
+      Wait(3500, 15000, wdLeft);
+
+    // reset our hp regen
+    if FlickprayerCountdown.IsFinished() then
+    begin
+      Minimap.EnablePrayer();
+      Wait(250, 600, wdLeft);
+      Minimap.DisablePrayer();
+      FlickprayerCountdown.Restart(SRL.SkewedRand(0, -30000, 30000));
+      Wait(600, 3500, wdLeft);
+
+      if Random() < 0.7 then
+        Script.AntiBan.DoLoseFocus();
+    end;
+
+    if Minimap.IsPrayerEnabled() then
+      Minimap.DisablePrayer();
+
+    // make sure our hp is 1!
+    if Minimap.GetHPLevel() > 1 then
+    begin
+      while RSClient.IsLoggedIn() and (Minimap.GetHPLevel() > 1) do
+      begin
+        Slots.Clear();
+        if Inventory.FindItems(['Dwarven rock cake'], Slots) then
+        begin
+          Inventory.ClickSlot(Slots[0], 'Guzzle');
+          Wait(0, 2500, wdLeft);
+        end
+        else
+          break;
+      end;
+
+      if (Minimap.GetHPLevel() = 1) and (Random() < 0.7) then
+        Script.AntiBan.DoLoseFocus();
+    end;
+
+    // make sure our absorbtions are good
+    if GetAbsorptionPoints() < 100 then
+    begin
+      while RSClient.IsLoggedIn() and (GetAbsorptionPoints() < 500) do
+      begin
+        Slots.Clear();
+        if Inventory.FindItems(['Absorption (4)', 'Absorption (3)', 'Absorption (2)', 'Absorption (1)'], Slots) then
+        begin
+          Inventory.ClickSlot(Slots[Random(High(Slots))], 'Drink');
+          Wait(0, 2500, wdLeft);
+        end
+        else
+          break;
+      end;
+
+      if (GetAbsorptionPoints() >= 100) and (Random() < 0.7) then
+        Script.AntiBan.DoLoseFocus();
+    end;
+  end;
+end.

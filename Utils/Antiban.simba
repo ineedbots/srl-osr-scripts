@@ -488,6 +488,32 @@ begin
 end;
 
 {
+  Allows to lose focus without ri
+}
+procedure TRSClient.LoseFocus(); override;
+var
+  Space: TBoxArray;
+begin
+  {$IFNDEF SRL_DISABLE_REMOTEINPUT}
+  if RemoteInput.IsSetup() then
+  begin
+    RemoteInput.LoseFocus();
+
+    Exit;
+  end;
+  {$ENDIF}
+
+  Space := GetClientBounds().Expand(50).Invert(GetClientBounds().Expand(1000));
+
+  if (Length(Space) > 0) then
+  begin
+    Mouse.CanIdle := False;
+    Mouse.Move(Space[Random(Length(Space))]);
+    Mouse.CanIdle := True;
+  end;
+end;
+
+{
   Randomize the last tile in the path,
   Seems that SRL walker, for the last dest in the path
   the click is NOT randomized, possibly triggering patterns

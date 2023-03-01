@@ -42,7 +42,7 @@ end;
 
 function TRSXPBarSetup.Open(): Boolean;
 begin
-  if Self.IsOpen then
+  if Self.IsOpen() then
     Exit(True);
 
   if MainScreen.AnyInterfaceOpen() then

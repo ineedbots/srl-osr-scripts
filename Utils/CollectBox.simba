@@ -311,13 +311,13 @@ begin
   if Self.HasItem(Slot) then
   begin
     Mouse.Move(Self.GetSlotBox(Slot, ERSCollectSlotBoxes.ITEM));
-    if ChooseOption.Open then
+    if ChooseOption.Open() then
       ChooseOption.Select('Bank', MOUSE_LEFT);
   end;
   if Self.HasChange(Slot) then
   begin
     Mouse.Move(Self.GetSlotBox(Slot, ERSCollectSlotBoxes.CHANGE));
-    if ChooseOption.Open then
+    if ChooseOption.Open() then
       ChooseOption.Select('Bank', MOUSE_LEFT);
   end;
   Result := WaitUntil((not Self.HasItem(Slot) and not Self.HasChange(Slot)), SRL.TruncatedGauss(50, 1500), 1000);
