@@ -1,0 +1,155 @@
+{
+  Achievements gametab, from wasp-lib
+  Author: ineedbot
+  Date: 2/28/2023
+}
+
+{$IFNDEF INEEDBOT_UTILS_ACHIEVEMENTS}
+{$DEFINE INEEDBOT_UTILS_ACHIEVEMENTS}
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/osr.simba}
+{$ENDIF}
+
+{$F-}
+
+{$include_once Types.simba}
+{$include_once Utils.simba}
+
+type
+  ERSAchievementTab = (
+    SUMMARY,
+    QUESTS,
+    DIARIES,
+    FAVOUR
+  );
+
+  ERSSummaryButton = (
+    QUESTS_COMPLETED,
+    DIARIES_COMPLETED,
+    COMBAT_ACHIEVEMENTS,
+    COLLECTION_LOG,
+    TIME_PLAYED
+  );
+
+  TRSAchievements = type TRSInterface;
+
+
+procedure TRSAchievements.Setup(); override;
+begin
+  inherited();
+
+  Self.Name := 'Achievements';
+end;
+
+procedure TRSAchievements.SetupAlignment(Mode: ERSClientMode); override;
+begin
+  inherited(Mode);
+
+  Self.Alignment.Left := [GameTab.X1];
+  Self.Alignment.Right := [GameTab.X2];
+  Self.Alignment.Top := [GameTab.Y1];
+  Self.Alignment.Bottom := [GameTab.Y2];
+end;
+
+
+function TRSAchievements.IsOpen(): Boolean;
+begin
+  Result := (GameTabs.GetCurrentTab() = ERSGameTab.QUESTS);
+end;
+
+function TRSAchievements.Open(): Boolean;
+begin
+  Result := GameTabs.Open(ERSGameTab.QUESTS);
+end;
+
+
+function TRSAchievements.GetButtons(): TRSButtonArray;
+begin
+  Result := Self.FindButtons([[89,52], [182, 24]]);
+end;
+
+function TRSAchievements.GetButton(button: ERSSummaryButton): TRSButton;
+var
+  Buttons: TRSButtonArray := Self.GetButtons();
+begin
+  if Length(Buttons) = Length(ERSSummaryButton) then
+    Result := Buttons[Button];
+end;
+
+
+function TRSAchievements.GetTabs(): TBoxArray;
+begin
+  Result := Grid(4, 1, 41, 19, [5], [Self.X1()+2, Self.Y1() + 5]);
+end;
+
+function TRSAchievements.GetCurrentTab(): ERSAchievementTab;
+const
+  COLORS: array of TCTS2Color = [
+    [4418165, 10, 0.18, 0.78],
+    [15230302, 13, 0.15, 1.81],
+    [5743700, 20, 0.38, 0.58],
+    [10760042, 20, 0.09, 0.88]
+  ];
+var
+  b: TBox;
+  i: Int32;
+begin
+  b := GameTabs.GetTabBox(ERSGameTab.QUESTS);
+
+  for i := 0 to High(COLORS) do
+    if SRL.CountColor(COLORS[i], b) > 0 then
+      Exit(ERSAchievementTab(i));
+end;
+
+function TRSAchievements.OpenTab(tab: ERSAchievementTab): Boolean;
+begin
+  if not Self.Open() then
+    Exit(False);
+
+  if Self.GetCurrentTab() = tab then
+    Exit(True);
+
+  Mouse.Click(Self.GetTabs()[tab], MOUSE_LEFT);
+  Result := WaitUntil(Self.GetCurrentTab() = tab, SRL.TruncatedGauss(50, 1500), 3000);
+end;
+
+procedure TRSAchievements.Draw(bitmap: TMufasaBitmap); override;
+begin
+  if not Self.IsOpen() then
+    Exit;
+
+  inherited(bitmap);
+
+  bitmap.DrawButtons(Self.GetButtons());
+  bitmap.DrawBoxes(Self.GetTabs(), clRed);
+end;
+
+
+var
+  Achievements: TRSAchievements;
+
+
+procedure TRSClient.ClientModeChanged(); override;
+begin
+  inherited();
+
+  Achievements.SetupAlignment(Self.Mode);
+end;
+
+procedure TSRL.Setup(); override;
+begin
+  inherited();
+
+  Achievements.Setup;
+end;
+
+procedure TSRL.Debug(Bitmap: TMufasaBitmap); override;
+begin
+  inherited(Bitmap);
+
+  Achievements.Draw(Bitmap);
+end;
+
+{$ENDIF} // INEEDBOT_UTILS_ACHIEVEMENTS
+

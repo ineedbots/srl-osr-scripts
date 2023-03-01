@@ -257,7 +257,7 @@ var
 
     for P in TPA do
       if (Matrix[P.Y][P.X-1] <> 0) then
-        Matrix[P.Y][P.X] := 255;
+        Matrix[P.Y][P.X] := COLOR_BARS[1];
   end;
 
   procedure Find(var Result: TRSHPBarArray);
@@ -271,11 +271,11 @@ var
     for Y := 1 to H do
       for X := 1 to W do
         if (Matrix[Y][X] <> 0) and (Matrix[Y][X+BAR_WIDTH] <> 0) then
-          Matrix[Y][X] := 254;
+          Matrix[Y][X] := COLOR_BARS[1] - 1;
 
     for Y := 1 to H do
       for X := 1 to W do
-        if (Matrix[Y][X] = 254) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = 255)) then
+        if (Matrix[Y][X] = (COLOR_BARS[1] - 1)) and ((Matrix[Y][X-1] = 0) or (Matrix[Y][X+1] = COLOR_BARS[1])) then
         begin
           for YY := Max(Y - BAR_HEIGHT, 0) to Y do
             if Matrix[YY][X] = COLOR_BARS[0] then
@@ -332,7 +332,7 @@ begin
       SetLength(Matrix, B.Height()+2, B.Width()+2);
 
       for P in TPA do
-        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := 255;
+        Matrix[(P.Y-B.Y1)+1][(P.X-B.X1)+1] := COLOR_BARS[1];
 
       Fix(Splats);
       Find(Bars);
@@ -347,7 +347,7 @@ begin
 
         Bar.Bounds := Bar.Bounds.Offset([B.X1-1, B.Y1-1]);
         if FindColors(TPA, COLOR_BARS[0], Bar.Bounds) then
-          Bar.Percent := TPA.Bounds().Width() / 30 * 100;
+          Bar.Percent := TPA.Bounds().Width() / (BAR_WIDTH + 1) * 100;
 
         Result += Bar;
       end;
@@ -359,210 +359,24 @@ begin
 end;
 
 {
-  From wasplib
+  Uses new stuff
 }
-(*
-Minimap.FindRedArrow
-~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMinimap.FindRedArrow(out TPA: TPointArray): Boolean;
-.. pascal:: function TRSMinimap.FindRedArrow: Boolean; overload;
-
-Returns true if there's a red arrow on minimap.
-If a TPointArray is passed as a parameter it will return with the location of the arrow.
-
-Example
--------
-
-  Writeln Minimap.FindRedArrow;
-*)
-function TRSMinimap.FindRedArrow(out TPA: TPointArray): Boolean;
-begin
-  Result := (SRL.FindColors(TPA, CTS0(255, 0), Self.Bounds()) > 0) and
-            (Length(TPA) <= 84);
-
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.FindRedArrow: Boolean; overload;
+procedure TRSMainScreen.Draw(Bitmap: TMufasaBitmap); override;
 var
-  TPA: TPointArray;
+  Splat: TRSNewHitsplat;
+  Bar: TRSHPBar;
+  ScrollBar: TRSScrollBar;  
 begin
-  Result := Self.FindRedArrow(TPA);
-end;
+  for Splat in Self.FindNewHitsplats(Self.Bounds()) do
+    Bitmap.DrawCircle(Splat.Position, 10, $00FF00);
+  for Bar in Self.FindHPBars() do
+    Bitmap.DrawBox(Bar.Bounds, $00FFFF);
 
-{
-  From wasplib
-}
-(*
-Minimap.FindYellowArrow
-~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMinimap.FindYellowArrow(out TPA: TPointArray): Boolean;
-.. pascal:: function TRSMinimap.FindYellowArrow: Boolean; overload;
-
-Returns true if there's a yellow arrow on minimap.
-If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
-
-Example
--------
-
-  Writeln Minimap.FindYellowArrow;
-*)
-function TRSMinimap.FindYellowArrow(out TPA: TPointArray): Boolean;
-begin
-  Result := (SRL.FindColors(TPA, CTS0(1767418, 0), Self.Bounds()) > 0) and
-            (Length(TPA) <= 16);
-
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.FindYellowArrow(): Boolean; overload;
-var
-  TPA: TPointArray;
-begin
-  Result := Self.FindYellowArrow(TPA);
-end;
-
-{
-  From wasplib
-}
-(*
-MainScreen.FindArrow
-~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMainScreen.FindArrow(out TPA: TPointArray): Boolean;
-.. pascal:: function TRSMainScreen.FindArrow: Boolean; overload;
-
-Returns true if there's a red or yellow arrow on screen.
-If a TPointArray is passed as a parameter it will return with the location of the arrow.
-
-Example
--------
-
-  Writeln MainScreen.FindArrow;
-*)
-function TRSMinimap.FindArrow(out TPA: TPointArray): Boolean;
-begin
-  Result := Self.FindYellowArrow(TPA) or Self.FindRedArrow(TPA);
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.FindArrow(): Boolean; overload;
-begin
-  Result := Self.FindYellowArrow() or Self.FindRedArrow();
-end;
-
-{
-  From wasplib
-}
-(*
-Minimap.WaitRedArrow
-~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMinimap.WaitRedArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-.. pascal:: function TRSMinimap.WaitRedArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-
-Waits **WaitTime** for a Red arrow to appear on Minimap.
-If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
-
-Example
--------
-
-  Writeln Minimap.WaitRedArrow;
-*)
-function TRSMinimap.WaitRedArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindRedArrow(TPA), Interval, WaitTime);
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.WaitRedArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindRedArrow(), Interval, WaitTime);
-end;
-
-{
-  From wasplib
-}
-(*
-Minimap.WaitYellowArrow
-~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMinimap.WaitYellowArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-.. pascal:: function TRSMinimap.WaitYellowArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-
-Waits **WaitTime** for a yellow arrow to appear on Minimap.
-If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
-
-Example
--------
-
-  Writeln Minimap.WaitYellowArrow;
-*)
-function TRSMinimap.WaitYellowArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindYellowArrow(TPA), Interval, WaitTime);
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.WaitYellowArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindYellowArrow(), Interval, WaitTime);
-end;
-
-{
-  From wasplib
-}
-(*
-Minimap.WaitArrow
-~~~~~~~~~~~~~~~~~
-.. pascal::
-  function TRSMinimap.WaitArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-  function TRSMinimap.WaitArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
-
-Waits **WaitTime** for a yellow or red arrow to appear on Minimap.
-If a TPointArray is passed as a parameter it will return with the location of the arrow.
-
-Example
--------
-
-  Writeln Minimap.WaitArrow;
-*)
-function TRSMinimap.WaitArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindArrow(TPA), Interval, WaitTime);
-end;
-
-{
-  From wasplib
-}
-function TRSMinimap.WaitArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 200);
-
-  Result := WaitUntil(Self.FindArrow(), Interval, WaitTime);
+  Bitmap.DrawBox(Self.Bounds(), $00FFFF);
+  
+  ScrollBar := Self.GetScrollBar();
+  if ScrollBar.IsVisible() then
+    ScrollBar.Draw(Bitmap);
 end;
 
 {
@@ -692,6 +506,113 @@ begin
     WaitTime := WaitTime - (GetTickCount() - t);
     Result := WaitUntil(not Self.LoadingPOH(), Interval, WaitTime);
   end;
+end;
+
+{
+  From wasplib
+}
+(*
+MainScreen.FindArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMainScreen.FindArrow(out TPA: TPointArray): Boolean;
+.. pascal:: function TRSMainScreen.FindArrow: Boolean; overload;
+
+Returns true if there's a yellow arrow on screen.
+If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
+
+Example
+-------
+
+  Writeln MainScreen.FindArrow;
+*)
+function TRSMainScreen.FindArrow(out TPA: TPointArray): Boolean;
+begin
+  Result := (SRL.FindColors(TPA, CTS0(2291706, 0), Self.Bounds()) > 0) and
+            (Length(TPA) <= 35);
+end;
+
+{
+  From wasplib
+}
+function TRSMainScreen.FindArrow(): Boolean; overload;
+var
+  TPA: TPointArray;
+begin
+  Result := Self.FindArrow(TPA);
+end;
+
+{
+  From wasplib
+}
+(*
+MainScreen.WaitArrow
+~~~~~~~~~~~~~~~~~~~~
+.. pascal::
+  function TRSMainScreen.WaitArrow(TPA: TPointArray; WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+  function TRSMainScreen.WaitArrow(WaitTime: Int32 = 600; Interval: Int32 = -1): Boolean;
+
+Waits **WaitTime** for a yellow arrow to appear on MainScreen.
+If a TPointArray is passed as a parameter it will return with the location of the arrow tip.
+
+Example
+-------
+
+  Writeln MainScreen.WaitArrow;
+*)
+function TRSMainScreen.WaitArrow(out TPA: TPointArray; WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindArrow(TPA), Interval, WaitTime);
+end;
+
+{
+  From wasplib
+}
+function TRSMainScreen.WaitArrow(WaitTime: Int32 = 120; Interval: Int32 = -1): Boolean; overload;
+begin
+  if (Interval = -1) then
+    Interval := SRL.TruncatedGauss(50, 200);
+
+  Result := WaitUntil(Self.FindArrow(), Interval, WaitTime);
+end;
+
+{
+  From wasp
+}
+(*
+ObjectFinder.Unlimit
+~~~~~~~~~~~~~~~~~~~~
+.. pascal:: procedure TRSObjectFinder.Unlimit;
+
+Resets ObjectFinder size limits
+*)
+procedure TRSObjectFinder.Unlimit();
+begin
+  Self.MinLongSide := 0;
+  Self.MaxLongSide := 0;
+  Self.MinShortSide := 0;
+  Self.MaxShortSide := 0;
+end;
+
+{
+  From wasp
+}
+(*
+ObjectFinder.Unlimited
+~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSObjectFinder.Unlimited: TRSObjectFinder;
+
+Returns a copy of the ObjectFinder with the size limits removed.
+*)
+function TRSObjectFinder.Unlimited(): TRSObjectFinder;
+begin
+  Result := Self;
+  Result.MinShortSide := 0;
+  Result.MaxShortSide := 0;
+  Result.MinLongSide := 0;
+  Result.MaxLongSide := 0;
 end;
 
 {$ENDIF} // INEEDBOT_UTILS_MAINSCREEN
