@@ -298,7 +298,12 @@ var
   Frozen: Boolean;
   ColorSplats: TIntegerArray;
 begin
+{$IFDEF WINDOWS}
   Frozen := Client.GetIOManager().IsFrozen();
+{$ELSE}
+  Frozen := True;
+{$ENDIF}
+
   if not Frozen then
     Freeze();
 
