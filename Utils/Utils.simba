@@ -85,6 +85,36 @@ begin
 end;
 
 {
+  Constref
+}
+procedure TMufasaBitmap.DrawNewButtons(Buttons: TRSButtonArray); constref;
+var
+  a: TMufasaBitmap;
+begin
+  a := Self;
+  a.DrawButtons(Buttons);
+end;
+
+{
+  color
+}
+procedure TMufasaBitmap.DrawButtons(Buttons: TRSButtonArray); override;
+var
+  I, C: Int32;
+begin
+  for I := 0 to High(Buttons) do
+  begin
+    Self.SetFontSize(20);
+    Self.SetFontAntialiasing(False);
+    Self.DrawBox(Buttons[I].Bounds, $00FFFF);
+    C := $0000FF;
+    if Buttons[I].Enabled() then
+      C := $00FFFF;
+    Self.DrawText(ToStr(Buttons[I].Index), Buttons[I].Bounds, True, C);
+  end;
+end;
+
+{
   Logs to the console.
 }
 procedure TScript.WriteMsg(Message: Variant; IsDebug: Boolean = False; Stamp: Boolean = True; Clear: Boolean = False);

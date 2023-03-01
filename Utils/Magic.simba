@@ -65,6 +65,30 @@ begin
 end;
 
 {
+  Returns true if the button exists
+}
+function TRSMagic.FilterButtonExists(): Boolean;
+begin
+  if not Self.Open() then
+    Exit();
+
+  Result := SRL.CountColor(CTS2(4607309, 6, 1.14, 0.39), Self.GetFilterButton().Bounds) > 0;
+
+  if not Result then
+    Result := SRL.CountColor(CTS1(1842816, 5), Self.GetFilterButton().Bounds) > 0;
+end;
+
+function TRSMagic.EnableFiltering(): Boolean;
+begin
+  if Self.FilterButtonExists() then
+    Exit(True);
+
+  Mouse.Move(Gametabs.GetTabBox(ERSGameTab.MAGIC));
+  Result := ChooseOption.Select('Enable');
+  Wait(750, 1500, wdLeft);
+end;
+
+{
   From wasp
 }
 (*
@@ -276,6 +300,9 @@ function TRSMagic.DisableFilters(): Boolean;
 var
   button: TRSButton;
 begin
+  if not Self.EnableFiltering() then
+    Exit();
+
   if not Self.IsFiltered() then
     Exit(True);
 
