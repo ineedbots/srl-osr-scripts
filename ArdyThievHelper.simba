@@ -11,6 +11,9 @@
 program ArdyThievHelper;
 {$DEFINE SRL_USE_REMOTEINPUT}
 {$I SRL/osr.simba}
+
+{$F-}
+
 {$i Utils/Utils.simba}
 
 var

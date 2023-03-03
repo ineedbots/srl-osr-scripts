@@ -45,7 +45,7 @@ begin
     Self.FixUpOresNeeded := 0;
     Self.NeedToDoBelt := True;     
 
-    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up coal! FixUpCoalNeeded: ' + ToStr(FixUpCoalNeeded), True);
+    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up coal! FixUpCoalNeeded: ' + ToStr(Self.FixUpCoalNeeded), True);
   end
   // fix up ores
   else if (Self.CoalRequiredForOre() > 0) and ((Self.RCoal mod Self.WorkingInvCount) <> 0) then
@@ -54,7 +54,7 @@ begin
     Self.FixUpCoalNeeded := 0;
     Self.NeedToDoBelt := True;  
 
-    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up ores! FixUpOresNeeded: ' + ToStr(FixUpOresNeeded), True);
+    Script.WriteMsg('RecoverFromOddAmounts: Need to fix up ores! FixUpOresNeeded: ' + ToStr(Self.FixUpOresNeeded), True);
   end
   else if not ((BarName = 'steel') and (Self.RCoal < Self.WorkingInvCount)) then
   begin
@@ -505,7 +505,7 @@ begin
   Self.DispenserCheckOptionsTextStr := ['Check Bar dispenser', 'Check'];
   Self.DispenserUseOptionsTextStr := ['Use'];
   Self.DispenserUpTextsStr := ['Bar dispenser'];
-  Self.DispenserOptionsTextsStr := DispenserTakeOptionsTextStr;
+  Self.DispenserOptionsTextsStr := Self.DispenserTakeOptionsTextStr;
 
   Self.DispenserChatTexts := ['Bronze Bars:', 'Gold Bars:'];
   Self.DispenserChatNoBars := ['The dispenser doesn', 'The dispenser doesn''t contain any bars'];
