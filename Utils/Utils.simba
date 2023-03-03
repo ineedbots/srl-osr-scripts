@@ -646,45 +646,6 @@ begin
 end;
 
 {
-  Returns true when the option appears
-}
-function TRSChat.WaitOption(Option: String; WaitTime: Int32; Interval: Int32 = -1; Colors: TIntegerArray = [CHAT_COLOR_BLACK, CHAT_COLOR_WHITE]): Boolean;
-var
-  CountDown: TCountDown;
-begin
-  if (Interval = -1) then
-    Interval := SRL.TruncatedGauss(50, 1500);
-
-  CountDown.Init(WaitTime);
-  while RSClient.IsLoggedIn() do
-  begin
-    if Self.FindOption(Option, Colors) then
-      exit(True);
-
-    if CountDown.IsFinished() then
-      exit(False);
-
-    Wait(Interval);
-  end;
-end;
-
-{
-  Does the orginal, but allows for string array as input
-}
-function TRSChat.FindMessage(Messages: TStringArray; Colors: TIntegerArray = CHAT_MESSAGE_COLORS): Boolean; overload;
-var
-  I: Int32;
-  Msg: String;
-begin
-  for I := 0 to CHAT_INPUT_LINE - 1 do
-  begin
-    Msg := Self.GetMessage(I, Colors);
-    if Msg.IsInString(Messages) then
-      Exit(True);
-  end;
-end;
-
-{
   The overlapping area of the two boxes
 }
 function TBox.OverlappingArea(B: TBox): TBox;
@@ -1575,7 +1536,7 @@ begin
   end;
 end;
 
-// quick prayers, prayer filters (when it comes out)
+// prayer filters (when it comes out)
 // grandexchange
 
 {$ENDIF} // INEEDBOT_UTILS

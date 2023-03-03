@@ -99,7 +99,7 @@ var
   ATPA: T2DPointArray;
   South: Vector2;
 begin
-  with GetCompassCircle() do
+  with Self.GetCompassCircle() do
     if SRL.FindColors(TPA, CTS1(2565532, 50), Bounds()) then // red
     begin
       FilterPointsDist(TPA, 0, Radius, X,Y);
@@ -215,7 +215,7 @@ end;
 {
   From wasplib
 }
-function TRSMinimap.FindRedArrow: Boolean; overload;
+function TRSMinimap.FindRedArrow(): Boolean; overload;
 var
   TPA: TPointArray;
 begin

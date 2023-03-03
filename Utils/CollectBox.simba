@@ -38,7 +38,7 @@ type
 
 function TRSCollectBox.GetButtons(): TRSButtonArray;
 begin
-  Result := FindButtons([[83, 19], [21,21]]);
+  Result := Self.FindButtons([[83, 19], [21,21]]);
 end;
 
 function TRSCollectBox.GetButton(Button: ERSCollectButton): TRSButton;
@@ -226,7 +226,7 @@ begin
       Result += i;
 end;
 
-function TRSCollectBox.GetFullSlots: TIntegerArray;
+function TRSCollectBox.GetFullSlots(): TIntegerArray;
 begin
   Result := Self.GetSlotsWithItems().Combine(Self.GetSlotsWithChange());
   Result.ClearDuplicates();

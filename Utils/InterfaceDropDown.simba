@@ -207,7 +207,7 @@ begin
   begin
     Box := TPA.Bounds();
 
-    if (Bounds.Height() < 18) then
+    if (Self.Bounds.Height() < 18) then
       Exit;
 
     Box.Y1 += 1;
@@ -273,7 +273,7 @@ end;
 
 function TRSDropDown.Select(Text: String; MouseAction: Int32 = MOUSE_LEFT; CaseSensitive: Boolean = True; CloseIfNotFound: Boolean = True; constref Font: TFontSet = RS_FONT_PLAIN_11): Boolean; constref; overload;
 begin
-  Result := Select([Text], MouseAction, CaseSensitive, CloseIfNotFound, Font);
+  Result := Self.Select([Text], MouseAction, CaseSensitive, CloseIfNotFound, Font);
 end;
 
 procedure TMufasaBitmap.DrawDropDowns(DropDowns: TRSDropDownArray);

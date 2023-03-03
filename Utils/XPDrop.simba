@@ -107,7 +107,7 @@ begin
   if FindColors(TPA, 11592943, Minimap.GetXPCircle().Bounds()) then
     Result := Length(Minimap.GetXPCircle().Filter(TPA)) > 50;
 
-  if Result and not IsSetup and XPBar.IsOpen() then
+  if Result and not Self.IsSetup and XPBar.IsOpen() then
   begin
     if (XPBar.Alignment = XPBar.Alignments[ERSXPBarLocation.LEFT][ERSXPBarSize.SMALL]) or
        (XPBar.Alignment = XPBar.Alignments[ERSXPBarLocation.LEFT][ERSXPBarSize.MEDIUM]) or
@@ -123,7 +123,7 @@ begin
             (XPBar.Alignment = XPBar.Alignments[ERSXPBarLocation.RIGHT][ERSXPBarSize.MEDIUM]) or
             (XPBar.Alignment = XPBar.Alignments[ERSXPBarLocation.RIGHT][ERSXPBarSize.LARGE]) then
       Self.Alignment := Self.Alignments[ERSXPBarLocation.RIGHT];
-    IsSetup := True;
+    Self.IsSetup := True;
   end;
 end;
 
@@ -156,23 +156,23 @@ function TRSXPDrop._Find(): Boolean;
 var
   i, ColorCount: Int32;
 begin
-  if Color = 0 then
+  if Self.Color = 0 then
   begin
     for i := 0 to High(XP_COLORS) do
     begin
       ColorCount := SRL.CountColor(XP_COLORS[i], Self.Bounds());
       if (ColorCount > 0) and (ColorCount < 150) then
       begin
-        Color := XP_Colors[i];
+        Self.Color := XP_Colors[i];
         Exit(True);
       end
       else if i = High(XP_COLORS) then
-        Color := 0; //not found, reset!
+        Self.Color := 0; //not found, reset!
     end;
   end
   else
   begin
-    ColorCount := SRL.CountColor(Color, Self.Bounds());
+    ColorCount := SRL.CountColor(Self.Color, Self.Bounds());
     Exit((ColorCount > 0) and (ColorCount < 150));
   end;
 end;
@@ -188,7 +188,7 @@ function TRSXPDrop.UpdateLocation(): Boolean;
 var
   Location: ERSXPBarLocation;
 begin
-  if IsSetup then
+  if Self.IsSetup then
     Exit;
 
   for Location in ERSXPBarLocation do
@@ -197,7 +197,7 @@ begin
     Self.Alignment := Self.Alignments[Location];
     if Self._Find() then
     begin
-      IsSetup := True;
+      Self.IsSetup := True;
       Exit(True);
     end;
   end;
@@ -217,7 +217,7 @@ Example
 *)
 function TRSXPDrop.FindDrop(): Boolean;
 begin
-  Result :=  (IsSetup and Self._Find()) or Self.UpdateLocation();
+  Result :=  (Self.IsSetup and Self._Find()) or Self.UpdateLocation();
 end;
 
 (*
@@ -250,7 +250,7 @@ begin
   with Minimap.GetXPCircle() do
     Bitmap.DrawCircle([X, Y], Radius, $00FFFF);
 
-  if IsSetup then
+  if Self.IsSetup then
     Bitmap.DrawBox(Self.Bounds(), $00FFFF)
   else
     Self.FindDrop();

@@ -277,7 +277,7 @@ begin
 
   inherited();
 
-  Bitmap.DrawBoxes(GetItemBoxes(), $00FFFF);
+  Bitmap.DrawBoxes(Self.GetItemBoxes(), $00FFFF);
 end;
 
 var
