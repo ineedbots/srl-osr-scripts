@@ -24,9 +24,24 @@
   Finds the color
 }
 function TBot.FindRodColor(Area: TBox): T2DPointArray;
+var
+  Countdown: TCountdown;
 begin
-  Result := MainScreen.FindObject(Self.RodColor.RSObject, Area);
-  Result.FilterSize(MainScreen.ConvertDistance(Self.RodColor.FilterSize), __GT__);
+  Countdown.Init(Self.RodWaitTime);
+
+  while RSClient.IsLoggedIn() do
+  begin
+    Result := MainScreen.FindObject(Self.RodColor.RSObject, Area);
+    Result.FilterSize(MainScreen.ConvertDistance(Self.RodColor.FilterSize), __GT__);
+
+    if Length(Result) > 0 then
+      break;
+
+    if Countdown.IsFinished() then
+      break
+    else
+      Wait(SRL.TruncatedGauss(50, 1500));
+  end;
 end;
 
 {
@@ -95,12 +110,15 @@ begin
 
   if not FishInAdjTile then
   begin
-    Script.WriteMsg('No fish spots found in adj tiles', True);
+    Script.WriteMsg('No fish spots found in adj tiles', False);
     exit(False);
   end;
 
   if Script.Debug and Script.Drawing then
     RSClient.Image().DrawRect(Rect, clOrange);
+
+  if Self.PercentShiftAmount > 0 then
+    exit(True);
 
   // check if there is a rod over the fish tile
   B := Rect.Expand(MainScreen.ConvertDistance(Self.RodColor.NoColorTileExpand)).Bounds();
@@ -112,7 +130,7 @@ begin
 
   if Length(ATPA) <= 0 then
   begin
-    Script.WriteMsg('No rod found over the fish spot tile', True);
+    Script.WriteMsg('No rod found over the fish spot tile', False);
     exit(False);
   end;
 
@@ -366,7 +384,7 @@ end;
 }
 procedure TBot.WhileFishing();
 var
-  CountDown: TCountDown;
+  CountDown, PixelShiftCountdown: TCountDown;
   InvCount, IC: Int32;
   Fishing: Boolean;
 begin
@@ -383,6 +401,7 @@ begin
   Script.WriteMsg('We are fishing...', True);
   InvCount := Inventory.Count();
   CountDown.Init(Self.FishWaitTime);
+  PixelShiftCountdown.Init(Self.PixelShiftWaitTime);
 
   while RSClient.IsLoggedIn() do
   begin
@@ -402,6 +421,20 @@ begin
       begin
         Script.WriteMsg('We are not fishing anymore...', True);
         break;
+      end;
+
+      if Self.PercentShiftAmount > 0 then
+      begin
+        if SRL.PercentShift(MainScreen.GetPlayerBox().Expand(MainScreen.ConvertDistance(0)), 500) >= Self.PercentShiftAmount then
+        begin
+          Script.WriteMsg('Pixelshifting', True);
+          PixelShiftCountdown.Restart();
+        end
+        else if PixelShiftCountdown.IsFinished() then
+        begin
+          Script.WriteMsg('Not pixelshifting', False);
+          break;
+        end;
       end;
 
       IC := Inventory.Count();

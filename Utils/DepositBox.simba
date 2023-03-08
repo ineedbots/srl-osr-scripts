@@ -114,7 +114,7 @@ end;
 }
 function TRSDepositBox.DepositSlot(Item: TRSBankDepositSlot; UseQuantityButtons: Boolean): Boolean;
 begin
-  Result := Self.DepositHelper(Inventory.GetSlotBox(Item.Slot), Item.Quantity, UseQuantityButtons);
+  Result := Self.DepositHelper(Self.GetSlotBox(Item.Slot), Item.Quantity, UseQuantityButtons);
 end;
 
 {

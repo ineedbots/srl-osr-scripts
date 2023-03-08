@@ -23,7 +23,8 @@ type
     WalkedFishForward, Banking, Cooking, ClickWhileWalking,
       WalkerWasEarlySuccess, UsingBankFillers                 : Boolean;
     FishSpotColorWait, FishWaitTime, WalkedFish, CookWaitTime,
-      LastWalkedFish, FishDone, FailCount                     : Int32;
+      LastWalkedFish, FishDone, FailCount, RodWaitTime,
+      PercentShiftAmount, PixelShiftWaitTime                  : Int32;
     FishSpotUpText, FireUpText, FishSpotOptions, FireOptions,
       FireAltUpTexts, FireAltOptions                          : TStringArray;
     RSW                                                       : TRSWalker;

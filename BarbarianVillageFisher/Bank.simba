@@ -319,7 +319,8 @@ begin
   // query the items in our inventory
   if IsBank then
   begin
-    Inventory.FindItem(Self.BaitItem, ToolSlots);
+    if ToStr(Self.BaitItem) <> '' then
+      Inventory.FindItem(Self.BaitItem, ToolSlots);
     Inventory.FindItem(Self.RodItem, ToolSlots);
     Inventory.FindItems(Self.BurntFish, FishSlots);
     Inventory.FindItems(Self.CookedFish, FishSlots);
@@ -327,7 +328,8 @@ begin
   end
   else
   begin
-    DepositBox.FindItems([Self.BaitItem], ToolSlots);
+    if ToStr(Self.BaitItem) <> '' then
+      DepositBox.FindItems([Self.BaitItem], ToolSlots);
     DepositBox.FindItems([Self.RodItem], ToolSlots);
     DepositBox.FindItems(Self.BurntFish, FishSlots);
     DepositBox.FindItems(Self.CookedFish, FishSlots);

@@ -223,6 +223,8 @@ begin
   Self.BaitItem := 'Feather';
   Self.RodItem := 'Fly fishing rod';
 
+  Self.RodWaitTime := 50;
+
   Self.ToFishPaths := [
     [[4181, 2485], [4161, 2490], [4150, 2499], [4133, 2507], [4128, 2520], [4128, 2541], [4126, 2562], [4126, 2577], [4136, 2585], [4145, 2588], [4156, 2589], [4156, 2605], [4158, 2616], [4166, 2629], [4167, 2644], [4172, 2656], [4177, 2668], [4184, 2680], [4194, 2680], [4198, 2689], [4206, 2694], [4220, 2704], [4224, 2715]],
     [[4181, 2486], [4168, 2487], [4153, 2496], [4138, 2508], [4128, 2521], [4128, 2554], [4127, 2576], [4145, 2587], [4154, 2591], [4156, 2612], [4151, 2625], [4163, 2638], [4170, 2654], [4173, 2669], [4180, 2691], [4190, 2691], [4207, 2694], [4220, 2704], [4228, 2719]],
@@ -242,7 +244,7 @@ begin
     RSObject.Colors += CTS2(14793370, 10, 0.22, 1.46);
     RSObject.Grow := 3;
     RSObject.ClusterDistance := 7;
-    FilterSize := 50;
+    FilterSize := 5;
   end;
 
   with Self.RodColor do
@@ -279,6 +281,48 @@ begin
     RadiusExpand := 2;  
     NoColorTileExpand := 5;
   end;
+
+
+  // monkfish
+  {Bank.FINDER_UPTEXT.Append('Deposit');
+  Bank.FINDER_OPTION.Append('Deposit');
+
+  with Self.BankColor do
+  begin
+    RSObject.Colors += CTS2(1069415, 1, 0.15, 1.18);
+    RSObject.Grow := 1;
+    RSObject.ClusterDistance := 3;
+    FilterSize := 10;
+    RadiusExpand := 1.5;
+    NoColorTileExpand := 5;
+  end;
+
+  Self.PercentShiftAmount := 15;
+  Self.PixelShiftWaitTime := 8000;  
+  Self.FishWaitTime := 45000;
+
+  Self.FishSpotUpText := ['Net fishing spot', 'Net'];
+  Self.FishSpotOptions := ['Net Rod Fishing spot', 'Net'];
+
+  Self.BankWalkTile := [1129, 1700];
+  Self.BankTiles := [[1129, 1704]];
+  Self.FishTiles := [[1185, 1644], [1145, 1644]];
+  Self.FishWalkTile := [1168, 1653];
+
+  Self.CookedFish := ['Monkfish'];
+  Self.RawFish := ['Raw monkfish'];
+  Self.BurntFish := ['Burnt monkfish'];
+  Self.BaitItem := '';
+  Self.RodItem := 'Small fishing net';
+
+  Self.ToFishPaths := [
+  ];
+
+  Self.ToBankPaths := [
+  ];
+
+  Self.Cooking := False;}
+
 
   // do login init stuff
   if RSClient.IsLoggedIn() then

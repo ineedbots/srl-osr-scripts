@@ -122,7 +122,7 @@ begin
       Wait(75, 500);
   end;
 
-  if (Gametabs.GetCurrentTab() = ERSGametab.INVENTORY) and not Inventory.FindItem(Self.BaitItem) then
+  if (ToStr(Self.BaitItem) <> '') and (Gametabs.GetCurrentTab() = ERSGametab.INVENTORY) and not Inventory.FindItem(Self.BaitItem) then
   begin
     Script.Stop('Ran out of bait.');
   end;
@@ -258,7 +258,10 @@ begin
     Inventory.FindItems(Self.RawFish, RF);
     Inventory.FindItems(Self.CookedFish, CF);
     Inventory.FindItems(Self.BurntFish, BF);
-    Inventory.FindItem(Self.BaitItem, F);
+
+    if ToStr(Self.BaitItem) <> '' then
+      Inventory.FindItem(Self.BaitItem, F);
+
     Inventory.FindItem(Self.RodItem, R);
 
     for i := 0 to 27 do
