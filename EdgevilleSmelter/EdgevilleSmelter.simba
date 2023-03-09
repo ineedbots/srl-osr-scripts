@@ -95,6 +95,7 @@ var
   Worlds: TIntegerArray;
   Item: TRSItem;
   i: Int32;
+  MapName: String;
 begin
   Script.ScriptName := Self.Name;
 
@@ -159,9 +160,6 @@ begin
 
   Self.UsingBankFillers := USING_BANK_FILLERS;
 
-  Self.RSW.Setup('world');
-  Self.RSW.ScreenWalk     := MSWALKING;
-
   Self.StationType := STATION_TYPE; 
   Self.MakeOption := MAKE_NUM;
 
@@ -171,6 +169,7 @@ begin
   Self.RingOfForgingCharges := 140;
   Self.RingOfForgingBrokeTexts := ['Ring of ', 'Your Ring of Forging has melted.'];
   Self.CantReachTexts := ['reach that', 'I can''t reach that!'];
+  MapName := 'world';
 
   case Self.StationType of
     EStationType.AL_KHARID_RANGE:
@@ -369,7 +368,50 @@ begin
         NoColorTileExpand := 5;
       end;
     end;
+    EStationType.HOSIDIUS_KITCHEN_CLAY_OVEN:
+    begin
+      MapName := 'zeah';
+      Self.StationWaitTime := 4000;
+
+      Self.StationTiles := [[2103, 1970]];
+      Self.StationWalkTile := [2103, 1974];
+      Self.StationUptexts := ['Cook'];
+      Self.StationOptions := ['Cook'];
+      with Self.StationColor do
+      begin
+        RSObject.Colors += CTS2(6843575, 8, 0.04, 1.79);
+        RSObject.Grow := 3;
+        RSObject.Erode := 2;
+        RSObject.ClusterDistance := 2;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+      Self.BankTiles := [[2094, 1999]];
+      Self.BankWalkTile := [2094, 1995];
+      with Self.BankColor do
+      begin
+        RSObject.Colors += CTS2(3173252, 8, 0.06, 1.01);
+        RSObject.Grow := 1;
+        RSObject.ClusterDistance := 3;
+
+        FilterSize := 10;
+        RadiusExpand := 1.5;
+        NoColorTileExpand := 5;
+      end;
+
+      Self.ToStationPaths := [
+      ];
+
+      Self.ToBankPaths := [
+      ];
+    end;
   end;
+
+  Self.RSW.Setup(MapName);
+  Self.RSW.ScreenWalk     := MSWALKING;
 
   // SRL TODO  craftscreen and smithscreen
   Self.UsingInterfaceMake := MAKE_INTERFACE;

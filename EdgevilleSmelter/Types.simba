@@ -21,7 +21,8 @@ type
   EStationType = (
     EDGEVILLE_SMELTER,
     AL_KHARID_RANGE,
-    VARROCK_WEST_ANVIL
+    VARROCK_WEST_ANVIL,
+    HOSIDIUS_KITCHEN_CLAY_OVEN
   );
 
   TDoor = record
