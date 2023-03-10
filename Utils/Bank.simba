@@ -448,6 +448,10 @@ begin
   SBoxBottom := [Self.GetScrollBar().SliderRegion.Middle().X, Self.GetScrollBar().SliderRegion.Y2];
 
   Self.SetScrollPosition(0);
+
+  if Self.FindItem(Item) then
+    Exit(True);
+
   Mouse.Move(Self.GetScrollBar().Slider);
   Mouse.Hold(MOUSE_LEFT);
 
