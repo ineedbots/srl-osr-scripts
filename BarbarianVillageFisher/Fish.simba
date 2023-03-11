@@ -400,8 +400,12 @@ begin
 
   Script.WriteMsg('We are fishing...', True);
   InvCount := Inventory.Count();
-  CountDown.Init(Self.FishWaitTime);
-  PixelShiftCountdown.Init(Self.PixelShiftWaitTime);
+  CountDown.Init(SRL.SkewedRand(Self.FishWaitTime,
+    Round(Self.FishWaitTime - (Self.FishWaitTime * 0.25)),
+    Round(Self.FishWaitTime + (Self.FishWaitTime * 0.25))));
+  PixelShiftCountdown.Init(SRL.SkewedRand(Self.PixelShiftWaitTime,
+    Round(Self.PixelShiftWaitTime - (Self.PixelShiftWaitTime * 0.25)),
+    Round(Self.PixelShiftWaitTime + (Self.PixelShiftWaitTime * 0.25))));
 
   while RSClient.IsLoggedIn() do
   begin
