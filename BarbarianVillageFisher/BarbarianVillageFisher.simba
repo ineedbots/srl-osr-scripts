@@ -200,7 +200,7 @@ begin
   Self.Cooking := COOKINGFISH;
   Self.Banking := BANKFISH;
 
-  Self.FishSpotColorWait := 100;
+  Self.FishSpotColorWait := 250;
   Self.FishWaitTime := 15000;
   Self.CookWaitTime := 5000;
   Self.FishSpotUpText := ['Lure Rod Fishing spot', 'Lure'];
@@ -244,7 +244,7 @@ begin
     RSObject.Colors += CTS2(14793370, 10, 0.22, 1.46);
     RSObject.Grow := 3;
     RSObject.ClusterDistance := 7;
-    FilterSize := 5;
+    FilterSize := 3;
   end;
 
   with Self.RodColor do
@@ -252,7 +252,7 @@ begin
     RSObject.Colors += CTS2(10036, 5, 0.13, 0.01);
     RSObject.Grow := 2;
     RSObject.ClusterDistance := 5;
-    FilterSize := 50;
+    FilterSize := 5;
     NoColorTileExpand := 5;
   end;
 
@@ -298,7 +298,8 @@ begin
   end;
 
   Self.PercentShiftAmount := 15;
-  Self.PixelShiftWaitTime := 8000;  
+  Self.PixelShiftWaitTime := 8000;
+  
   Self.FishWaitTime := 45000;
 
   Self.FishSpotUpText := ['Net fishing spot', 'Net'];

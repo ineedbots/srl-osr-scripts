@@ -16,7 +16,7 @@
 {$include_once Types.simba}
 {$include_once Utils.simba}
 
-const                     {inner splat to outer splat}
+const                     {inner splat to outer splat} // poisen and disease?
   BLUE_HITSPLAT_COLORS : TIntegerArray = [16728128, 11339523, 5770251];
   RED_HITSPLAT_COLORS : TIntegerArray = [2500, 65933, 65889];
   MAX_HITSPLAT_COLORS : TIntegerArray = [233, 179, 65933, 2500, 21744, 32509, 1029626];
